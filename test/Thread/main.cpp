@@ -1,17 +1,10 @@
 /*!
- * \file Thread_test.cpp
  * \brief Test for SimDB threading utilities
  */
 
 #include "simdb/test/SimDBTester.hpp"
-
 #include "simdb/async/TimerThread.hpp"
 #include "simdb/async/ConcurrentQueue.hpp"
-
-#include <math.h>
-#include <iomanip>
-#include <iostream>
-#include <vector>
 
 TEST_INIT;
 
