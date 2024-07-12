@@ -3,6 +3,7 @@
 mkdir -p release
 cd release
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+make clean
 make regress
 cd ..
 rm -f compile_commands.json
