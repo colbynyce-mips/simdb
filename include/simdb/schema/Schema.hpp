@@ -3,8 +3,12 @@
 #include "simdb/schema/ColumnTypedefs.hpp"
 #include "simdb/Errors.hpp"
 
+#include <algorithm>
 #include <deque>
+#include <memory>
 #include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 namespace simdb {
 

@@ -90,6 +90,26 @@ class DBAccessException : public DBException
 {
 };
 
+//! \brief This exception is thrown when a SQL statement
+//! returns SQLITE_BUSY.
+class SqlFileLockedException : public DBAccessException
+{
+public:
+    const char * what() const noexcept override {
+        return "The database file is locked";
+    }
+};
+
+//! \brief This exception is thrown when a SQL statement
+//! returns SQLITE_LOCKED.
+class SqlTableLockedException : public DBAccessException
+{
+public:
+    const char * what() const noexcept override {
+        return "A table in the database is locked";
+    }
+};
+
 } // namespace simdb
 
 #define ADD_FILE_INFORMATION(ex, file, line)                      \

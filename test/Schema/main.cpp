@@ -15,7 +15,8 @@
             << "*************************************************************"        \
             << std::endl;
 
-int main() {
+int main()
+{
     // Just verify that we can create a Schema without actually
     // turning it into a SQLite database. This test is a placeholder
     // for a full SQLite test, then it will be removed as it would
