@@ -520,6 +520,13 @@ namespace simdb
         std::ostream & cerr_;
     };
 
+#define PRINT_ENTER_TEST \
+  std::cout << std::endl; \
+  std::cout << "*************************************************************" \
+            << "*** Beginning '" << __FUNCTION__ << "'" \
+            << "*************************************************************" \
+            << std::endl;
+
 /**
  * \def TEST_INIT
  * \brief Initializes the test.  Should be placed OUTSIDE of a

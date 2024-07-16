@@ -8,13 +8,6 @@
 
 TEST_INIT;
 
-#define PRINT_ENTER_TEST \
-  std::cout << std::endl; \
-  std::cout << "*************************************************************" \
-            << "*** Beginning '" << __FUNCTION__ << "'" \
-            << "*************************************************************" \
-            << std::endl;
-
 /*!
  * \brief Simple counter that asynchronously increments
  * an integer at fixed intervals. Note that these methods

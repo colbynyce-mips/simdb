@@ -81,7 +81,7 @@ private:
 //! Exception class for database access errors. This
 //! is made into a separate class without providing
 //! a different implementation for any of the base
-//! class methods so that ObjectManager can catch
+//! class methods so that DatabaseManager can catch
 //! these access exceptions and keep retrying the
 //! transactions. This supports atomic begin/commit
 //! transactions for the databases that support

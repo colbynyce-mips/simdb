@@ -1,19 +1,12 @@
-/*!
- * \brief Schema tests for SimDB functionality that is not
- * specific to any particular database format (SQLite, HDF5,
- * etc.)
+/*
+ * \brief Tests for schema creation
  */
 
 #include "simdb/test/SimDBTester.hpp"
 #include "simdb/schema/Schema.hpp"
 #include "simdb/Errors.hpp"
 
-#define PRINT_ENTER_TEST                                                              \
-  std::cout << std::endl;                                                             \
-  std::cout << "*************************************************************"        \
-            << "*** Beginning '" << __FUNCTION__ << "'"                               \
-            << "*************************************************************"        \
-            << std::endl;
+TEST_INIT;
 
 int main()
 {
@@ -26,13 +19,13 @@ int main()
     simdb::Schema schema;
 
     schema.addTable("Metadata")
-        //.addColumn("Name", dt::string_t)
-        //.addColumn("TheInt", dt::int32_t)
-        //.addColumn("TheDouble", dt::double_t)
-        //.addColumn("TheIndexedDouble", dt::double_t)->index()
-        //.addColumn("TheOtherIndexedDouble", dt::double_t)->indexAgainst({"Name", "TheInt"})
+        .addColumn("Name", dt::string_t)
+        .addColumn("TheInt", dt::int32_t)
+        .addColumn("TheDouble", dt::double_t)
+        .addColumn("TheIndexedDouble", dt::double_t)->index()
+        .addColumn("TheOtherIndexedDouble", dt::double_t)->indexAgainst({"Name", "TheInt"})
         .addColumn("SomeString", dt::string_t)->setDefaultValue("foo")
-        //.addColumn("SomeString", dt::string_t)->setDefaultValue(std::string("foo"))
-        //.addColumn("SomeInt", dt::int32_t)->setDefaultValue(4)
+        .addColumn("SomeString", dt::string_t)->setDefaultValue(std::string("foo"))
+        .addColumn("SomeInt", dt::int32_t)->setDefaultValue(4)
         .addColumn("SomeDouble", dt::double_t)->setDefaultValue(3.14);
 }

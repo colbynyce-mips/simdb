@@ -46,7 +46,7 @@ public:
     //! Turn a Schema object into an actual database connection.
     void realizeSchema(
         const Schema & schema,
-        const ObjectManager & obj_mgr)
+        const DatabaseManager & obj_mgr)
     {
         for (const auto & table : schema) {
             //First create the table and its columns
@@ -78,7 +78,7 @@ public:
         }
     }
 
-    //! Override the default way ObjectManager gets the table
+    //! Override the default way DatabaseManager gets the table
     //! names. It defaults to whatever Table objects were in the
     //! Schema object it was originally given, but we may want to
     //! override it so we can make some tables private/unqueryable
@@ -290,7 +290,7 @@ public:
 private:
     //! This proxy is intended to be used directly with
     //! the core SimDB classes.
-    friend class ObjectManager;
+    friend class DatabaseManager;
     friend class ObjectRef;
     friend class ObjectQuery;
 

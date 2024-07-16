@@ -561,7 +561,7 @@ private:
         // and gave us another column name instead.
         //
         // The *secondary* columns in the compound index are allowed to
-        // be unresolved until the Schema is given to an ObjectManager.
+        // be unresolved until the Schema is given to an DatabaseManager.
         // In the above example, "FirstName" and "AccountActive" are the
         // secondary columns in the index.
         //
@@ -589,7 +589,7 @@ private:
     }
 
     // Called by the Schema object this Table belongs to when
-    // the Schema is given to an ObjectManager for database
+    // the Schema is given to an DatabaseManager for database
     // instantiation. Schema is a friend of this class to
     // make this private call.
     void finalizeTable_() {
@@ -790,7 +790,7 @@ public:
 private:
     std::deque<Table> tables_;
 
-    //When this Schema is given to an ObjectManager, it will call back
+    //When this Schema is given to an DatabaseManager, it will call back
     //into this method to give us a chance to finalize the Schema and
     //throw any exceptions if we need to.
     void finalizeSchema_() {
@@ -799,7 +799,7 @@ private:
         }
     }
 
-    friend class ObjectManager;
+    friend class DatabaseManager;
 };
 
 } // namespace simdb
