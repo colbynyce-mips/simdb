@@ -4,6 +4,7 @@
 
 #include "simdb/schema/Schema.hpp"
 #include "simdb/sqlite/Connection.hpp"
+#include "simdb/async/AsyncTaskQueue.hpp"
 #include "simdb/utils/uuids.hpp"
 #include "simdb_fwd.hpp"
 
@@ -33,7 +34,7 @@ public:
     //! want the database to ultimately live.
     DatabaseManager(const std::string & db_dir = ".")
         : db_dir_(db_dir)
-        , task_queue_(nullptr)
+        , task_queue_(new AsyncTaskQueue)
     {
     }
 

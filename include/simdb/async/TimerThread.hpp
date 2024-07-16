@@ -10,7 +10,7 @@ namespace simdb {
 
 /*!
  * \brief Interruption class. We put one of these into the
- * AsyncTaskEval's work queue. This throws an exception
+ * AsyncTaskQueue's work queue. This throws an exception
  * when the worker thread gets to this item in the queue,
  * and this exception type is caught in order to break
  * out of the infinite consumer loop.
