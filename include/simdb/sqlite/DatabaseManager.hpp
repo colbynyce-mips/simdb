@@ -132,6 +132,12 @@ public:
         return schema_;
     }
 
+    //! Execute the functor inside BEGIN/COMMIT TRANSACTION.
+    void safeTransaction(const TransactionFunc & func) const
+    {
+        db_conn_->safeTransaction(func);
+    }
+
 private:
     //! Open the given database file. If the connection is
     //! successful, this file will be the DatabaseManager's
