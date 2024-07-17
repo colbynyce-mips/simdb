@@ -1,5 +1,7 @@
 #pragma once
 
+#include "simdb/sqlite/Transaction.hpp"
+#include "simdb/async/AsyncTaskQueue.hpp"
 #include "simdb/schema/ColumnValue.hpp"
 #include "simdb/utils/Stringifiers.hpp"
 #include "simdb/utils/MathUtils.hpp"
@@ -31,10 +33,14 @@ void isWithinTolerance(sqlite3_context * context,
 /*!
  * \brief This class handles the SQLite database operations.
  */
-class SQLiteConnection
+class SQLiteConnection : public SQLiteTransaction
 {
 public:
-    SQLiteConnection() = default;
+    SQLiteConnection(DatabaseManager * db_mgr)
+        : task_queue_(new AsyncTaskQueue(this, db_mgr))
+        , db_mgr_(db_mgr)
+    {
+    }
 
     ~SQLiteConnection()
     {
@@ -287,12 +293,38 @@ public:
         eval_(command, db_conn_, callback, callback_obj);
     }
 
+    //! Get this database connection's task queue. This
+    //! object can be used to schedule database work to
+    //! be executed on a background thread. This never
+    //! returns null.
+    AsyncTaskQueue *getTaskQueue() const
+    {
+        return task_queue_.get();
+    }
+
+    //! Get the database manager this connection is
+    //! associated with.
+    DatabaseManager *getDatabaseManager() const
+    {
+        return db_mgr_;
+    }
+
 private:
     //! This proxy is intended to be used directly with
     //! the core SimDB classes.
     friend class DatabaseManager;
-    friend class ObjectRef;
-    friend class ObjectQuery;
+
+    //! Issue BEGIN TRANSACTION
+    void beginTransaction() const override
+    {
+        eval("BEGIN TRANSACTION");
+    }
+
+    //! Issue COMMIT TRANSACTION
+    void endTransaction() const override
+    {
+        eval("COMMIT TRANSACTION");
+    }
 
     //! First-time database file open.
     std::string openDbFile_(
@@ -876,6 +908,16 @@ private:
 
     //! Filename of the database in use
     std::string db_full_filename_;
+
+    //! Task queue associated with this database connection.
+    //! It is instantiated from our constructor, but won't
+    //! have any effect unless its addWorkerTask() method
+    //! is called. That method starts a background thread
+    //! to begin consuming work packets.
+    std::shared_ptr<AsyncTaskQueue> task_queue_;
+
+    //! DatabaseManager associated with this database connection.
+    DatabaseManager *db_mgr_ = nullptr;
 };
 
 } // namespace simdb

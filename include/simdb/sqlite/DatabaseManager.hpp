@@ -4,7 +4,6 @@
 
 #include "simdb/schema/Schema.hpp"
 #include "simdb/sqlite/Connection.hpp"
-#include "simdb/async/AsyncTaskQueue.hpp"
 #include "simdb/utils/uuids.hpp"
 #include "simdb_fwd.hpp"
 
@@ -43,8 +42,7 @@ public:
     bool createDatabaseFromSchema(Schema & schema)
     {
         schema.finalizeSchema_();
-        db_conn_.reset(new SQLiteConnection);
-        task_queue_.reset(new AsyncTaskQueue(db_conn_.get()));
+        db_conn_.reset(new SQLiteConnection(this));
         schema_ = schema;
 
         openDatabaseWithoutSchema_();
@@ -91,16 +89,14 @@ public:
     bool connectToExistingDatabase(const std::string & db_file)
     {
         assertNoDatabaseConnectionOpen_();
-        db_conn_.reset(new SQLiteConnection);
+        db_conn_.reset(new SQLiteConnection(this));
 
         if (!db_conn_->connectToExistingDatabase(db_file)) {
             db_conn_.reset();
             db_full_filename_.clear();
-            task_queue_.reset();
             return false;
         }
 
-        task_queue_.reset(new AsyncTaskQueue(db_conn_.get()));
         db_full_filename_ = db_conn_->getDatabaseFullFilename();
         return true;
     }
@@ -115,17 +111,9 @@ public:
 
     //! Get the internal database proxy. Will return nullptr
     //! if no database connection has been made yet.
-    const SQLiteConnection * getConnection() const
+    SQLiteConnection * getConnection() const
     {
         return db_conn_.get();
-    }
-
-    //! Get this database connection's task queue. This
-    //! object can be used to schedule database work to
-    //! be executed on a background thread. This never
-    //! returns null.
-    AsyncTaskQueue *getTaskQueue() const {
-        return task_queue_.get();
     }
 
     //! Open database connections will be closed when the
@@ -193,13 +181,6 @@ private:
     //! are executed against this proxy, not against the lower-
     //! level database APIs directly.
     std::shared_ptr<SQLiteConnection> db_conn_;
-
-    //! Task queue associated with this database connection.
-    //! It is instantiated from our constructor, but won't
-    //! have any effect unless its addWorkerTask() method
-    //! is called. That method starts a background thread
-    //! to begin consuming work packets.
-    std::shared_ptr<AsyncTaskQueue> task_queue_;
 
     //! Copy of the schema that was given to the DatabaseManager's
     //! createDatabaseFromSchema() method.

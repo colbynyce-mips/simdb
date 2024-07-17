@@ -4,6 +4,8 @@
 
 #include "simdb/async/TimerThread.hpp"
 #include "simdb/async/ConcurrentQueue.hpp"
+#include "simdb/sqlite/Transaction.hpp"
+#include "simdb_fwd.hpp"
 
 #include <functional>
 #include <iostream>
@@ -46,13 +48,26 @@ class AsyncTaskQueue
 public:
     //! Construct a task evaluator that will execute every
     //! 'interval_seconds' that you specify.
-    explicit AsyncTaskQueue(SQLiteConnection *db_conn, double interval_seconds = 0.1)
+    AsyncTaskQueue(SQLiteTransaction *db_conn, DatabaseManager *db_mgr, double interval_seconds = 0.1)
         : db_conn_(db_conn)
+        , db_mgr_(db_mgr)
         , timed_eval_(interval_seconds, this)
     {}
 
     ~AsyncTaskQueue() {
         timed_eval_.stop();
+    }
+
+    //! Get the database connection associated with this task queue.
+    SQLiteTransaction *getConnection() const
+    {
+        return db_conn_;
+    }
+
+    //! Get the database manager associated with this task queue.
+    DatabaseManager *getDatabaseManager() const
+    {
+        return db_mgr_;
     }
 
     //! Add a task you wish to evaluate off the main thread
@@ -243,7 +258,7 @@ private:
     //! RAII used for BEGIN/COMMIT TRANSACTION calls to make safeTransaction
     //! more performant.
     struct ScopedTransaction {
-        ScopedTransaction(const SQLiteConnection * db_conn,
+        ScopedTransaction(const SQLiteTransaction * db_conn,
                           AsyncTaskQueue::TransactionFunc & transaction,
                           bool & in_transaction_flag) :
             db_conn_(db_conn),
@@ -251,19 +266,19 @@ private:
             in_transaction_flag_(in_transaction_flag)
         {
             in_transaction_flag_ = true;
-            db_conn_->eval("BEGIN TRANSACTION");
+            db_conn_->beginTransaction();
             transaction_();
         }
 
         ~ScopedTransaction()
         {
-            db_conn_->eval("COMMIT TRANSACTION");
+            db_conn_->endTransaction();
             in_transaction_flag_ = false;
         }
 
     private:
         //! Open database connection
-        const SQLiteConnection * db_conn_ = nullptr;
+        const SQLiteTransaction * db_conn_ = nullptr;
 
         //! The caller's function they want inside BEGIN/COMMIT TRANSACTION
         AsyncTaskQueue::TransactionFunc & transaction_;
@@ -276,7 +291,8 @@ private:
         bool & in_transaction_flag_;
     };
 
-    SQLiteConnection * db_conn_ = nullptr;
+    SQLiteTransaction * db_conn_ = nullptr;
+    DatabaseManager * db_mgr_ = nullptr;
     ConcurrentQueue<std::unique_ptr<WorkerTask>> concurrent_queue_;
     TimedEval timed_eval_;
 };
