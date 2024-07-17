@@ -3,3 +3,4 @@ release/**
 debug/**
 .vscode
 cmake/sqlite3.h
+build.log
