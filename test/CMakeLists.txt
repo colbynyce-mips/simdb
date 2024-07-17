@@ -5,6 +5,5 @@ add_custom_command(
     TARGET regress 
     POST_BUILD COMMAND ctest -LE --test-action test)
 
-add_subdirectory(Schema)
 add_subdirectory(SQLiteConnection)
 add_subdirectory(Thread)

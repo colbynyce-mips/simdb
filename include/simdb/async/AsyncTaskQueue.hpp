@@ -4,7 +4,7 @@
 
 #include "simdb/async/TimerThread.hpp"
 #include "simdb/async/ConcurrentQueue.hpp"
-#include "simdb/sqlite/Transaction.hpp"
+#include "simdb/sqlite/SQLiteTransaction.hpp"
 #include "simdb_fwd.hpp"
 
 #include <iostream>

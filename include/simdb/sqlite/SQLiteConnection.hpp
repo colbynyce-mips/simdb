@@ -1,6 +1,6 @@
 #pragma once
 
-#include "simdb/sqlite/Transaction.hpp"
+#include "simdb/sqlite/SQLiteTransaction.hpp"
 #include "simdb/async/AsyncTaskQueue.hpp"
 #include "simdb/schema/ColumnValue.hpp"
 #include "simdb/utils/Stringifiers.hpp"

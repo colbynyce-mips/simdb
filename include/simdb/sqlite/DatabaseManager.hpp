@@ -3,7 +3,7 @@
 #pragma once
 
 #include "simdb/schema/Schema.hpp"
-#include "simdb/sqlite/Connection.hpp"
+#include "simdb/sqlite/SQLiteConnection.hpp"
 #include "simdb/utils/uuids.hpp"
 #include "simdb_fwd.hpp"
 
