@@ -208,17 +208,23 @@ private:
         return new FloatingPointValueContainer(val);
     }
 
-    ValueContainerBase *createValueContainer(const char *val)
+    template <typename T>
+    typename std::enable_if<std::is_same<typename std::decay<T>::type, const char*>::value, ValueContainerBase *>::type
+    createValueContainer(T val)
     {
         return new StringValueContainer(val);
     }
 
-    ValueContainerBase *createValueContainer(const std::string & val)
+    template <typename T>
+    typename std::enable_if<std::is_same<T, std::string>::value, ValueContainerBase *>::type
+    createValueContainer(const T & val)
     {
         return new StringValueContainer(val);
     }
 
-    ValueContainerBase *createValueContainer(const Blob & val)
+    template <typename T>
+    typename std::enable_if<std::is_same<T, Blob>::value, ValueContainerBase *>::type
+    createValueContainer(const T & val)
     {
         return new BlobValueContainer(val);
     }
