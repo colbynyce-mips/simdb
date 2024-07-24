@@ -629,10 +629,6 @@ private:
 
         auto print_col_value_at_idx = [&](const size_t idx) {
             switch (col.getDataType()) {
-                case dt::char_t: {
-                    os << utils::stringify(col.getAs<char>(idx));
-                    break;
-                }
                 case dt::int8_t: {
                     os << utils::stringify(col.getAs<int8_t>(idx));
                     break;
@@ -748,7 +744,6 @@ private:
 
             switch (col.getDataType()) {
                 case dt::fkey_t:
-                case dt::char_t:
                 case dt::int8_t:
                 case dt::uint8_t:
                 case dt::int16_t:
@@ -846,10 +841,6 @@ private:
         using dt = ColumnDataType;
 
         switch (col.getDataType()) {
-            case dt::char_t: {
-                const auto val = col.getAs<char>();
-                return static_cast<int>(val);
-            }
             case dt::int8_t: {
                 const auto val = col.getAs<int8_t>();
                 return static_cast<int>(val);

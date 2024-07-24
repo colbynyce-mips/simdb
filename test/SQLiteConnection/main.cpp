@@ -7,41 +7,74 @@
 
 TEST_INIT;
 
+static constexpr auto TEST_INT32          = std::numeric_limits<int32_t>::max();
+static constexpr auto TEST_INT64          = std::numeric_limits<int64_t>::max();
+static constexpr auto TEST_UINT32         = std::numeric_limits<uint32_t>::max();
+static constexpr auto TEST_UINT64         = std::numeric_limits<uint64_t>::max();
+static constexpr auto TEST_DOUBLE         = std::numeric_limits<double>::max();
+static const std::string TEST_STRING      = "TheExampleString";
+static const std::vector<int> TEST_VECTOR = {1,2,3,4,5};
+
 int main()
 {
     using dt = simdb::ColumnDataType;
 
     simdb::Schema schema;
 
-    schema.addTable("Metadata")
-        .addColumn("Name", dt::string_t)
-        .addColumn("SomeInt", dt::int32_t)
-        .addColumn("SomeDouble", dt::double_t)
-        .addColumn("SomeString", dt::string_t)
-        .addColumn("SomeBlob", dt::blob_t)
-        .addColumn("DefaultInt", dt::int32_t)->setDefaultValue(4)
-        .addColumn("DefaultDouble", dt::double_t)->setDefaultValue(3.14)
-        .addColumn("DefaultString", dt::string_t)->setDefaultValue("foo");
+    schema.addTable("IntegerTypes")
+        .addColumn("SomeInt32" , dt::int32_t)
+        .addColumn("SomeInt64" , dt::int64_t)
+        .addColumn("SomeUInt32", dt::uint32_t)
+        .addColumn("SomeUInt64", dt::uint64_t);
+
+    schema.addTable("FloatingPointTypes")
+        .addColumn("SomeDouble", dt::double_t);
+
+    schema.addTable("StringTypes")
+        .addColumn("SomeString", dt::string_t);
+
+    schema.addTable("BlobTypes")
+        .addColumn("SomeBlob", dt::blob_t);
+
+    schema.addTable("DefaultValues")
+        .addColumn("DefaultInt32" , dt::int32_t )->setDefaultValue(TEST_INT32)
+        .addColumn("DefaultInt64" , dt::int64_t )->setDefaultValue(TEST_INT64)
+        .addColumn("DefaultUInt32", dt::uint32_t)->setDefaultValue(TEST_UINT32)
+        .addColumn("DefaultUInt64", dt::uint64_t)->setDefaultValue(TEST_UINT64)
+        .addColumn("DefaultDouble", dt::double_t)->setDefaultValue(TEST_DOUBLE)
+        .addColumn("DefaultString", dt::string_t)->setDefaultValue(TEST_STRING);
 
     simdb::DatabaseManager db_mgr;
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
-    // Create some records and verify the INSERT was successful.
-    auto record1 = db_mgr.INSERT(SQL_TABLE("Metadata"), SQL_COLUMNS("SomeInt", "SomeDouble"), SQL_VALUES(777, 3.14));
-    EXPECT_EQUAL(record1->getPropertyInt32("SomeInt"), 777);
-    EXPECT_EQUAL(record1->getPropertyDouble("SomeDouble"), 3.14);
+    // Verify set/get APIs for integer types
+    auto record1 = db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
+                                 SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
+                                 SQL_VALUES(TEST_INT32, TEST_INT64, TEST_UINT32, TEST_UINT64));
 
-    simdb::Blob blob;
-    std::vector<int> vals{1,2,3,4,5};
-    blob.data_ptr = vals.data();
-    blob.num_bytes = vals.size() * sizeof(int);
-    auto record2 = db_mgr.INSERT(SQL_TABLE("Metadata"), SQL_COLUMNS("SomeString", "SomeBlob"), SQL_VALUES("blah", blob));
-    EXPECT_EQUAL(record2->getPropertyString("SomeString"), "blah");
-    EXPECT_EQUAL(record2->getPropertyBlob<int>("SomeBlob"), vals);
+    EXPECT_EQUAL(record1->getPropertyInt32("SomeInt32"), TEST_INT32);
+    EXPECT_EQUAL(record1->getPropertyInt64("SomeInt64"), TEST_INT64);
+    EXPECT_EQUAL(record1->getPropertyUInt32("SomeUInt32"), TEST_UINT32);
+    EXPECT_EQUAL(record1->getPropertyUInt64("SomeUInt64"), TEST_UINT64);
 
-    // Verify setDefaultValue()
-    auto record3 = db_mgr.INSERT(SQL_TABLE("Metadata"));
-    EXPECT_EQUAL(record3->getPropertyInt32("DefaultInt"), 4);
-    EXPECT_EQUAL(record3->getPropertyDouble("DefaultDouble"), 3.14);
-    EXPECT_EQUAL(record3->getPropertyString("DefaultString"), "foo");
+    // Verify set/get APIs for floating-point types
+    auto record2 = db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"),
+                                 SQL_COLUMNS("SomeDouble"),
+                                 SQL_VALUES(TEST_DOUBLE));
+
+    EXPECT_EQUAL(record2->getPropertyDouble("SomeDouble"), TEST_DOUBLE);
+
+    // Verify set/get APIs for string types
+    auto record3 = db_mgr.INSERT(SQL_TABLE("StringTypes"),
+                                 SQL_COLUMNS("SomeString"),
+                                 SQL_VALUES(TEST_STRING));
+
+    EXPECT_EQUAL(record3->getPropertyString("SomeString"), TEST_STRING);
+
+    // Verify set/get APIs for blob types
+    auto record4 = db_mgr.INSERT(SQL_TABLE("BlobTypes"),
+                                 SQL_COLUMNS("SomeBlob"),
+                                 SQL_VALUES(TEST_VECTOR));
+
+    EXPECT_EQUAL(record4->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR);
 }

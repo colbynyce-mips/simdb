@@ -66,13 +66,19 @@ public:
     SqlValues(T val, Rest... rest)
         : SqlValues(std::forward<Rest>(rest)...)
     {
-        col_vals_.emplace_front(createValueContainer<T>(val));
+        col_vals_.emplace_front(createValueContainer_<T>(val));
     }
 
     template <typename T>
     SqlValues(T val)
     {
-        col_vals_.emplace_front(createValueContainer<T>(val));
+        col_vals_.emplace_front(createValueContainer_<T>(val));
+    }
+
+    template <typename T>
+    SqlValues(const std::vector<T> & val)
+    {
+        col_vals_.emplace_front(createValueContainer_(val));
     }
 
     void writeValsForINSERT(std::ostringstream & oss) const
@@ -188,45 +194,68 @@ private:
     };
 
     template <typename T>
+    class VectorValueContainer : public ValueContainerBase
+    {
+    public:
+        VectorValueContainer(const std::vector<T> & val)
+            : val_(val)
+        {}
+
+        int32_t bind(sqlite3_stmt * stmt, int32_t col_idx) const override
+        {
+            return sqlite3_bind_blob(stmt, col_idx, val_.data(), (int)val_.size() * sizeof(T), 0);
+        }
+
+    private:
+        std::vector<T> val_;
+    };
+
+    template <typename T>
     typename std::enable_if<std::is_integral<T>::value && sizeof(T) <= sizeof(int32_t), ValueContainerBase *>::type
-    createValueContainer(T val)
+    createValueContainer_(T val)
     {
         return new Integral32ValueContainer(val);
     }
 
     template <typename T>
     typename std::enable_if<std::is_integral<T>::value && sizeof(T) == sizeof(int64_t), ValueContainerBase *>::type
-    createValueContainer(T val)
+    createValueContainer_(T val)
     {
-        return new Integral32ValueContainer(val);
+        return new Integral64ValueContainer(val);
     }
 
     template <typename T>
     typename std::enable_if<std::is_floating_point<T>::value, ValueContainerBase *>::type
-    createValueContainer(T val)
+    createValueContainer_(T val)
     {
         return new FloatingPointValueContainer(val);
     }
 
     template <typename T>
     typename std::enable_if<std::is_same<typename std::decay<T>::type, const char*>::value, ValueContainerBase *>::type
-    createValueContainer(T val)
+    createValueContainer_(T val)
     {
         return new StringValueContainer(val);
     }
 
     template <typename T>
     typename std::enable_if<std::is_same<T, std::string>::value, ValueContainerBase *>::type
-    createValueContainer(const T & val)
+    createValueContainer_(const T & val)
     {
         return new StringValueContainer(val);
     }
 
     template <typename T>
     typename std::enable_if<std::is_same<T, Blob>::value, ValueContainerBase *>::type
-    createValueContainer(const T & val)
+    createValueContainer_(const T & val)
     {
         return new BlobValueContainer(val);
+    }
+
+    template <typename T>
+    ValueContainerBase * createValueContainer_(const std::vector<T> & val)
+    {
+        return new VectorValueContainer<T>(val);
     }
 
     std::list<std::unique_ptr<ValueContainerBase>> col_vals_;

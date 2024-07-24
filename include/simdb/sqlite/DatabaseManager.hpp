@@ -185,6 +185,9 @@ public:
         return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase()));
     }
 
+    // xxx yyy colby nyce todo
+    // give an overload which doesn't take SQL_COLUMNS
+
 private:
     //! Open the given database file. If the connection is
     //! successful, this file will be the DatabaseManager's

@@ -22,7 +22,6 @@ enum class ColumnDataType : int8_t {
     uint64_t,
     float_t,
     double_t,
-    char_t,
     string_t,
     blob_t,
     fkey_t
@@ -35,7 +34,6 @@ inline std::ostream & operator<<(std::ostream & os, const ColumnDataType dtype)
 
     switch (dtype) {
         case dt::fkey_t:
-        case dt::char_t:
         case dt::int8_t:
         case dt::uint8_t:
         case dt::int16_t:
