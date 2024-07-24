@@ -167,6 +167,24 @@ public:
         return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase()));
     }
 
+    //! This is similar to the above INSERT() method, and will result in a
+    //! record created with default values. These values are either explicitly
+    //! set with setDefaultValue() during schema creation, or they are uninitialized
+    //! and may be garbage and unsafe to read.
+    std::unique_ptr<SqlRecord> INSERT(SqlTable &&table)
+    {
+        const std::string cmd = "INSERT INTO " + table.getName() + " DEFAULT VALUES";
+        sqlite3_stmt * stmt = db_conn_->prepareStatement(cmd);
+
+        auto rc = sqlite3_step(stmt);
+        if (rc != SQLITE_DONE) {
+            throw DBException("Could not perform INSERT. Error code: ") << rc;
+        }
+
+        auto db_id = db_conn_->getLastInsertRowId();
+        return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase()));
+    }
+
 private:
     //! Open the given database file. If the connection is
     //! successful, this file will be the DatabaseManager's

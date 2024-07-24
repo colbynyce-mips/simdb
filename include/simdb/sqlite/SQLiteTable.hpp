@@ -254,9 +254,16 @@ public:
     uint16_t    getPropertyUInt16(const char * col_name) const;
     uint32_t    getPropertyUInt32(const char * col_name) const;
     uint64_t    getPropertyUInt64(const char * col_name) const;
+    char        getPropertyChar  (const char * col_name) const;
+    float       getPropertyFloat (const char * col_name) const;
+    double      getPropertyDouble(const char * col_name) const;
+    std::string getPropertyString(const char * col_name) const;
+
+    template <typename T>
+    void getPropertyBlob(const char * col_name, std::vector<T> & vals) const;
 
 private:
-    sqlite3_stmt * createGetPropertyStmt(const char * col_name) const
+    sqlite3_stmt * createGetPropertyStmt_(const char * col_name) const
     {
         std::string cmd = "SELECT ";
         cmd += col_name;
@@ -272,7 +279,7 @@ private:
         return stmt;
     }
 
-    void stepGetPropertyStmt(sqlite3_stmt * stmt, const bool expect_done) const
+    void stepGetPropertyStmt_(sqlite3_stmt * stmt, const bool expect_done) const
     {
         auto rc = sqlite3_step(stmt);
         if (!expect_done && (rc != SQLITE_ROW || rc == SQLITE_DONE)) {
@@ -305,20 +312,20 @@ inline int16_t SqlRecord::getPropertyInt16(const char * col_name) const
 
 inline int32_t SqlRecord::getPropertyInt32(const char * col_name) const
 {
-    sqlite3_stmt * stmt = createGetPropertyStmt(col_name);
-    stepGetPropertyStmt(stmt, false);
+    sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
+    stepGetPropertyStmt_(stmt, false);
     auto val = sqlite3_column_int(stmt, 0);
-    stepGetPropertyStmt(stmt, true);
+    stepGetPropertyStmt_(stmt, true);
     sqlite3_finalize(stmt);
     return val;
 }
 
 inline int64_t SqlRecord::getPropertyInt64(const char * col_name) const
 {
-    sqlite3_stmt * stmt = createGetPropertyStmt(col_name);
-    stepGetPropertyStmt(stmt, false);
+    sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
+    stepGetPropertyStmt_(stmt, false);
     auto val = sqlite3_column_int64(stmt, 0);
-    stepGetPropertyStmt(stmt, true);
+    stepGetPropertyStmt_(stmt, true);
     sqlite3_finalize(stmt);
     return val;
 }
@@ -345,6 +352,56 @@ inline uint64_t SqlRecord::getPropertyUInt64(const char * col_name) const
 {
     auto val = getPropertyInt64(col_name);
     return static_cast<uint64_t>(val);
+}
+
+inline char SqlRecord::getPropertyChar(const char * col_name) const
+{
+    auto val = getPropertyInt32(col_name);
+    return static_cast<char>(val);
+}
+
+inline float SqlRecord::getPropertyFloat(const char * col_name) const
+{
+    auto val = getPropertyDouble(col_name);
+    return static_cast<float>(val);
+}
+
+inline double SqlRecord::getPropertyDouble(const char * col_name) const
+{
+    sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
+    stepGetPropertyStmt_(stmt, false);
+    auto val = sqlite3_column_double(stmt, 0);
+    stepGetPropertyStmt_(stmt, true);
+    sqlite3_finalize(stmt);
+    return val;
+}
+
+inline std::string SqlRecord::getPropertyString(const char * col_name) const
+{
+    sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
+    stepGetPropertyStmt_(stmt, false);
+    auto val = sqlite3_column_text(stmt, 0);
+    auto ret = val ? std::string((const char*)(val)) : std::string("");
+    stepGetPropertyStmt_(stmt, true);
+    sqlite3_finalize(stmt);
+    return ret;
+}
+
+template <typename T>
+inline void SqlRecord::getPropertyBlob(const char * col_name, std::vector<T> & vals) const
+{
+    sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
+    stepGetPropertyStmt_(stmt, false);
+    auto num_bytes = sqlite3_column_bytes(stmt, 0);
+    auto data_ptr = sqlite3_column_blob(stmt, 0);
+
+    static_assert(std::is_arithmetic<T>::value && !std::is_same<T, bool>::value,
+                  "SimDB blobs can only be retrieved with vectors of integral types.");
+
+    vals.resize(num_bytes / sizeof(T));
+    memcpy(vals.data(), data_ptr, num_bytes);
+    stepGetPropertyStmt_(stmt, true);
+    sqlite3_finalize(stmt);
 }
 
 } // namespace simdb
