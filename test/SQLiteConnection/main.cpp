@@ -26,4 +26,9 @@ int main()
 
     simdb::DatabaseManager db_mgr;
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
+
+    // Create some records and verify the INSERT was successful.
+    int dbid = db_mgr.INSERT(SQL_TABLE("Metadata"), SQL_COLUMNS("TheInt", "TheDouble"), SQL_VALUES(777, 3.14));
+    EXPECT_NOTEQUAL(dbid, 0);
+    EXPECT_NOTEQUAL(dbid, -1);
 }

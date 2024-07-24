@@ -293,6 +293,22 @@ public:
         eval_(command, db_conn_, callback, callback_obj);
     }
 
+    //! Turn the given command into an SQL prepared statement.
+    sqlite3_stmt * prepareStatement(const std::string & command)
+    {
+        sqlite3_stmt * stmt = nullptr;
+        if (sqlite3_prepare_v2(db_conn_, command.c_str(), -1, &stmt, 0)) {
+            throw DBException("Malformed SQL command: ") << command;
+        }
+        return stmt;
+    }
+
+    //! Get the database ID of the last INSERT statement.
+    int getLastInsertRowId() const
+    {
+        return sqlite3_last_insert_rowid(db_conn_);
+    }
+
     //! Get this database connection's task queue. This
     //! object can be used to schedule database work to
     //! be executed on a background thread. This never

@@ -4,6 +4,7 @@
 
 #include "simdb/schema/Schema.hpp"
 #include "simdb/sqlite/SQLiteConnection.hpp"
+#include "simdb/sqlite/SQLiteTable.hpp"
 #include "simdb/utils/uuids.hpp"
 #include "simdb_fwd.hpp"
 
@@ -136,6 +137,33 @@ public:
     void safeTransaction(const TransactionFunc & func) const
     {
         db_conn_->safeTransaction(func);
+    }
+
+    //! Perform INSERT operation on this database. The way to
+    //! call this method is:
+    //!
+    //! db_mgr.INSERT(SQL_TABLE("TableName"),
+    //!               SQL_COLUMNS("ColA", "ColB"),
+    //!               SQL_VALUES(3.14, "foo"));
+    //!
+    //! The returned value is the database ID of the created record.
+    int INSERT(SqlTable &&table, SqlColumns &&cols, SqlValues &&vals)
+    {
+        std::ostringstream oss;
+        oss << "INSERT INTO " << table.getName();
+        cols.writeColsForINSERT(oss);
+        vals.writeValsForINSERT(oss);
+
+        std::string cmd = oss.str();
+        sqlite3_stmt * stmt = db_conn_->prepareStatement(cmd);
+        vals.bindValsForINSERT(stmt);
+
+        auto rc = sqlite3_step(stmt);
+        if (rc != SQLITE_DONE) {
+            throw DBException("Could not perform INSERT. Error code: ") << rc;
+        }
+
+        return db_conn_->getLastInsertRowId();
     }
 
 private:
