@@ -147,7 +147,7 @@ public:
     //!               SQL_VALUES(3.14, "foo"));
     //!
     //! The returned value is the database ID of the created record.
-    int INSERT(SqlTable &&table, SqlColumns &&cols, SqlValues &&vals)
+    std::unique_ptr<SqlRecord> INSERT(SqlTable &&table, SqlColumns &&cols, SqlValues &&vals)
     {
         std::ostringstream oss;
         oss << "INSERT INTO " << table.getName();
@@ -163,7 +163,8 @@ public:
             throw DBException("Could not perform INSERT. Error code: ") << rc;
         }
 
-        return db_conn_->getLastInsertRowId();
+        auto db_id = db_conn_->getLastInsertRowId();
+        return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase()));
     }
 
 private:

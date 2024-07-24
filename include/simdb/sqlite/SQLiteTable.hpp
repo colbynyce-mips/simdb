@@ -90,7 +90,7 @@ public:
 
     void bindValsForINSERT(sqlite3_stmt * stmt) const
     {
-        int idx = 1;
+        int32_t idx = 1;
         for (auto & val : col_vals_) {
             auto rc = val->bind(stmt, idx++);
             if (rc) {
@@ -104,7 +104,7 @@ private:
     {
     public:
         virtual ~ValueContainerBase() = default;
-        virtual int bind(sqlite3_stmt * stmt, int col_idx) const = 0;
+        virtual int32_t bind(sqlite3_stmt * stmt, int32_t col_idx) const = 0;
     };
 
     class Integral32ValueContainer : public ValueContainerBase
@@ -114,7 +114,7 @@ private:
             : val_(val)
         {}
 
-        int bind(sqlite3_stmt * stmt, int col_idx) const override
+        int32_t bind(sqlite3_stmt * stmt, int32_t col_idx) const override
         {
             return sqlite3_bind_int(stmt, col_idx, val_);
         }
@@ -130,7 +130,7 @@ private:
             : val_(val)
         {}
 
-        int bind(sqlite3_stmt * stmt, int col_idx) const override
+        int32_t bind(sqlite3_stmt * stmt, int32_t col_idx) const override
         {
             return sqlite3_bind_int64(stmt, col_idx, val_);
         }
@@ -146,7 +146,7 @@ private:
             : val_(val)
         {}
 
-        int bind(sqlite3_stmt * stmt, int col_idx) const override
+        int32_t bind(sqlite3_stmt * stmt, int32_t col_idx) const override
         {
             return sqlite3_bind_double(stmt, col_idx, val_);
         }
@@ -162,7 +162,7 @@ private:
             : val_(val)
         {}
 
-        int bind(sqlite3_stmt * stmt, int col_idx) const override
+        int32_t bind(sqlite3_stmt * stmt, int32_t col_idx) const override
         {
             return sqlite3_bind_text(stmt, col_idx, val_.c_str(), -1, 0);
         }
@@ -178,7 +178,7 @@ private:
             : val_(val)
         {}
 
-        int bind(sqlite3_stmt * stmt, int col_idx) const override
+        int32_t bind(sqlite3_stmt * stmt, int32_t col_idx) const override
         {
             return sqlite3_bind_blob(stmt, col_idx, val_.data_ptr, (int)val_.num_bytes, 0);
         }
@@ -232,14 +232,123 @@ private:
     std::list<std::unique_ptr<ValueContainerBase>> col_vals_;
 };
 
+class SqlRecord
+{
+public:
+    SqlRecord(const std::string & table_name, const int32_t db_id, sqlite3 * db_conn)
+        : table_name_(table_name)
+        , db_id_(db_id)
+        , db_conn_(db_conn)
+    {}
+
+    int32_t getId() const
+    {
+        return db_id_;
+    }
+
+    int8_t      getPropertyInt8  (const char * col_name) const;
+    int16_t     getPropertyInt16 (const char * col_name) const;
+    int32_t     getPropertyInt32 (const char * col_name) const;
+    int64_t     getPropertyInt64 (const char * col_name) const;
+    uint8_t     getPropertyUInt8 (const char * col_name) const;
+    uint16_t    getPropertyUInt16(const char * col_name) const;
+    uint32_t    getPropertyUInt32(const char * col_name) const;
+    uint64_t    getPropertyUInt64(const char * col_name) const;
+
+private:
+    sqlite3_stmt * createGetPropertyStmt(const char * col_name) const
+    {
+        std::string cmd = "SELECT ";
+        cmd += col_name;
+        cmd += " FROM " + table_name_;
+        cmd += " WHERE Id=" + std::to_string(db_id_);
+
+        sqlite3_stmt * stmt = nullptr;
+        auto rc = sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0);
+        if (rc) {
+            throw DBException("Malformed SQL command: ") << cmd;
+        }
+
+        return stmt;
+    }
+
+    void stepGetPropertyStmt(sqlite3_stmt * stmt, const bool expect_done) const
+    {
+        auto rc = sqlite3_step(stmt);
+        if (!expect_done && (rc != SQLITE_ROW || rc == SQLITE_DONE)) {
+            throw DBException("Could not get record property value:\n")
+                << "\tIssue: Nothing returned from database\n"
+                << "\tError code: " << rc;
+        } else if (expect_done && rc != SQLITE_DONE) {
+            throw DBException("Could not get record property value:\n")
+                << "\tIssue: Expected only one record\n"
+                << "\tError code: " << rc;
+        }
+    }
+
+    const std::string table_name_;
+    const int32_t db_id_;
+    sqlite3 *const db_conn_;
+};
+
+inline int8_t SqlRecord::getPropertyInt8(const char * col_name) const
+{
+    auto val = getPropertyInt32(col_name);
+    return static_cast<int8_t>(val);
+}
+
+inline int16_t SqlRecord::getPropertyInt16(const char * col_name) const
+{
+    auto val = getPropertyInt32(col_name);
+    return static_cast<int16_t>(val);
+}
+
+inline int32_t SqlRecord::getPropertyInt32(const char * col_name) const
+{
+    sqlite3_stmt * stmt = createGetPropertyStmt(col_name);
+    stepGetPropertyStmt(stmt, false);
+    auto val = sqlite3_column_int(stmt, 0);
+    stepGetPropertyStmt(stmt, true);
+    sqlite3_finalize(stmt);
+    return val;
+}
+
+inline int64_t SqlRecord::getPropertyInt64(const char * col_name) const
+{
+    sqlite3_stmt * stmt = createGetPropertyStmt(col_name);
+    stepGetPropertyStmt(stmt, false);
+    auto val = sqlite3_column_int64(stmt, 0);
+    stepGetPropertyStmt(stmt, true);
+    sqlite3_finalize(stmt);
+    return val;
+}
+
+inline uint8_t SqlRecord::getPropertyUInt8(const char * col_name) const
+{
+    auto val = getPropertyInt32(col_name);
+    return static_cast<uint8_t>(val);
+}
+
+inline uint16_t SqlRecord::getPropertyUInt16(const char * col_name) const
+{
+    auto val = getPropertyInt32(col_name);
+    return static_cast<uint16_t>(val);
+}
+
+inline uint32_t SqlRecord::getPropertyUInt32(const char * col_name) const
+{
+    auto val = getPropertyInt32(col_name);
+    return static_cast<uint32_t>(val);
+}
+
+inline uint64_t SqlRecord::getPropertyUInt64(const char * col_name) const
+{
+    auto val = getPropertyInt64(col_name);
+    return static_cast<uint64_t>(val);
+}
+
 } // namespace simdb
 
 #define SQL_TABLE(name)  simdb::SqlTable(name)
 #define SQL_COLUMNS(...) simdb::SqlColumns(__VA_ARGS__)
 #define SQL_VALUES(...)  simdb::SqlValues(__VA_ARGS__)
-
-/*
-    db_mgr.INSERT(SqlTable("MyTable"), SqlColumns("ColA", "ColB"), SqlValues(3.14, "string"));
-    db_mgr.INSERT(SqlTable("MyTable"), SqlValues(3.14, "string", 4.56));
-    db_mgr.INSERT(SqlTable("MyTable"));
-*/

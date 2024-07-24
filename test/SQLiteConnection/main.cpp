@@ -27,15 +27,15 @@ int main()
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     // Create some records and verify the INSERT was successful.
-    int dbid1 = db_mgr.INSERT(SQL_TABLE("Metadata"), SQL_COLUMNS("SomeInt", "SomeDouble"), SQL_VALUES(777, 3.14));
-    EXPECT_NOTEQUAL(dbid1, 0);
-    EXPECT_NOTEQUAL(dbid1, -1);
+    auto record1 = db_mgr.INSERT(SQL_TABLE("Metadata"), SQL_COLUMNS("SomeInt", "SomeDouble"), SQL_VALUES(777, 3.14));
+    EXPECT_EQUAL(record1->getPropertyInt32("SomeInt"), 777);
+    // TODO getPropertyDouble()
 
     simdb::Blob blob;
     std::vector<int> vals{1,2,3,4,5};
     blob.data_ptr = vals.data();
     blob.num_bytes = vals.size() * sizeof(int);
-    int dbid2 = db_mgr.INSERT(SQL_TABLE("Metadata"), SQL_COLUMNS("SomeString", "SomeBlob"), SQL_VALUES("blah", blob));
-    EXPECT_NOTEQUAL(dbid2, 0);
-    EXPECT_NOTEQUAL(dbid2, -1);
+    auto record2 = db_mgr.INSERT(SQL_TABLE("Metadata"), SQL_COLUMNS("SomeString", "SomeBlob"), SQL_VALUES("blah", blob));
+    // TODO getPropertyString()
+    // TODO getPropertyBlob()
 }

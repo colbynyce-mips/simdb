@@ -309,6 +309,12 @@ public:
         return sqlite3_last_insert_rowid(db_conn_);
     }
 
+    //! Get direct access to the underlying SQLite database.
+    sqlite3 * getDatabase() const
+    {
+        return db_conn_;
+    }
+
     //! Get this database connection's task queue. This
     //! object can be used to schedule database work to
     //! be executed on a background thread. This never
