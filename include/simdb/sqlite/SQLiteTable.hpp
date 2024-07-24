@@ -260,7 +260,7 @@ public:
     std::string getPropertyString(const char * col_name) const;
 
     template <typename T>
-    void getPropertyBlob(const char * col_name, std::vector<T> & vals) const;
+    std::vector<T> getPropertyBlob(const char * col_name) const;
 
 private:
     sqlite3_stmt * createGetPropertyStmt_(const char * col_name) const
@@ -388,7 +388,7 @@ inline std::string SqlRecord::getPropertyString(const char * col_name) const
 }
 
 template <typename T>
-inline void SqlRecord::getPropertyBlob(const char * col_name, std::vector<T> & vals) const
+inline std::vector<T> SqlRecord::getPropertyBlob(const char * col_name) const
 {
     sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
     stepGetPropertyStmt_(stmt, false);
@@ -398,10 +398,11 @@ inline void SqlRecord::getPropertyBlob(const char * col_name, std::vector<T> & v
     static_assert(std::is_arithmetic<T>::value && !std::is_same<T, bool>::value,
                   "SimDB blobs can only be retrieved with vectors of integral types.");
 
-    vals.resize(num_bytes / sizeof(T));
+    std::vector<T> vals(num_bytes / sizeof(T));
     memcpy(vals.data(), data_ptr, num_bytes);
     stepGetPropertyStmt_(stmt, true);
     sqlite3_finalize(stmt);
+    return vals;
 }
 
 } // namespace simdb

@@ -32,14 +32,12 @@ int main()
     EXPECT_EQUAL(record1->getPropertyDouble("SomeDouble"), 3.14);
 
     simdb::Blob blob;
-    std::vector<int> input_vals{1,2,3,4,5};
-    std::vector<int> output_vals;
-    blob.data_ptr = input_vals.data();
-    blob.num_bytes = input_vals.size() * sizeof(int);
+    std::vector<int> vals{1,2,3,4,5};
+    blob.data_ptr = vals.data();
+    blob.num_bytes = vals.size() * sizeof(int);
     auto record2 = db_mgr.INSERT(SQL_TABLE("Metadata"), SQL_COLUMNS("SomeString", "SomeBlob"), SQL_VALUES("blah", blob));
     EXPECT_EQUAL(record2->getPropertyString("SomeString"), "blah");
-    record2->getPropertyBlob("SomeBlob", output_vals);
-    EXPECT_EQUAL(input_vals, output_vals);
+    EXPECT_EQUAL(record2->getPropertyBlob<int>("SomeBlob"), vals);
 
     // Verify setDefaultValue()
     auto record3 = db_mgr.INSERT(SQL_TABLE("Metadata"));
