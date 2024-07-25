@@ -280,20 +280,58 @@ public:
         , db_conn_(db_conn)
     {}
 
+    //! Get the database ID (primary key) for this record.
     int32_t getId() const
     {
         return db_id_;
     }
 
-    int32_t     getPropertyInt32 (const char * col_name) const;
-    int64_t     getPropertyInt64 (const char * col_name) const;
-    uint32_t    getPropertyUInt32(const char * col_name) const;
-    uint64_t    getPropertyUInt64(const char * col_name) const;
-    double      getPropertyDouble(const char * col_name) const;
+    //! SELECT the given column value (int32)
+    int32_t getPropertyInt32(const char * col_name) const;
+
+    //! SELECT the given column value (int64)
+    int64_t getPropertyInt64(const char * col_name) const;
+
+    //! SELECT the given column value (uint32)
+    uint32_t getPropertyUInt32(const char * col_name) const;
+
+    //! SELECT the given column value (uint64)
+    uint64_t getPropertyUInt64(const char * col_name) const;
+
+    //! SELECT the given column value (double)
+    double getPropertyDouble(const char * col_name) const;
+
+    //! SELECT the given column value (string)
     std::string getPropertyString(const char * col_name) const;
 
+    //! SELECT the given column value (blob)
     template <typename T>
     std::vector<T> getPropertyBlob(const char * col_name) const;
+
+    //! UPDATE the given column value (int32)
+    void setPropertyInt32(const char * col_name, const int32_t val) const;
+
+    //! UPDATE the given column value (int32)
+    void setPropertyInt64(const char * col_name, const int64_t val) const;
+
+    //! UPDATE the given column value (int32)
+    void setPropertyUInt32(const char * col_name, const uint32_t val) const;
+
+    //! UPDATE the given column value (int32)
+    void setPropertyUInt64(const char * col_name, const uint64_t val) const;
+
+    //! UPDATE the given column value (double)
+    void setPropertyDouble(const char * col_name, const double val) const;
+
+    //! UPDATE the given column value (string)
+    void setPropertyString(const char * col_name, const std::string & val) const;
+
+    //! UPDATE the given column value (blob)
+    template <typename T>
+    void setPropertyBlob(const char * col_name, const std::vector<T> & val) const;
+
+    //! UPDATE the given column value (blob)
+    void setPropertyBlob(const char * col_name, const void * data, const size_t bytes) const;
 
 private:
     sqlite3_stmt * createGetPropertyStmt_(const char * col_name) const
@@ -304,25 +342,49 @@ private:
         cmd += " WHERE Id=" + std::to_string(db_id_);
 
         sqlite3_stmt * stmt = nullptr;
-        auto rc = sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0);
-        if (rc) {
-            throw DBException("Malformed SQL command: ") << cmd;
+        if (sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0)) {
+            throw DBException(sqlite3_errmsg(db_conn_));
         }
 
         return stmt;
     }
 
-    void stepGetPropertyStmt_(sqlite3_stmt * stmt, const bool expect_done) const
+    sqlite3_stmt * createSetPropertyStmt_(const char * col_name) const
     {
+        std::string cmd = "UPDATE " + table_name_;
+        cmd += " SET ";
+        cmd += col_name;
+        cmd += "=? WHERE Id=" + std::to_string(db_id_);
+
+        sqlite3_stmt * stmt = nullptr;
+        if (sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0)) {
+            throw DBException(sqlite3_errmsg(db_conn_));
+        }
+
+        return stmt;
+    }
+
+    void stepStatement_(sqlite3_stmt * stmt, const std::initializer_list<int> & ret_codes) const
+    {
+        auto stringifyRetCodes = [&]() {
+            std::ostringstream oss;
+            auto iter = ret_codes.begin();
+            for (size_t idx = 0; idx < ret_codes.size(); ++idx) {
+                oss << *iter;
+                if (idx != ret_codes.size() - 1) {
+                    oss << ",";
+                }
+                ++iter;
+            }
+            return oss.str();
+        };
+
         auto rc = sqlite3_step(stmt);
-        if (!expect_done && (rc != SQLITE_ROW || rc == SQLITE_DONE)) {
-            throw DBException("Could not get record property value:\n")
-                << "\tIssue: Nothing returned from database\n"
-                << "\tError code: " << rc;
-        } else if (expect_done && rc != SQLITE_DONE) {
-            throw DBException("Could not get record property value:\n")
-                << "\tIssue: Expected only one record\n"
-                << "\tError code: " << rc;
+        if (std::find(ret_codes.begin(), ret_codes.end(), rc) == ret_codes.end()) {
+            throw DBException("Unexpected sqlite3_step() return code:\n")
+                << "\tActual: " << rc
+                << "\tExpected: " << stringifyRetCodes()
+                << "\tError: " << sqlite3_errmsg(db_conn_);
         }
     }
 
@@ -334,9 +396,9 @@ private:
 inline int32_t SqlRecord::getPropertyInt32(const char * col_name) const
 {
     sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
-    stepGetPropertyStmt_(stmt, false);
+    stepStatement_(stmt, {SQLITE_ROW});
     auto val = sqlite3_column_int(stmt, 0);
-    stepGetPropertyStmt_(stmt, true);
+    stepStatement_(stmt, {SQLITE_DONE});
     sqlite3_finalize(stmt);
     return val;
 }
@@ -344,9 +406,9 @@ inline int32_t SqlRecord::getPropertyInt32(const char * col_name) const
 inline int64_t SqlRecord::getPropertyInt64(const char * col_name) const
 {
     sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
-    stepGetPropertyStmt_(stmt, false);
+    stepStatement_(stmt, {SQLITE_ROW});
     auto val = sqlite3_column_int64(stmt, 0);
-    stepGetPropertyStmt_(stmt, true);
+    stepStatement_(stmt, {SQLITE_DONE});
     sqlite3_finalize(stmt);
     return val;
 }
@@ -366,9 +428,9 @@ inline uint64_t SqlRecord::getPropertyUInt64(const char * col_name) const
 inline double SqlRecord::getPropertyDouble(const char * col_name) const
 {
     sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
-    stepGetPropertyStmt_(stmt, false);
+    stepStatement_(stmt, {SQLITE_ROW});
     auto val = sqlite3_column_double(stmt, 0);
-    stepGetPropertyStmt_(stmt, true);
+    stepStatement_(stmt, {SQLITE_DONE});
     sqlite3_finalize(stmt);
     return val;
 }
@@ -376,10 +438,10 @@ inline double SqlRecord::getPropertyDouble(const char * col_name) const
 inline std::string SqlRecord::getPropertyString(const char * col_name) const
 {
     sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
-    stepGetPropertyStmt_(stmt, false);
+    stepStatement_(stmt, {SQLITE_ROW});
     auto val = sqlite3_column_text(stmt, 0);
     auto ret = val ? std::string((const char*)(val)) : std::string("");
-    stepGetPropertyStmt_(stmt, true);
+    stepStatement_(stmt, {SQLITE_DONE});
     sqlite3_finalize(stmt);
     return ret;
 }
@@ -388,7 +450,7 @@ template <typename T>
 inline std::vector<T> SqlRecord::getPropertyBlob(const char * col_name) const
 {
     sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
-    stepGetPropertyStmt_(stmt, false);
+    stepStatement_(stmt, {SQLITE_ROW});
     auto num_bytes = sqlite3_column_bytes(stmt, 0);
     auto data_ptr = sqlite3_column_blob(stmt, 0);
 
@@ -397,9 +459,90 @@ inline std::vector<T> SqlRecord::getPropertyBlob(const char * col_name) const
 
     std::vector<T> vals(num_bytes / sizeof(T));
     memcpy(vals.data(), data_ptr, num_bytes);
-    stepGetPropertyStmt_(stmt, true);
+    stepStatement_(stmt, {SQLITE_DONE});
     sqlite3_finalize(stmt);
     return vals;
+}
+
+inline void SqlRecord::setPropertyInt32(const char * col_name, const int32_t val) const
+{
+    sqlite3_stmt * stmt = createSetPropertyStmt_(col_name);
+    if (sqlite3_bind_int(stmt, 1, val)) {
+        throw DBException(sqlite3_errmsg(db_conn_));
+    }
+    stepStatement_(stmt, {SQLITE_DONE});
+    sqlite3_finalize(stmt);
+}
+
+inline void SqlRecord::setPropertyInt64(const char * col_name, const int64_t val) const
+{
+    sqlite3_stmt * stmt = createSetPropertyStmt_(col_name);
+    if (sqlite3_bind_int64(stmt, 1, val)) {
+        throw DBException(sqlite3_errmsg(db_conn_));
+    }
+    stepStatement_(stmt, {SQLITE_DONE});
+    sqlite3_finalize(stmt);
+}
+
+inline void SqlRecord::setPropertyUInt32(const char * col_name, const uint32_t val) const
+{
+    sqlite3_stmt * stmt = createSetPropertyStmt_(col_name);
+    if (sqlite3_bind_int(stmt, 1, val)) {
+        throw DBException(sqlite3_errmsg(db_conn_));
+    }
+    stepStatement_(stmt, {SQLITE_DONE});
+    sqlite3_finalize(stmt);
+}
+
+inline void SqlRecord::setPropertyUInt64(const char * col_name, const uint64_t val) const
+{
+    sqlite3_stmt * stmt = createSetPropertyStmt_(col_name);
+    if (sqlite3_bind_int64(stmt, 1, val)) {
+        throw DBException(sqlite3_errmsg(db_conn_));
+    }
+    stepStatement_(stmt, {SQLITE_DONE});
+    sqlite3_finalize(stmt);
+}
+
+inline void SqlRecord::setPropertyDouble(const char * col_name, const double val) const
+{
+    sqlite3_stmt * stmt = createSetPropertyStmt_(col_name);
+    if (sqlite3_bind_double(stmt, 1, val)) {
+        throw DBException(sqlite3_errmsg(db_conn_));
+    }
+    stepStatement_(stmt, {SQLITE_DONE});
+    sqlite3_finalize(stmt);
+}
+
+inline void SqlRecord::setPropertyString(const char * col_name, const std::string & val) const
+{
+    sqlite3_stmt * stmt = createSetPropertyStmt_(col_name);
+    if (sqlite3_bind_text(stmt, 1, val.c_str(), -1, 0)) {
+        throw DBException(sqlite3_errmsg(db_conn_));
+    }
+    stepStatement_(stmt, {SQLITE_DONE});
+    sqlite3_finalize(stmt);
+}
+
+template <typename T>
+inline void SqlRecord::setPropertyBlob(const char * col_name, const std::vector<T> & val) const
+{
+    sqlite3_stmt * stmt = createSetPropertyStmt_(col_name);
+    if (sqlite3_bind_blob(stmt, 1, val.data(), val.size() * sizeof(T), 0)) {
+        throw DBException(sqlite3_errmsg(db_conn_));
+    }
+    stepStatement_(stmt, {SQLITE_DONE});
+    sqlite3_finalize(stmt);
+}
+
+inline void SqlRecord::setPropertyBlob(const char * col_name, const void * data, const size_t bytes) const
+{
+    sqlite3_stmt * stmt = createSetPropertyStmt_(col_name);
+    if (sqlite3_bind_blob(stmt, 1, data, bytes, 0)) {
+        throw DBException(sqlite3_errmsg(db_conn_));
+    }
+    stepStatement_(stmt, {SQLITE_DONE});
+    sqlite3_finalize(stmt);
 }
 
 } // namespace simdb

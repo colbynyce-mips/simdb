@@ -7,14 +7,16 @@
 
 TEST_INIT;
 
-static constexpr auto TEST_INT32          = std::numeric_limits<int32_t>::max();
-static constexpr auto TEST_INT64          = std::numeric_limits<int64_t>::max();
-static constexpr auto TEST_UINT32         = std::numeric_limits<uint32_t>::max();
-static constexpr auto TEST_UINT64         = std::numeric_limits<uint64_t>::max();
-static constexpr auto TEST_DOUBLE         = std::numeric_limits<double>::max();
-static const std::string TEST_STRING      = "TheExampleString";
-static const std::vector<int> TEST_VECTOR = {1,2,3,4,5};
-static const simdb::Blob TEST_BLOB = TEST_VECTOR;
+static constexpr auto TEST_INT32           = std::numeric_limits<int32_t>::max();
+static constexpr auto TEST_INT64           = std::numeric_limits<int64_t>::max();
+static constexpr auto TEST_UINT32          = std::numeric_limits<uint32_t>::max();
+static constexpr auto TEST_UINT64          = std::numeric_limits<uint64_t>::max();
+static constexpr auto TEST_DOUBLE          = std::numeric_limits<double>::max();
+static const std::string TEST_STRING       = "TheExampleString";
+static const std::vector<int> TEST_VECTOR  = {1,2,3,4,5};
+static const std::vector<int> TEST_VECTOR2 = {6,7,8,9,10};
+static const simdb::Blob TEST_BLOB         = TEST_VECTOR;
+static const simdb::Blob TEST_BLOB2        = TEST_VECTOR2;
 
 int main()
 {
@@ -58,12 +60,27 @@ int main()
     EXPECT_EQUAL(record1->getPropertyUInt32("SomeUInt32"), TEST_UINT32);
     EXPECT_EQUAL(record1->getPropertyUInt64("SomeUInt64"), TEST_UINT64);
 
+    record1->setPropertyInt32("SomeInt32", TEST_INT32 / 2);
+    EXPECT_EQUAL(record1->getPropertyInt32("SomeInt32"), TEST_INT32 / 2);
+
+    record1->setPropertyInt64("SomeInt64", TEST_INT64 / 2);
+    EXPECT_EQUAL(record1->getPropertyInt64("SomeInt64"), TEST_INT64 / 2);
+
+    record1->setPropertyUInt32("SomeUInt32", TEST_UINT32 / 2);
+    EXPECT_EQUAL(record1->getPropertyUInt32("SomeUInt32"), TEST_UINT32 / 2);
+
+    record1->setPropertyUInt64("SomeUInt64", TEST_UINT64 / 2);
+    EXPECT_EQUAL(record1->getPropertyUInt64("SomeUInt64"), TEST_UINT64 / 2);
+
     // Verify set/get APIs for floating-point types
     auto record2 = db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"),
                                  SQL_COLUMNS("SomeDouble"),
                                  SQL_VALUES(TEST_DOUBLE));
 
     EXPECT_EQUAL(record2->getPropertyDouble("SomeDouble"), TEST_DOUBLE);
+
+    record2->setPropertyDouble("SomeDouble", TEST_DOUBLE / 2);
+    EXPECT_EQUAL(record2->getPropertyDouble("SomeDouble"), TEST_DOUBLE / 2);
 
     // Verify set/get APIs for string types
     auto record3 = db_mgr.INSERT(SQL_TABLE("StringTypes"),
@@ -72,6 +89,9 @@ int main()
 
     EXPECT_EQUAL(record3->getPropertyString("SomeString"), TEST_STRING);
 
+    record3->setPropertyString("SomeString", TEST_STRING + "2");
+    EXPECT_EQUAL(record3->getPropertyString("SomeString"), TEST_STRING + "2");
+
     // Verify set/get APIs for blob types
     auto record4 = db_mgr.INSERT(SQL_TABLE("BlobTypes"),
                                  SQL_COLUMNS("SomeBlob"),
@@ -79,11 +99,17 @@ int main()
 
     EXPECT_EQUAL(record4->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR);
 
+    record4->setPropertyBlob("SomeBlob", TEST_VECTOR2);
+    EXPECT_EQUAL(record4->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR2);
+
     auto record5 = db_mgr.INSERT(SQL_TABLE("BlobTypes"),
                                  SQL_COLUMNS("SomeBlob"),
                                  SQL_VALUES(TEST_BLOB));
 
     EXPECT_EQUAL(record5->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR);
+
+    record5->setPropertyBlob("SomeBlob", TEST_BLOB2.data_ptr, TEST_BLOB2.num_bytes);
+    EXPECT_EQUAL(record5->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR2);
 
     // Verify setDefaultValue()
     auto record6 = db_mgr.INSERT(SQL_TABLE("DefaultValues"));
