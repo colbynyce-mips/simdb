@@ -197,6 +197,56 @@ public:
         return findRecord_(table_name, db_id, true);
     }
 
+    //! Delete one record from the given table with the given ID.
+    //! Returns TRUE if successful, FALSE otherwise. Should return
+    //! FALSE on subsequent identical calls to this method.
+    bool removeRecordFromTable(const char * table_name, const int db_id)
+    {
+        std::ostringstream oss;
+        oss << "DELETE FROM " << table_name << " WHERE Id=" << db_id;
+        const auto cmd = oss.str();
+
+        if (sqlite3_exec(db_conn_->getDatabase(), cmd.c_str(), nullptr, nullptr, nullptr)) {
+            throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
+        }
+
+        return sqlite3_changes(db_conn_->getDatabase()) == 1;
+    }
+
+    //! Delete every record from the given table. Returns the total
+    //! number of deleted records.
+    uint32_t removeAllRecordsFromTable(const char * table_name)
+    {
+        std::ostringstream oss;
+        oss << "DELETE FROM " << table_name;
+        const auto cmd = oss.str();
+
+        if (sqlite3_exec(db_conn_->getDatabase(), cmd.c_str(), nullptr, nullptr, nullptr)) {
+            throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
+        }
+
+        return sqlite3_changes(db_conn_->getDatabase());
+    }
+
+    //! Issue "DELETE FROM TableName" to clear out the given table.
+    //! Returns the total number of deleted records across all tables.
+    uint32_t removeAllRecordsFromAllTables()
+    {
+        sqlite3_stmt * stmt = nullptr;
+        const char * cmd = "SELECT name FROM sqlite_master WHERE type='table'";
+        if (sqlite3_prepare_v2(db_conn_->getDatabase(), cmd, -1, &stmt, 0)) {
+            throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
+        }
+
+        uint32_t count = 0;
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            auto table_name = sqlite3_column_text(stmt, 0);
+            count += removeAllRecordsFromTable((const char *)table_name);
+        }
+
+        return count;
+    }
+
 private:
     //! Open the given database file. If the connection is
     //! successful, this file will be the DatabaseManager's

@@ -18,6 +18,7 @@ public:
         : table_name_(table_name)
     {}
 
+    //! Get this table's name.
     const std::string & getName() const
     {
         return table_name_;
@@ -333,6 +334,10 @@ public:
     //! UPDATE the given column value (blob)
     void setPropertyBlob(const char * col_name, const void * data, const size_t bytes) const;
 
+    //! DELETE this record from its table. Returns TRUE if successful,
+    //! FALSE otherwise. Should return FALSE on subsequent calls to this method.
+    bool removeFromTable();
+
 private:
     sqlite3_stmt * createGetPropertyStmt_(const char * col_name) const
     {
@@ -543,6 +548,19 @@ inline void SqlRecord::setPropertyBlob(const char * col_name, const void * data,
     }
     stepStatement_(stmt, {SQLITE_DONE});
     sqlite3_finalize(stmt);
+}
+
+inline bool SqlRecord::removeFromTable()
+{
+    std::ostringstream oss;
+    oss << "DELETE FROM " << table_name_ << " WHERE Id=" << db_id_;
+    const auto cmd = oss.str();
+
+    if (sqlite3_exec(db_conn_, cmd.c_str(), nullptr, nullptr, nullptr)) {
+        throw DBException(sqlite3_errmsg(db_conn_));
+    }
+
+    return sqlite3_changes(db_conn_) == 1;
 }
 
 } // namespace simdb

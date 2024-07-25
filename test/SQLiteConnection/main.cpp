@@ -126,4 +126,20 @@ int main()
     auto record8 = db_mgr.getRecord("DefaultValues", record6->getId());
     EXPECT_NOTEQUAL(record8.get(), nullptr);
     EXPECT_EQUAL(record8->getId(), record6->getId());
+
+    // Verify record deletion.
+    auto record9 = db_mgr.INSERT(SQL_TABLE("DefaultValues"));
+    auto record10 = db_mgr.INSERT(SQL_TABLE("DefaultValues"));
+    auto record11 = db_mgr.INSERT(SQL_TABLE("DefaultValues"));
+    EXPECT_TRUE(record9->removeFromTable());
+    EXPECT_FALSE(record9->removeFromTable());
+    EXPECT_FALSE(db_mgr.removeRecordFromTable("DefaultValues", record9->getId()));
+    EXPECT_TRUE(db_mgr.removeRecordFromTable("DefaultValues", record10->getId()));
+    EXPECT_FALSE(db_mgr.removeRecordFromTable("DefaultValues", record10->getId()));
+    EXPECT_NOTEQUAL(db_mgr.findRecord("DefaultValues", record11->getId()).get(), nullptr);
+    EXPECT_NOTEQUAL(db_mgr.removeAllRecordsFromTable("DefaultValues"), 0);
+    EXPECT_EQUAL(db_mgr.findRecord("DefaultValues", record11->getId()).get(), nullptr);
+    EXPECT_NOTEQUAL(db_mgr.findRecord("StringTypes", record3->getId()).get(), nullptr);
+    EXPECT_NOTEQUAL(db_mgr.removeAllRecordsFromAllTables(), 0);
+    EXPECT_EQUAL(db_mgr.findRecord("StringTypes", record3->getId()).get(), nullptr);
 }
