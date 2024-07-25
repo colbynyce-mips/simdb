@@ -142,4 +142,85 @@ int main()
     EXPECT_NOTEQUAL(db_mgr.findRecord("StringTypes", record3->getId()).get(), nullptr);
     EXPECT_NOTEQUAL(db_mgr.removeAllRecordsFromAllTables(), 0);
     EXPECT_EQUAL(db_mgr.findRecord("StringTypes", record3->getId()).get(), nullptr);
+
+    // To get ready for testing the SqlQuery class, first create some new records.
+    //
+    // IntegerTypes
+    // ---------------------------------------------------------------------------------
+    // SomeInt32    SomeInt64    SomeUInt32    SomeUInt64
+    // 111          555          789           50505050
+    // 222          555          444           50505050
+    // 333          555          789           50505050
+    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
+                  SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
+                  SQL_VALUES(111, 555, 789, 50505050));
+
+    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
+                  SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
+                  SQL_VALUES(222, 555, 444, 50505050));
+
+    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
+                  SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
+                  SQL_VALUES(333, 555, 789, 50505050));
+
+    // FloatingPointTypes
+    // ---------------------------------------------------------------------------------
+    // SomeDouble
+    // 1.1
+    // 2.2
+    // 3.3
+    // 4.4
+    // 5.5
+    db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(1.1));
+    db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(2.2));
+    db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(3.3));
+    db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(4.4));
+    db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(5.5));
+
+    // StringTypes
+    // ---------------------------------------------------------------------------------
+    // SomeString
+    // foo
+    // foo
+    // bar
+    // baz
+    db_mgr.INSERT(SQL_TABLE("StringTypes"), SQL_COLUMNS("SomeString"), SQL_VALUES("foo"));
+    db_mgr.INSERT(SQL_TABLE("StringTypes"), SQL_COLUMNS("SomeString"), SQL_VALUES("foo"));
+    db_mgr.INSERT(SQL_TABLE("StringTypes"), SQL_COLUMNS("SomeString"), SQL_VALUES("bar"));
+    db_mgr.INSERT(SQL_TABLE("StringTypes"), SQL_COLUMNS("SomeString"), SQL_VALUES("baz"));
+
+    int32_t i32;
+    int64_t i64;
+    uint32_t u32;
+    uint64_t u64;
+
+    auto query = db_mgr.createQuery("IntegerTypes");
+
+    query->select("SomeInt32", i32);
+    query->select("SomeInt64", i64);
+    query->select("SomeUInt32", u32);
+    query->select("SomeUInt64", u64);
+
+    EXPECT_EQUAL(query->count(), 3);
+    auto result_set = query->getResultSet();
+
+    EXPECT_TRUE(result_set.getNextRecord());
+    EXPECT_EQUAL(i32, 111);
+    EXPECT_EQUAL(i64, 555);
+    EXPECT_EQUAL(u32, 789);
+    EXPECT_EQUAL(u64, 50505050);
+
+    EXPECT_TRUE(result_set.getNextRecord());
+    EXPECT_EQUAL(i32, 222);
+    EXPECT_EQUAL(i64, 555);
+    EXPECT_EQUAL(u32, 444);
+    EXPECT_EQUAL(u64, 50505050);
+
+    EXPECT_TRUE(result_set.getNextRecord());
+    EXPECT_EQUAL(i32, 333);
+    EXPECT_EQUAL(i64, 555);
+    EXPECT_EQUAL(u32, 789);
+    EXPECT_EQUAL(u64, 50505050);
+
+    EXPECT_FALSE(result_set.getNextRecord());
 }

@@ -5,6 +5,7 @@
 #include "simdb/schema/Schema.hpp"
 #include "simdb/sqlite/SQLiteConnection.hpp"
 #include "simdb/sqlite/SQLiteTable.hpp"
+#include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/utils/uuids.hpp"
 #include "simdb_fwd.hpp"
 
@@ -245,6 +246,12 @@ public:
         }
 
         return count;
+    }
+
+    //! Get a query object to issue SELECT statements with constraints.
+    std::unique_ptr<SqlQuery> createQuery(const char * table_name)
+    {
+        return std::unique_ptr<SqlQuery>(new SqlQuery(table_name, db_conn_->getDatabase()));
     }
 
 private:
