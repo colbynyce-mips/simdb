@@ -185,8 +185,17 @@ public:
         return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase()));
     }
 
-    // xxx yyy colby nyce todo
-    // give an overload which doesn't take SQL_COLUMNS
+    //! Get a SqlRecord from a database ID for the given table. Returns null if not found.
+    std::unique_ptr<SqlRecord> findRecord(const char * table_name, const int db_id) const
+    {
+        return findRecord_(table_name, db_id, false);
+    }
+
+    //! Get a SqlRecord from a database ID for the given table. Throws if not found.
+    std::unique_ptr<SqlRecord> getRecord(const char * table_name, const int db_id) const
+    {
+        return findRecord_(table_name, db_id, true);
+    }
 
 private:
     //! Open the given database file. If the connection is
@@ -230,6 +239,32 @@ private:
             throw DBException(
                 "A database connection has already been "
                 "made for this DatabaseManager");
+        }
+    }
+
+    //! Get a SqlRecord from a database ID for the given table.
+    std::unique_ptr<SqlRecord> findRecord_(const char * table_name, const int db_id, const bool must_exist) const
+    {
+        std::ostringstream oss;
+        oss << "SELECT * FROM " << table_name << " WHERE Id=" << db_id;
+        const auto cmd = oss.str();
+
+        sqlite3_stmt * stmt = nullptr;
+        if (sqlite3_prepare_v2(db_conn_->getDatabase(), cmd.c_str(), -1, &stmt, 0)) {
+            throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
+        }
+
+        auto rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+
+        if (must_exist && rc == SQLITE_DONE) {
+            throw DBException("Record not found with ID ") << db_id << " in table " << table_name;
+        } else if (rc == SQLITE_DONE) {
+            return nullptr;
+        } else if (rc == SQLITE_ROW) {
+            return std::unique_ptr<SqlRecord>(new SqlRecord(table_name, db_id, db_conn_->getDatabase()));
+        } else {
+            throw DBException("Internal error has occured: ") << sqlite3_errmsg(db_conn_->getDatabase());
         }
     }
 

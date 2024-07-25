@@ -119,4 +119,11 @@ int main()
     // TODO EXPECT_EQUAL(record6->getPropertyUInt64("DefaultUInt64"), TEST_UINT64);
     EXPECT_EQUAL(record6->getPropertyString("DefaultString"), TEST_STRING);
     EXPECT_WITHIN_EPSILON(record6->getPropertyDouble("DefaultDouble"), TEST_DOUBLE);
+
+    // Verify findRecord() with bad ID.
+    auto record7 = db_mgr.findRecord("DefaultValues", 404);
+    EXPECT_EQUAL(record7.get(), nullptr);
+    auto record8 = db_mgr.getRecord("DefaultValues", record6->getId());
+    EXPECT_NOTEQUAL(record8.get(), nullptr);
+    EXPECT_EQUAL(record8->getId(), record6->getId());
 }
