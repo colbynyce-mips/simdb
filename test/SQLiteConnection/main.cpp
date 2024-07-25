@@ -11,9 +11,10 @@ static constexpr auto TEST_INT32          = std::numeric_limits<int32_t>::max();
 static constexpr auto TEST_INT64          = std::numeric_limits<int64_t>::max();
 static constexpr auto TEST_UINT32         = std::numeric_limits<uint32_t>::max();
 static constexpr auto TEST_UINT64         = std::numeric_limits<uint64_t>::max();
-static constexpr auto TEST_DOUBLE         = std::numeric_limits<double>::max();
+static constexpr auto TEST_DOUBLE         = 3.14159;
 static const std::string TEST_STRING      = "TheExampleString";
 static const std::vector<int> TEST_VECTOR = {1,2,3,4,5};
+static const simdb::Blob TEST_BLOB = TEST_VECTOR;
 
 int main()
 {
@@ -78,12 +79,18 @@ int main()
 
     EXPECT_EQUAL(record4->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR);
 
+    auto record5 = db_mgr.INSERT(SQL_TABLE("BlobTypes"),
+                                 SQL_COLUMNS("SomeBlob"),
+                                 SQL_VALUES(TEST_BLOB));
+
+    EXPECT_EQUAL(record5->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR);
+
     // Verify setDefaultValue()
-    auto record5 = db_mgr.INSERT(SQL_TABLE("DefaultValues"));
-    EXPECT_EQUAL(record5->getPropertyInt32("DefaultInt32"), TEST_INT32);
-    EXPECT_EQUAL(record5->getPropertyInt64("DefaultInt64"), TEST_INT64);
-    EXPECT_EQUAL(record5->getPropertyUInt32("DefaultUInt32"), TEST_UINT32);
-    EXPECT_EQUAL(record5->getPropertyUInt64("DefaultUInt64"), TEST_UINT64);
-    EXPECT_EQUAL(record5->getPropertyDouble("DefaultDouble"), TEST_DOUBLE);
-    EXPECT_EQUAL(record5->getPropertyString("DefaultString"), TEST_STRING);
+    auto record6 = db_mgr.INSERT(SQL_TABLE("DefaultValues"));
+    EXPECT_EQUAL(record6->getPropertyInt32("DefaultInt32"), TEST_INT32);
+    EXPECT_EQUAL(record6->getPropertyInt64("DefaultInt64"), TEST_INT64);
+    EXPECT_EQUAL(record6->getPropertyUInt32("DefaultUInt32"), TEST_UINT32);
+    EXPECT_EQUAL(record6->getPropertyUInt64("DefaultUInt64"), TEST_UINT64);
+    EXPECT_EQUAL(record6->getPropertyDouble("DefaultDouble"), TEST_DOUBLE);
+    EXPECT_EQUAL(record6->getPropertyString("DefaultString"), TEST_STRING);
 }

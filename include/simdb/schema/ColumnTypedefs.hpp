@@ -7,6 +7,7 @@
 #include <iostream>
 #include <utility>
 #include <string>
+#include <vector>
 
 namespace simdb {
 
@@ -61,6 +62,14 @@ using ColumnDescriptor = std::pair<std::string, ColumnDataType>;
 struct Blob {
     const void * data_ptr = nullptr;
     size_t num_bytes = 0;
+
+    template <typename T>
+    Blob(const std::vector<T> & vals)
+        : data_ptr(vals.data())
+        , num_bytes(vals.size() * sizeof(T))
+    {}
+
+    Blob() = default;
 };
 
 }
