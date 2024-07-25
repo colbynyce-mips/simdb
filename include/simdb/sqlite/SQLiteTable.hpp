@@ -404,6 +404,6 @@ inline std::vector<T> SqlRecord::getPropertyBlob(const char * col_name) const
 
 } // namespace simdb
 
-#define SQL_TABLE   (name) simdb::SqlTable(name)
-#define SQL_COLUMNS (...)  simdb::SqlColumns(__VA_ARGS__)
-#define SQL_VALUES  (...)  simdb::SqlValues(__VA_ARGS__)
+#define SQL_TABLE(name)  simdb::SqlTable(name)
+#define SQL_COLUMNS(...) simdb::SqlColumns(__VA_ARGS__)
+#define SQL_VALUES(...)  simdb::SqlValues(__VA_ARGS__)
