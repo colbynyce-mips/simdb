@@ -275,16 +275,10 @@ public:
         return db_id_;
     }
 
-    int8_t      getPropertyInt8  (const char * col_name) const;
-    int16_t     getPropertyInt16 (const char * col_name) const;
     int32_t     getPropertyInt32 (const char * col_name) const;
     int64_t     getPropertyInt64 (const char * col_name) const;
-    uint8_t     getPropertyUInt8 (const char * col_name) const;
-    uint16_t    getPropertyUInt16(const char * col_name) const;
     uint32_t    getPropertyUInt32(const char * col_name) const;
     uint64_t    getPropertyUInt64(const char * col_name) const;
-    char        getPropertyChar  (const char * col_name) const;
-    float       getPropertyFloat (const char * col_name) const;
     double      getPropertyDouble(const char * col_name) const;
     std::string getPropertyString(const char * col_name) const;
 
@@ -327,18 +321,6 @@ private:
     sqlite3 *const db_conn_;
 };
 
-inline int8_t SqlRecord::getPropertyInt8(const char * col_name) const
-{
-    auto val = getPropertyInt32(col_name);
-    return static_cast<int8_t>(val);
-}
-
-inline int16_t SqlRecord::getPropertyInt16(const char * col_name) const
-{
-    auto val = getPropertyInt32(col_name);
-    return static_cast<int16_t>(val);
-}
-
 inline int32_t SqlRecord::getPropertyInt32(const char * col_name) const
 {
     sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
@@ -359,18 +341,6 @@ inline int64_t SqlRecord::getPropertyInt64(const char * col_name) const
     return val;
 }
 
-inline uint8_t SqlRecord::getPropertyUInt8(const char * col_name) const
-{
-    auto val = getPropertyInt32(col_name);
-    return static_cast<uint8_t>(val);
-}
-
-inline uint16_t SqlRecord::getPropertyUInt16(const char * col_name) const
-{
-    auto val = getPropertyInt32(col_name);
-    return static_cast<uint16_t>(val);
-}
-
 inline uint32_t SqlRecord::getPropertyUInt32(const char * col_name) const
 {
     auto val = getPropertyInt32(col_name);
@@ -381,18 +351,6 @@ inline uint64_t SqlRecord::getPropertyUInt64(const char * col_name) const
 {
     auto val = getPropertyInt64(col_name);
     return static_cast<uint64_t>(val);
-}
-
-inline char SqlRecord::getPropertyChar(const char * col_name) const
-{
-    auto val = getPropertyInt32(col_name);
-    return static_cast<char>(val);
-}
-
-inline float SqlRecord::getPropertyFloat(const char * col_name) const
-{
-    auto val = getPropertyDouble(col_name);
-    return static_cast<float>(val);
 }
 
 inline double SqlRecord::getPropertyDouble(const char * col_name) const

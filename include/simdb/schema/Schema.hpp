@@ -118,19 +118,14 @@ private:
         }
 
         switch (dt_) {
-            case ColumnDataType::int8_t:
-            case ColumnDataType::int16_t:
             case ColumnDataType::int32_t:
             case ColumnDataType::int64_t:
-            case ColumnDataType::uint8_t:
-            case ColumnDataType::uint16_t:
             case ColumnDataType::uint32_t:
             case ColumnDataType::uint64_t: {
                 verifyDefaultValueIsInt_<DefaultValueT>();
                 break;
             }
 
-            case ColumnDataType::float_t:
             case ColumnDataType::double_t: {
                 verifyDefaultValueIsFloat_<DefaultValueT>();
                 break;

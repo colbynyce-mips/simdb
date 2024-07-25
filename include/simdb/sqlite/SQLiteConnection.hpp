@@ -629,22 +629,6 @@ private:
 
         auto print_col_value_at_idx = [&](const size_t idx) {
             switch (col.getDataType()) {
-                case dt::int8_t: {
-                    os << utils::stringify(col.getAs<int8_t>(idx));
-                    break;
-                }
-                case dt::uint8_t: {
-                    os << utils::stringify(col.getAs<uint8_t>(idx));
-                    break;
-                }
-                case dt::int16_t: {
-                    os << utils::stringify(col.getAs<int16_t>(idx));
-                    break;
-                }
-                case dt::uint16_t: {
-                    os << utils::stringify(col.getAs<uint16_t>(idx));
-                    break;
-                }
                 case dt::int32_t: {
                     os << utils::stringify(col.getAs<int32_t>(idx));
                     break;
@@ -659,10 +643,6 @@ private:
                 }
                 case dt::uint64_t: {
                     os << utils::stringify(col.getAs<uint64_t>(idx));
-                    break;
-                }
-                case dt::float_t: {
-                    os << utils::stringify(col.getAs<float>(idx));
                     break;
                 }
                 case dt::double_t: {
@@ -744,10 +724,6 @@ private:
 
             switch (col.getDataType()) {
                 case dt::fkey_t:
-                case dt::int8_t:
-                case dt::uint8_t:
-                case dt::int16_t:
-                case dt::uint16_t:
                 case dt::int32_t:
                 case dt::uint32_t: {
                     const int val = getColumnValueAsInt32_(col);
@@ -762,7 +738,6 @@ private:
                     break;
                 }
 
-                case dt::float_t:
                 case dt::double_t: {
                     const double val = getColumnValueAsDouble_(col);
                     rc = sqlite3_bind_double(prepared_stmt, sql_col_idx, val);
@@ -841,22 +816,6 @@ private:
         using dt = ColumnDataType;
 
         switch (col.getDataType()) {
-            case dt::int8_t: {
-                const auto val = col.getAs<int8_t>();
-                return static_cast<int>(val);
-            }
-            case dt::uint8_t: {
-                const auto val = col.getAs<uint8_t>();
-                return static_cast<int>(val);
-            }
-            case dt::int16_t: {
-                const auto val = col.getAs<int16_t>();
-                return static_cast<int>(val);
-            }
-            case dt::uint16_t: {
-                const auto val = col.getAs<uint16_t>();
-                return static_cast<int>(val);
-            }
             case dt::int32_t: {
                 const auto val = col.getAs<int32_t>();
                 return static_cast<int>(val);
@@ -901,10 +860,6 @@ private:
         using dt = ColumnDataType;
 
         switch (col.getDataType()) {
-            case dt::float_t: {
-                const auto val = col.getAs<float>();
-                return static_cast<double>(val);
-            }
             case dt::double_t: {
                 const auto val = col.getAs<double>();
                 return static_cast<double>(val);

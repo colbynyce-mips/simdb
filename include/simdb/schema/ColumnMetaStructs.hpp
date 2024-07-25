@@ -24,46 +24,6 @@ namespace simdb {
 template <typename ColumnT, typename Enable = void>
 struct column_info;
 
-//! int8_t
-template <>
-struct column_info<int8_t> {
-    static ColumnDataType data_type() {
-        return ColumnDataType::int8_t;
-    }
-    using value_type = int8_t;
-    static constexpr bool is_fixed_size = utils::is_pod<int8_t>::value;
-};
-
-//! uint8_t
-template <>
-struct column_info<uint8_t> {
-    static ColumnDataType data_type() {
-        return ColumnDataType::uint8_t;
-    }
-    using value_type = uint8_t;
-    static constexpr bool is_fixed_size = utils::is_pod<uint8_t>::value;
-};
-
-//! int16_t
-template <>
-struct column_info<int16_t> {
-    static ColumnDataType data_type() {
-        return ColumnDataType::int16_t;
-    }
-    using value_type = int16_t;
-    static constexpr bool is_fixed_size = utils::is_pod<int16_t>::value;
-};
-
-//! uint16_t
-template <>
-struct column_info<uint16_t> {
-    static ColumnDataType data_type() {
-        return ColumnDataType::uint16_t;
-    }
-    using value_type = uint16_t;
-    static constexpr bool is_fixed_size = utils::is_pod<uint16_t>::value;
-};
-
 //! int32_t
 template <>
 struct column_info<int32_t> {
@@ -102,16 +62,6 @@ struct column_info<uint64_t> {
     }
     using value_type = uint64_t;
     static constexpr bool is_fixed_size = utils::is_pod<uint64_t>::value;
-};
-
-//! float
-template <>
-struct column_info<float> {
-    static ColumnDataType data_type() {
-        return ColumnDataType::float_t;
-    }
-    using value_type = float;
-    static constexpr bool is_fixed_size = utils::is_pod<float>::value;
 };
 
 //! double

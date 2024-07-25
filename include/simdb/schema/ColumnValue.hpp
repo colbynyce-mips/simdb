@@ -5,7 +5,7 @@
 //! SimDB column values can be numeric, strings, or
 //! blobs, and in all cases they can be represented
 //! with a data type enumeration, a void* that can
-//! be casted to the actual type (int16_t, double,
+//! be casted to the actual type (int32_t, double,
 //! etc.) and the name of the column.
 
 #include "simdb/schema/ColumnMetaStructs.hpp"
