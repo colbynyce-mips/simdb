@@ -8,6 +8,9 @@
 
 namespace simdb {
 
+//! Helper class that is used under the hood for:
+//!   db_mgr.INSERT(SQL_TABLE("MyTable"), SQL_COLUMNS("ColA", "ColB"), SQL_VALUES(3.14, "foo"));
+//!                 *********
 class SqlTable
 {
 public:
@@ -24,6 +27,9 @@ private:
     std::string table_name_;
 };
 
+//! Helper class that is used under the hood for:
+//!   db_mgr.INSERT(SQL_TABLE("MyTable"), SQL_COLUMNS("ColA", "ColB"), SQL_VALUES(3.14, "foo"));
+//!                                       ***********
 class SqlColumns
 {
 public:
@@ -59,6 +65,9 @@ private:
     std::list<std::string> col_names_;
 };
 
+//! Helper class that is used under the hood for:
+//!   db_mgr.INSERT(SQL_TABLE("MyTable"), SQL_COLUMNS("ColA", "ColB"), SQL_VALUES(3.14, "foo"));
+//!                                                                    **********
 class SqlValues
 {
 public:
@@ -261,6 +270,7 @@ private:
     std::list<std::unique_ptr<ValueContainerBase>> col_vals_;
 };
 
+//! Helper class that wraps one table record.
 class SqlRecord
 {
 public:
@@ -394,6 +404,6 @@ inline std::vector<T> SqlRecord::getPropertyBlob(const char * col_name) const
 
 } // namespace simdb
 
-#define SQL_TABLE(name)  simdb::SqlTable(name)
-#define SQL_COLUMNS(...) simdb::SqlColumns(__VA_ARGS__)
-#define SQL_VALUES(...)  simdb::SqlValues(__VA_ARGS__)
+#define SQL_TABLE   (name) simdb::SqlTable(name)
+#define SQL_COLUMNS (...)  simdb::SqlColumns(__VA_ARGS__)
+#define SQL_VALUES  (...)  simdb::SqlValues(__VA_ARGS__)
