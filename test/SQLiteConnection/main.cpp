@@ -77,4 +77,13 @@ int main()
                                  SQL_VALUES(TEST_VECTOR));
 
     EXPECT_EQUAL(record4->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR);
+
+    // Verify setDefaultValue()
+    auto record5 = db_mgr.INSERT(SQL_TABLE("DefaultValues"));
+    EXPECT_EQUAL(record5->getPropertyInt32("DefaultInt32"), TEST_INT32);
+    EXPECT_EQUAL(record5->getPropertyInt64("DefaultInt64"), TEST_INT64);
+    EXPECT_EQUAL(record5->getPropertyUInt32("DefaultUInt32"), TEST_UINT32);
+    EXPECT_EQUAL(record5->getPropertyUInt64("DefaultUInt64"), TEST_UINT64);
+    EXPECT_EQUAL(record5->getPropertyDouble("DefaultDouble"), TEST_DOUBLE);
+    EXPECT_EQUAL(record5->getPropertyString("DefaultString"), TEST_STRING);
 }
