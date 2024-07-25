@@ -136,12 +136,26 @@ private:
         }
 
         std::ostringstream ss;
-        ss << val;
+        writeDefaultValue_(ss, val);
         default_val_string_ = ss.str();
         if (default_val_string_.empty()) {
             throw DBException("Unable to convert default value ")
                 << val << " into a std::string";
         }
+    }
+
+    template <typename DefaultValueT>
+    typename std::enable_if<std::is_floating_point<DefaultValueT>::value, void>::type
+    writeDefaultValue_(std::ostringstream & oss, DefaultValueT val) const
+    {
+        oss << std::numeric_limits<long double>::digits10 + 1 << val;
+    }
+
+    template <typename DefaultValueT>
+    typename std::enable_if<!std::is_floating_point<DefaultValueT>::value, void>::type
+    writeDefaultValue_(std::ostringstream & oss, DefaultValueT val) const
+    {
+        oss << val;
     }
 
     void setDefaultValueString_(const std::string & val) {

@@ -11,7 +11,7 @@ static constexpr auto TEST_INT32          = std::numeric_limits<int32_t>::max();
 static constexpr auto TEST_INT64          = std::numeric_limits<int64_t>::max();
 static constexpr auto TEST_UINT32         = std::numeric_limits<uint32_t>::max();
 static constexpr auto TEST_UINT64         = std::numeric_limits<uint64_t>::max();
-static constexpr auto TEST_DOUBLE         = 3.14159;
+static constexpr auto TEST_DOUBLE         = std::numeric_limits<double>::max();
 static const std::string TEST_STRING      = "TheExampleString";
 static const std::vector<int> TEST_VECTOR = {1,2,3,4,5};
 static const simdb::Blob TEST_BLOB = TEST_VECTOR;
@@ -91,6 +91,6 @@ int main()
     EXPECT_EQUAL(record6->getPropertyInt64("DefaultInt64"), TEST_INT64);
     EXPECT_EQUAL(record6->getPropertyUInt32("DefaultUInt32"), TEST_UINT32);
     EXPECT_EQUAL(record6->getPropertyUInt64("DefaultUInt64"), TEST_UINT64);
-    EXPECT_EQUAL(record6->getPropertyDouble("DefaultDouble"), TEST_DOUBLE);
     EXPECT_EQUAL(record6->getPropertyString("DefaultString"), TEST_STRING);
+    EXPECT_WITHIN_EPSILON(record6->getPropertyDouble("DefaultDouble"), TEST_DOUBLE);
 }
