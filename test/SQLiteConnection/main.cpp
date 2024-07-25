@@ -194,33 +194,33 @@ int main()
     uint32_t u32;
     uint64_t u64;
 
-    auto query = db_mgr.createQuery("IntegerTypes");
+    auto query1 = db_mgr.createQuery("IntegerTypes");
 
-    query->select("SomeInt32", i32);
-    query->select("SomeInt64", i64);
-    query->select("SomeUInt32", u32);
-    query->select("SomeUInt64", u64);
+    query1->select("SomeInt32", i32);
+    query1->select("SomeInt64", i64);
+    query1->select("SomeUInt32", u32);
+    query1->select("SomeUInt64", u64);
 
-    EXPECT_EQUAL(query->count(), 3);
-    auto result_set = query->getResultSet();
+    EXPECT_EQUAL(query1->count(), 3);
+    auto result_set1 = query1->getResultSet();
 
-    EXPECT_TRUE(result_set.getNextRecord());
+    EXPECT_TRUE(result_set1.getNextRecord());
     EXPECT_EQUAL(i32, 111);
     EXPECT_EQUAL(i64, 555);
     EXPECT_EQUAL(u32, 789);
     EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_TRUE(result_set.getNextRecord());
+    EXPECT_TRUE(result_set1.getNextRecord());
     EXPECT_EQUAL(i32, 222);
     EXPECT_EQUAL(i64, 555);
     EXPECT_EQUAL(u32, 444);
     EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_TRUE(result_set.getNextRecord());
+    EXPECT_TRUE(result_set1.getNextRecord());
     EXPECT_EQUAL(i32, 333);
     EXPECT_EQUAL(i64, 555);
     EXPECT_EQUAL(u32, 789);
     EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_FALSE(result_set.getNextRecord());
+    EXPECT_FALSE(result_set1.getNextRecord());
 }
