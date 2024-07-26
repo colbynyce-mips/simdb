@@ -25,7 +25,6 @@ static const simdb::Blob TEST_BLOB         = TEST_VECTOR;
 static const simdb::Blob TEST_BLOB2        = TEST_VECTOR2;
 
 simdb::PerfTimer timer;
-simdb::Schema schema5;
 
 int main()
 {
