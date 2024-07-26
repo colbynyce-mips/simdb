@@ -95,7 +95,7 @@ public:
                                 const T target,
                                 const bool fuzzy = false)
     {
-        static_assert(std::is_floating_point<T>::value && std::is_scalar<T>::value,
+        static_assert((std::is_floating_point<T>::value || std::is_integral<T>::value) && std::is_scalar<T>::value,
                       "Wrong addConstraint*() API");
 
         std::ostringstream oss;
