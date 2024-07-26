@@ -63,6 +63,14 @@ int main()
         .addColumn("DefaultDouble", dt::double_t)->setDefaultValue(TEST_DOUBLE)
         .addColumn("DefaultString", dt::string_t)->setDefaultValue(TEST_STRING);
 
+    schema.addTable("DefaultDoubles")
+        .addColumn("DefaultEPS",  dt::double_t)->setDefaultValue(TEST_EPSILON)
+        .addColumn("DefaultMIN",  dt::double_t)->setDefaultValue(TEST_DOUBLE_MIN)
+        .addColumn("DefaultMAX",  dt::double_t)->setDefaultValue(TEST_DOUBLE_MAX)
+        .addColumn("DefaultPI",   dt::double_t)->setDefaultValue(TEST_DOUBLE_PI)
+        .addColumn("DefaultEASY", dt::double_t)->setDefaultValue(TEST_DOUBLE_EASY)
+        .addColumn("DefaultHARD", dt::double_t)->setDefaultValue(TEST_DOUBLE_HARD);
+
     simdb::DatabaseManager db_mgr;
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
@@ -234,6 +242,19 @@ int main()
                   SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
                   SQL_VALUES(20, "bar", TEST_VECTOR2));
 
+    // DefaultDoubles
+    // ------------------------------------------------------------------------------------------------------
+    // DefaultEPS       DefaultMIN       DefaultMAX       DefaultPI       DefaultEASY       DefaultHARD
+    // TEST_EPSILON     TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EASY  TEST_DOUBLE_HARD
+    // TEST_EPSILON     TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EASY  TEST_DOUBLE_HARD
+    db_mgr.INSERT(SQL_TABLE("DefaultDoubles"),
+                  SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEASY", "DefaultHARD"),
+                  SQL_VALUES(TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EASY, TEST_DOUBLE_HARD));
+
+    db_mgr.INSERT(SQL_TABLE("DefaultDoubles"),
+                  SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEASY", "DefaultHARD"),
+                  SQL_VALUES(TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EASY, TEST_DOUBLE_HARD));
+
     // Test SQL queries for integer types.
     int32_t i32;
     int64_t i64;
@@ -280,6 +301,8 @@ int main()
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_TRUE(result_set.getNextRecord());
+
+        // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
@@ -300,6 +323,7 @@ int main()
         EXPECT_EQUAL(u32, 789);
         EXPECT_EQUAL(u64, 50505050);
 
+        // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
@@ -313,6 +337,7 @@ int main()
         EXPECT_EQUAL(u32, 789);
         EXPECT_EQUAL(u64, 50505050);
 
+        // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
@@ -334,6 +359,7 @@ int main()
         EXPECT_EQUAL(u32, 444);
         EXPECT_EQUAL(u64, 50505050);
 
+        // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
@@ -362,6 +388,7 @@ int main()
         EXPECT_EQUAL(u32, 444);
         EXPECT_EQUAL(u64, 50505050);
 
+        // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
@@ -383,6 +410,7 @@ int main()
         EXPECT_EQUAL(u32, 789);
         EXPECT_EQUAL(u64, 50505050);
 
+        // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
@@ -403,6 +431,7 @@ int main()
         EXPECT_EQUAL(u32, 444);
         EXPECT_EQUAL(u64, 50505050);
 
+        // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
@@ -445,6 +474,8 @@ int main()
         EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_HARD);
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_HARD);
+
+        // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
@@ -510,20 +541,63 @@ int main()
         EXPECT_EQUAL(query2->count(), 4);
     }
 
-    // TODO test fuzzyMatch() against default values.
+    // Test queries against double targets, with and without fuzzyMatch().
+    auto query3 = db_mgr.createQuery("DefaultDoubles");
+
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultEPS", simdb::Constraints::EQUAL, TEST_EPSILON, false);
+    EXPECT_EQUAL(query3->count(true), 2);
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultEPS", simdb::Constraints::EQUAL, TEST_EPSILON, true);
+    EXPECT_EQUAL(query3->count(true), 2);
+
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultMIN", simdb::Constraints::EQUAL, TEST_DOUBLE_MIN, false);
+    EXPECT_EQUAL(query3->count(true), 2);
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultMIN", simdb::Constraints::EQUAL, TEST_DOUBLE_MIN, true);
+    EXPECT_EQUAL(query3->count(true), 2);
+
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultMAX", simdb::Constraints::EQUAL, TEST_DOUBLE_MAX, false);
+    EXPECT_EQUAL(query3->count(true), 2);
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultMAX", simdb::Constraints::EQUAL, TEST_DOUBLE_MAX, true);
+    EXPECT_EQUAL(query3->count(true), 2);
+
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultPI", simdb::Constraints::EQUAL, TEST_DOUBLE_PI, false);
+    EXPECT_EQUAL(query3->count(true), 2);
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultPI", simdb::Constraints::EQUAL, TEST_DOUBLE_PI, true);
+    EXPECT_EQUAL(query3->count(true), 2);
+
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultEASY", simdb::Constraints::EQUAL, TEST_DOUBLE_EASY, false);
+    EXPECT_EQUAL(query3->count(true), 2);
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultEASY", simdb::Constraints::EQUAL, TEST_DOUBLE_EASY, true);
+    EXPECT_EQUAL(query3->count(true), 2);
+
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultHARD", simdb::Constraints::EQUAL, TEST_DOUBLE_HARD, false);
+    EXPECT_EQUAL(query3->count(true), 2);
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultHARD", simdb::Constraints::EQUAL, TEST_DOUBLE_HARD, true);
+    EXPECT_EQUAL(query3->count(true), 2);
 
     // Test SQL queries for string types.
     std::string str;
 
-    auto query3 = db_mgr.createQuery("StringTypes");
+    auto query4 = db_mgr.createQuery("StringTypes");
 
     // Each successful call to result_set.getNextRecord() populates these variables.
-    query3->select("SomeString", str);
+    query4->select("SomeString", str);
 
     // SELECT COUNT(Id) should return 4 records.
-    EXPECT_EQUAL(query3->count(), 4);
+    EXPECT_EQUAL(query4->count(), 4);
     {
-        auto result_set = query3->getResultSet();
+        auto result_set = query4->getResultSet();
 
         // Iterate over the records one at a time and verify the data.
         EXPECT_TRUE(result_set.getNextRecord());
@@ -540,27 +614,31 @@ int main()
     }
 
     // Add WHERE constraints, rerun the query, and check the results.
-    query3->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    query4->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
     {
-        auto result_set = query3->getResultSet();
+        auto result_set = query4->getResultSet();
 
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_EQUAL(str, "foo");
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_EQUAL(str, "foo");
+
+        // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
-    query3->resetConstraints();
-    query3->addConstraintForString("SomeString", simdb::SetConstraints::IN_SET, {"bar", "baz"});
-    query3->orderBy("SomeString", simdb::QueryOrder::DESC);
+    query4->resetConstraints();
+    query4->addConstraintForString("SomeString", simdb::SetConstraints::IN_SET, {"bar", "baz"});
+    query4->orderBy("SomeString", simdb::QueryOrder::DESC);
     {
-        auto result_set = query3->getResultSet();
+        auto result_set = query4->getResultSet();
 
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_EQUAL(str, "baz");
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_EQUAL(str, "bar");
+
+        // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
@@ -575,26 +653,27 @@ int main()
     // Test queries that include multiple kinds of data type constraints,
     // and which includes a blob column.
     std::vector<int> ivec;
-    auto query4 = db_mgr.createQuery("MixAndMatch");
+    auto query5 = db_mgr.createQuery("MixAndMatch");
 
     // Each successful call to result_set.getNextRecord() populates these variables.
-    query4->select("SomeInt32", i32);
-    query4->select("SomeString", str);
-    query4->select("SomeBlob", ivec);
+    query5->select("SomeInt32", i32);
+    query5->select("SomeString", str);
+    query5->select("SomeBlob", ivec);
 
     // SELECT COUNT(Id) should return 4 records.
-    EXPECT_EQUAL(query4->count(), 4);
+    EXPECT_EQUAL(query5->count(), 4);
 
-    query4->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 20);
-    query4->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    query5->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 20);
+    query5->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
     {
-        auto result_set = query4->getResultSet();
+        auto result_set = query5->getResultSet();
 
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_EQUAL(i32, 20);
         EXPECT_EQUAL(str, "foo");
         EXPECT_EQUAL(ivec, TEST_VECTOR2);
 
+        // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
 }
