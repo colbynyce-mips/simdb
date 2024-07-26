@@ -12,13 +12,8 @@ enum class QueryOrder
     DESC
 };
 
-inline std::ostream & operator<<(std::ostream & os, QueryOrder order)
+enum class Constraints
 {
-    os << (order == QueryOrder::ASC) ? "ASC" : "DESC";
-    return os;
-}
-
-enum class Constraints {
     EQUAL,
     NOT_EQUAL,
     LESS,
@@ -27,10 +22,21 @@ enum class Constraints {
     GREATER_EQUAL
 };
 
-enum class SetConstraints {
+enum class SetConstraints
+{
     IN_SET,
     NOT_IN_SET
 };
+
+inline std::ostream & operator<<(std::ostream & os, const QueryOrder order)
+{
+    switch (order) {
+        case QueryOrder::ASC:  os << "ASC";  break;
+        case QueryOrder::DESC: os << "DESC"; break;
+    }
+
+    return os;
+}
 
 inline std::ostream & operator<<(std::ostream & os, const Constraints constraint)
 {

@@ -151,17 +151,17 @@ int main()
     // 111          555          789           50505050
     // 222          555          444           50505050
     // 333          555          789           50505050
-    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                  SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
-                  SQL_VALUES(111, 555, 789, 50505050));
+    auto int_id1 = db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
+                                 SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
+                                 SQL_VALUES(111, 555, 789, 50505050));
 
-    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                  SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
-                  SQL_VALUES(222, 555, 444, 50505050));
+    auto int_id2 = db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
+                                 SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
+                                 SQL_VALUES(222, 555, 444, 50505050));
 
-    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                  SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
-                  SQL_VALUES(333, 555, 789, 50505050));
+    auto int_id3 = db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
+                                 SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
+                                 SQL_VALUES(333, 555, 789, 50505050));
 
     // FloatingPointTypes
     // ---------------------------------------------------------------------------------
@@ -189,21 +189,25 @@ int main()
     db_mgr.INSERT(SQL_TABLE("StringTypes"), SQL_COLUMNS("SomeString"), SQL_VALUES("bar"));
     db_mgr.INSERT(SQL_TABLE("StringTypes"), SQL_COLUMNS("SomeString"), SQL_VALUES("baz"));
 
+    // Test SQL queries for integer types.
     int32_t i32;
     int64_t i64;
     uint32_t u32;
     uint64_t u64;
 
-    auto query1 = db_mgr.createQuery("IntegerTypes");
+    auto query = db_mgr.createQuery("IntegerTypes");
 
-    query1->select("SomeInt32", i32);
-    query1->select("SomeInt64", i64);
-    query1->select("SomeUInt32", u32);
-    query1->select("SomeUInt64", u64);
+    // Each successful call to result_set.getNextRecord() populates these variables.
+    query->select("SomeInt32", i32);
+    query->select("SomeInt64", i64);
+    query->select("SomeUInt32", u32);
+    query->select("SomeUInt64", u64);
 
-    EXPECT_EQUAL(query1->count(), 3);
-    auto result_set1 = query1->getResultSet();
+    // SELECT COUNT(Id) should return 3 records.
+    EXPECT_EQUAL(query->count(), 3);
+    auto result_set1 = query->getResultSet();
 
+    // Iterate over the records one at a time and verify the data.
     EXPECT_TRUE(result_set1.getNextRecord());
     EXPECT_EQUAL(i32, 111);
     EXPECT_EQUAL(i64, 555);
@@ -222,5 +226,87 @@ int main()
     EXPECT_EQUAL(u32, 789);
     EXPECT_EQUAL(u64, 50505050);
 
+    // We should have read all the records.
     EXPECT_FALSE(result_set1.getNextRecord());
+
+    // Reset the iterator and make sure it can iterate again from the start.
+    result_set1.reset();
+    EXPECT_TRUE(result_set1.getNextRecord());
+    EXPECT_TRUE(result_set1.getNextRecord());
+    EXPECT_TRUE(result_set1.getNextRecord());
+    EXPECT_FALSE(result_set1.getNextRecord());
+
+    // Add WHERE constraints, rerun the query, and check the results.
+    query->addConstraintForInt("SomeInt32", simdb::Constraints::NOT_EQUAL, 111);
+    auto result_set2 = query->getResultSet();
+
+    EXPECT_TRUE(result_set2.getNextRecord());
+    EXPECT_EQUAL(i32, 222);
+    EXPECT_EQUAL(i64, 555);
+    EXPECT_EQUAL(u32, 444);
+    EXPECT_EQUAL(u64, 50505050);
+
+    EXPECT_TRUE(result_set2.getNextRecord());
+    EXPECT_EQUAL(i32, 333);
+    EXPECT_EQUAL(i64, 555);
+    EXPECT_EQUAL(u32, 789);
+    EXPECT_EQUAL(u64, 50505050);
+
+    EXPECT_FALSE(result_set2.getNextRecord());
+
+    query->addConstraintForInt("SomeUInt32", simdb::Constraints::EQUAL, 789);
+    auto result_set3 = query->getResultSet();
+
+    EXPECT_TRUE(result_set3.getNextRecord());
+    EXPECT_EQUAL(i32, 333);
+    EXPECT_EQUAL(i64, 555);
+    EXPECT_EQUAL(u32, 789);
+    EXPECT_EQUAL(u64, 50505050);
+
+    EXPECT_FALSE(result_set3.getNextRecord());
+
+    // Remove WHERE constraints, add limit, rerun query.
+    query->resetConstraints();
+    query->setLimit(2);
+    auto result_set4 = query->getResultSet();
+
+    EXPECT_TRUE(result_set4.getNextRecord());
+    EXPECT_EQUAL(i32, 111);
+    EXPECT_EQUAL(i64, 555);
+    EXPECT_EQUAL(u32, 789);
+    EXPECT_EQUAL(u64, 50505050);
+
+    EXPECT_TRUE(result_set4.getNextRecord());
+    EXPECT_EQUAL(i32, 222);
+    EXPECT_EQUAL(i64, 555);
+    EXPECT_EQUAL(u32, 444);
+    EXPECT_EQUAL(u64, 50505050);
+
+    EXPECT_FALSE(result_set4.getNextRecord());
+
+    // Add ORDER BY clauses, rerun query.
+    query->resetLimit();
+    query->orderBy("SomeUInt32", simdb::QueryOrder::DESC);
+    query->orderBy("SomeInt32", simdb::QueryOrder::ASC);
+    auto result_set5 = query->getResultSet();
+
+    EXPECT_TRUE(result_set5.getNextRecord());
+    EXPECT_EQUAL(i32, 111);
+    EXPECT_EQUAL(i64, 555);
+    EXPECT_EQUAL(u32, 789);
+    EXPECT_EQUAL(u64, 50505050);
+
+    EXPECT_TRUE(result_set5.getNextRecord());
+    EXPECT_EQUAL(i32, 333);
+    EXPECT_EQUAL(i64, 555);
+    EXPECT_EQUAL(u32, 789);
+    EXPECT_EQUAL(u64, 50505050);
+
+    EXPECT_TRUE(result_set5.getNextRecord());
+    EXPECT_EQUAL(i32, 222);
+    EXPECT_EQUAL(i64, 555);
+    EXPECT_EQUAL(u32, 444);
+    EXPECT_EQUAL(u64, 50505050);
+
+    EXPECT_FALSE(result_set5.getNextRecord());
 }

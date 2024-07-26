@@ -234,7 +234,7 @@ public:
 
     //! Go back to the beginning of the result set if you need
     //! to iterate over it again.
-    void restart()
+    void reset()
     {
         if (sqlite3_reset(stmt_)) {
             throw DBException(sqlite3_errmsg(sqlite3_db_handle(stmt_)));
