@@ -151,17 +151,17 @@ int main()
     // 111          555          789           50505050
     // 222          555          444           50505050
     // 333          555          789           50505050
-    auto int_id1 = db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                                 SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
-                                 SQL_VALUES(111, 555, 789, 50505050));
+    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
+                  SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
+                  SQL_VALUES(111, 555, 789, 50505050));
 
-    auto int_id2 = db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                                 SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
-                                 SQL_VALUES(222, 555, 444, 50505050));
+    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
+                  SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
+                  SQL_VALUES(222, 555, 444, 50505050));
 
-    auto int_id3 = db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                                 SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
-                                 SQL_VALUES(333, 555, 789, 50505050));
+    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
+                  SQL_COLUMNS("SomeInt32", "SomeInt64", "SomeUInt32", "SomeUInt64"),
+                  SQL_VALUES(333, 555, 789, 50505050));
 
     // FloatingPointTypes
     // ---------------------------------------------------------------------------------
