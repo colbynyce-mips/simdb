@@ -12,11 +12,22 @@ static constexpr auto TEST_INT64           = std::numeric_limits<int64_t>::max()
 static constexpr auto TEST_UINT32          = std::numeric_limits<uint32_t>::max();
 static constexpr auto TEST_UINT64          = std::numeric_limits<uint64_t>::max();
 static constexpr auto TEST_DOUBLE          = std::numeric_limits<double>::max();
+static constexpr auto TEST_EPSILON         = std::numeric_limits<double>::epsilon();
+static constexpr auto TEST_DOUBLE_MIN      = std::numeric_limits<double>::min();
+static constexpr auto TEST_DOUBLE_MAX      = std::numeric_limits<double>::max();
+static constexpr auto TEST_DOUBLE_PI       = M_PI;
+static constexpr auto TEST_DOUBLE_EASY     = 1.0;
+static constexpr auto TEST_DOUBLE_HARD     = (0.1 + 0.1 + 0.1);
 static const std::string TEST_STRING       = "TheExampleString";
 static const std::vector<int> TEST_VECTOR  = {1,2,3,4,5};
 static const std::vector<int> TEST_VECTOR2 = {6,7,8,9,10};
 static const simdb::Blob TEST_BLOB         = TEST_VECTOR;
 static const simdb::Blob TEST_BLOB2        = TEST_VECTOR2;
+
+    const double foo1 = 3.0;
+    const double foo2 = 7.8899239572345;
+    const double foo3 = (0.1 + 0.1 + 0.1);
+
 
 int main()
 {
@@ -171,16 +182,22 @@ int main()
     // FloatingPointTypes
     // ---------------------------------------------------------------------------------
     // SomeDouble
-    // 1.1
-    // 2.2
-    // 3.3
-    // 4.4
-    // 5.5
-    db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(1.1));
-    db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(2.2));
-    db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(3.3));
-    db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(4.4));
-    db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(5.5));
+    // EPS
+    // EPS
+    // MIN
+    // MIN
+    // MAX
+    // MAX
+    // PI
+    // PI
+    // 1.0
+    // 1.0
+    // 0.3
+    // 0.3
+    for (auto val : {TEST_EPSILON,TEST_DOUBLE_MIN,TEST_DOUBLE_MAX,TEST_DOUBLE_PI,TEST_DOUBLE_EASY,TEST_DOUBLE_HARD}) {
+        db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(val));
+        db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(val));
+    }
 
     // StringTypes
     // ---------------------------------------------------------------------------------
@@ -389,15 +406,6 @@ int main()
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
-    // FloatingPointTypes
-    // ---------------------------------------------------------------------------------
-    // SomeDouble
-    // 1.1
-    // 2.2
-    // 3.3
-    // 4.4
-    // 5.5
-
     // Test SQL queries for floating-point types. This use case is special since it requires
     // a custom comparator to deal with machine precision issues.
     double dbl;
@@ -407,26 +415,84 @@ int main()
     // Each successful call to result_set.getNextRecord() populates these variables.
     query2->select("SomeDouble", dbl);
 
-    // SELECT COUNT(Id) should return 5 records.
-    EXPECT_EQUAL(query2->count(), 5);
+    // SELECT COUNT(Id) should return 12 records.
+    EXPECT_EQUAL(query2->count(), 12);
     {
         auto result_set = query2->getResultSet();
 
         // Iterate over the records one at a time and verify the data.
         EXPECT_TRUE(result_set.getNextRecord());
-        EXPECT_WITHIN_EPSILON(dbl, 1.1);
+        EXPECT_WITHIN_EPSILON(dbl, TEST_EPSILON);
         EXPECT_TRUE(result_set.getNextRecord());
-        EXPECT_WITHIN_EPSILON(dbl, 2.2);
+        EXPECT_WITHIN_EPSILON(dbl, TEST_EPSILON);
         EXPECT_TRUE(result_set.getNextRecord());
-        EXPECT_WITHIN_EPSILON(dbl, 3.3);
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_MIN);
         EXPECT_TRUE(result_set.getNextRecord());
-        EXPECT_WITHIN_EPSILON(dbl, 4.4);
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_MIN);
         EXPECT_TRUE(result_set.getNextRecord());
-        EXPECT_WITHIN_EPSILON(dbl, 5.5);
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_MAX);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_MAX);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_PI);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_PI);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_EASY);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_EASY);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_HARD);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_HARD);
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
-    // TODO double precision / eps tests with constraints.
+    // Check WHERE clauses for doubles.
+    for (auto target : {TEST_EPSILON,TEST_DOUBLE_MIN,TEST_DOUBLE_MAX,TEST_DOUBLE_PI,TEST_DOUBLE_EASY,TEST_DOUBLE_HARD}) {
+        // Not using fuzzyMatch() - test for equality.
+        query2->resetConstraints();
+        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, target, false);
+        EXPECT_EQUAL(query2->count(), 2);
+
+        // Using fuzzyMatch() - test for equality.
+        query2->resetConstraints();
+        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, target, true);
+        EXPECT_EQUAL(query2->count(), 2);
+
+        // Not using fuzzyMatch() - test the IN clause, test for equality.
+        query2->resetConstraints();
+        query2->addConstraintForDouble("SomeDouble", simdb::SetConstraints::IN_SET, {target}, false);
+        EXPECT_EQUAL(query2->count(), 2);
+
+        // Using fuzzyMatch() - test the IN clause, test for equality.
+        query2->resetConstraints();
+        query2->addConstraintForDouble("SomeDouble", simdb::SetConstraints::IN_SET, {target}, true);
+        EXPECT_EQUAL(query2->count(), 2);
+
+        // Not using fuzzyMatch() - test for inequality.
+        query2->resetConstraints();
+        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::NOT_EQUAL, target, false);
+        EXPECT_EQUAL(query2->count(), 10);
+
+        // Using fuzzyMatch() - test for inequality.
+        query2->resetConstraints();
+        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::NOT_EQUAL, target, true);
+        EXPECT_EQUAL(query2->count(), 10);
+
+        // Not using fuzzyMatch() - test the IN clause, test for inequality.
+        query2->resetConstraints();
+        query2->addConstraintForDouble("SomeDouble", simdb::SetConstraints::NOT_IN_SET, {target}, false);
+        EXPECT_EQUAL(query2->count(), 10);
+
+        // Using fuzzyMatch() - test the IN clause, test for inequality.
+        query2->resetConstraints();
+        query2->addConstraintForDouble("SomeDouble", simdb::SetConstraints::NOT_IN_SET, {target}, true);
+        EXPECT_EQUAL(query2->count(), 10);
+    }
+
+    // TODO test fuzzyMatch() and without for less/greater/etc.
+    // TODO test fuzzyMatch() against default values.
 
     // Test SQL queries for string types.
     std::string str;

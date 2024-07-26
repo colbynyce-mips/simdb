@@ -105,7 +105,8 @@ public:
             oss << target << ",";
             oss << static_cast<int>(constraint) << ")";
         } else {
-            oss << col_name << constraint << target; 
+            oss << col_name << constraint;
+            oss << std::setprecision(std::numeric_limits<T>::max_digits10) << target;
         }
 
         constraint_clauses_.emplace_back(oss.str());
@@ -224,9 +225,8 @@ public:
             oss << ")";
         } else {
             oss << col_name << constraint << " (";
-            oss << std::setprecision(std::numeric_limits<T>::max_digits10);
             for (size_t idx = 0; idx < targets.size(); ++idx) {
-                oss << targets[idx];
+                oss << std::setprecision(std::numeric_limits<T>::max_digits10) << targets[idx];
                 if (idx != targets.size() - 1) {
                     oss << ",";
                 }
@@ -344,7 +344,7 @@ public:
 
     //! Count the number of records matching this query's constraints (WHERE)
     //! and limit (LIMIT).
-    uint64_t count()
+    uint64_t count(bool verbose = false)
     {
         std::ostringstream oss;
         oss << "SELECT COUNT(Id) FROM " << table_name_ << " ";
@@ -352,6 +352,10 @@ public:
         appendLimitClause_(oss);
 
         const auto cmd = oss.str();
+        if (verbose) {
+            std::cout << "Query cmd: " << cmd << std::endl;
+        }
+
         sqlite3_stmt * stmt = nullptr;
         if (sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0)) {
             throw DBException(sqlite3_errmsg(db_conn_));
