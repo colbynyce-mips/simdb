@@ -39,6 +39,11 @@ int main()
     schema.addTable("BlobTypes")
         .addColumn("SomeBlob", dt::blob_t);
 
+    schema.addTable("MixAndMatch")
+        .addColumn("SomeInt32", dt::int32_t)
+        .addColumn("SomeString", dt::string_t)
+        .addColumn("SomeBlob", dt::blob_t);
+
     schema.addTable("DefaultValues")
         .addColumn("DefaultInt32" , dt::int32_t )->setDefaultValue(TEST_INT32)
         .addColumn("DefaultInt64" , dt::int64_t )->setDefaultValue(TEST_INT64)
@@ -188,6 +193,29 @@ int main()
     db_mgr.INSERT(SQL_TABLE("StringTypes"), SQL_COLUMNS("SomeString"), SQL_VALUES("foo"));
     db_mgr.INSERT(SQL_TABLE("StringTypes"), SQL_COLUMNS("SomeString"), SQL_VALUES("bar"));
     db_mgr.INSERT(SQL_TABLE("StringTypes"), SQL_COLUMNS("SomeString"), SQL_VALUES("baz"));
+
+    // MixAndMatch
+    // ---------------------------------------------------------------------------------
+    // SomeInt32    SomeString    SomeBlob
+    // 10           foo           TEST_VECTOR
+    // 10           bar           TEST_VECTOR
+    // 20           foo           TEST_VECTOR2
+    // 20           bar           TEST_VECTOR2
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
+                  SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
+                  SQL_VALUES(10, "foo", TEST_VECTOR));
+
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
+                  SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
+                  SQL_VALUES(10, "bar", TEST_VECTOR));
+
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
+                  SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
+                  SQL_VALUES(20, "foo", TEST_VECTOR2));
+
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
+                  SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
+                  SQL_VALUES(20, "bar", TEST_VECTOR2));
 
     // Test SQL queries for integer types.
     int32_t i32;
@@ -415,5 +443,37 @@ int main()
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
-    // TODO test queries that include blob columns.
+    // MixAndMatch
+    // ---------------------------------------------------------------------------------
+    // SomeInt32    SomeString    SomeBlob
+    // 10           foo           TEST_VECTOR
+    // 10           bar           TEST_VECTOR
+    // 20           foo           TEST_VECTOR2
+    // 20           bar           TEST_VECTOR2
+
+    // Test queries that include multiple kinds of data type constraints,
+    // and which includes a blob column.
+    std::vector<int> ivec;
+    auto query3 = db_mgr.createQuery("MixAndMatch");
+
+    // Each successful call to result_set.getNextRecord() populates these variables.
+    query3->select("SomeInt32", i32);
+    query3->select("SomeString", str);
+    query3->select("SomeBlob", ivec);
+
+    // SELECT COUNT(Id) should return 4 records.
+    EXPECT_EQUAL(query3->count(), 4);
+
+    query3->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 20);
+    query3->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    {
+        auto result_set = query3->getResultSet();
+
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 20);
+        EXPECT_EQUAL(str, "foo");
+        EXPECT_EQUAL(ivec, TEST_VECTOR2);
+
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
 }
