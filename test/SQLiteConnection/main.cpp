@@ -16,8 +16,8 @@ static constexpr auto TEST_EPSILON         = std::numeric_limits<double>::epsilo
 static constexpr auto TEST_DOUBLE_MIN      = std::numeric_limits<double>::min();
 static constexpr auto TEST_DOUBLE_MAX      = std::numeric_limits<double>::max();
 static constexpr auto TEST_DOUBLE_PI       = M_PI;
-static constexpr auto TEST_DOUBLE_EASY     = 1.0;
-static constexpr auto TEST_DOUBLE_HARD     = (0.1 + 0.1 + 0.1);
+static constexpr auto TEST_DOUBLE_EXACT    = 1.0;
+static constexpr auto TEST_DOUBLE_INEXACT  = (0.1 + 0.1 + 0.1);
 static const std::string TEST_STRING       = "TheExampleString";
 static const std::vector<int> TEST_VECTOR  = {1,2,3,4,5};
 static const std::vector<int> TEST_VECTOR2 = {6,7,8,9,10};
@@ -68,18 +68,18 @@ int main()
         .setColumnDefaultValue("DefaultString", TEST_STRING);
 
     schema.addTable("DefaultDoubles")
-        .addColumn("DefaultEPS" , dt::double_t)
-        .addColumn("DefaultMIN" , dt::double_t)
-        .addColumn("DefaultMAX" , dt::double_t)
-        .addColumn("DefaultPI"  , dt::double_t)
-        .addColumn("DefaultEASY", dt::double_t)
-        .addColumn("DefaultHARD", dt::double_t)
-        .setColumnDefaultValue("DefaultEPS" , TEST_EPSILON)
-        .setColumnDefaultValue("DefaultMIN" , TEST_DOUBLE_MIN)
-        .setColumnDefaultValue("DefaultMAX" , TEST_DOUBLE_MAX)
-        .setColumnDefaultValue("DefaultPI"  , TEST_DOUBLE_PI)
-        .setColumnDefaultValue("DefaultEASY", TEST_DOUBLE_EASY)
-        .setColumnDefaultValue("DefaultHARD", TEST_DOUBLE_HARD);
+        .addColumn("DefaultEPS"     , dt::double_t)
+        .addColumn("DefaultMIN"     , dt::double_t)
+        .addColumn("DefaultMAX"     , dt::double_t)
+        .addColumn("DefaultPI"      , dt::double_t)
+        .addColumn("DefaultEXACT"   , dt::double_t)
+        .addColumn("DefaultINEXACT" , dt::double_t)
+        .setColumnDefaultValue("DefaultEPS"     , TEST_EPSILON)
+        .setColumnDefaultValue("DefaultMIN"     , TEST_DOUBLE_MIN)
+        .setColumnDefaultValue("DefaultMAX"     , TEST_DOUBLE_MAX)
+        .setColumnDefaultValue("DefaultPI"      , TEST_DOUBLE_PI)
+        .setColumnDefaultValue("DefaultEXACT"   , TEST_DOUBLE_EXACT)
+        .setColumnDefaultValue("DefaultINEXACT" , TEST_DOUBLE_INEXACT);
 
     schema.addTable("IndexedColumns")
         .addColumn("SomeInt32", dt::int32_t)
@@ -223,7 +223,7 @@ int main()
     // 1.0
     // 0.3
     // 0.3
-    for (auto val : {TEST_EPSILON,TEST_DOUBLE_MIN,TEST_DOUBLE_MAX,TEST_DOUBLE_PI,TEST_DOUBLE_EASY,TEST_DOUBLE_HARD}) {
+    for (auto val : {TEST_EPSILON,TEST_DOUBLE_MIN,TEST_DOUBLE_MAX,TEST_DOUBLE_PI,TEST_DOUBLE_EXACT,TEST_DOUBLE_INEXACT}) {
         db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(val));
         db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(val));
     }
@@ -265,16 +265,16 @@ int main()
 
     // DefaultDoubles
     // ------------------------------------------------------------------------------------------------------
-    // DefaultEPS       DefaultMIN       DefaultMAX       DefaultPI       DefaultEASY       DefaultHARD
-    // TEST_EPSILON     TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EASY  TEST_DOUBLE_HARD
-    // TEST_EPSILON     TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EASY  TEST_DOUBLE_HARD
+    // DefaultEPS       DefaultMIN       DefaultMAX       DefaultPI       DefaultEXACT       DefaultINEXACT
+    // TEST_EPSILON     TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EXACT  TEST_DOUBLE_INEXACT
+    // TEST_EPSILON     TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EXACT  TEST_DOUBLE_INEXACT
     db_mgr.INSERT(SQL_TABLE("DefaultDoubles"),
-                  SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEASY", "DefaultHARD"),
-                  SQL_VALUES(TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EASY, TEST_DOUBLE_HARD));
+                  SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEXACT", "DefaultINEXACT"),
+                  SQL_VALUES(TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT));
 
     db_mgr.INSERT(SQL_TABLE("DefaultDoubles"),
-                  SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEASY", "DefaultHARD"),
-                  SQL_VALUES(TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EASY, TEST_DOUBLE_HARD));
+                  SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEXACT", "DefaultINEXACT"),
+                  SQL_VALUES(TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT));
 
     db_mgr.safeTransaction([&]() {
         // IndexedColumns
@@ -524,20 +524,20 @@ int main()
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_PI);
         EXPECT_TRUE(result_set.getNextRecord());
-        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_EASY);
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_EXACT);
         EXPECT_TRUE(result_set.getNextRecord());
-        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_EASY);
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_EXACT);
         EXPECT_TRUE(result_set.getNextRecord());
-        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_HARD);
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_INEXACT);
         EXPECT_TRUE(result_set.getNextRecord());
-        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_HARD);
+        EXPECT_WITHIN_EPSILON(dbl, TEST_DOUBLE_INEXACT);
 
         // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
     // Check WHERE clauses for doubles.
-    for (auto target : {TEST_EPSILON,TEST_DOUBLE_MIN,TEST_DOUBLE_MAX,TEST_DOUBLE_PI,TEST_DOUBLE_EASY,TEST_DOUBLE_HARD}) {
+    for (auto target : {TEST_EPSILON,TEST_DOUBLE_MIN,TEST_DOUBLE_MAX,TEST_DOUBLE_PI,TEST_DOUBLE_EXACT,TEST_DOUBLE_INEXACT}) {
         // Not using fuzzyMatch() - test for equality.
         query2->resetConstraints();
         query2->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, target, false);
@@ -630,17 +630,17 @@ int main()
     EXPECT_EQUAL(query3->count(), 2);
 
     query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultEASY", simdb::Constraints::EQUAL, TEST_DOUBLE_EASY, false);
+    query3->addConstraintForDouble("DefaultEXACT", simdb::Constraints::EQUAL, TEST_DOUBLE_EXACT, false);
     EXPECT_EQUAL(query3->count(), 2);
     query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultEASY", simdb::Constraints::EQUAL, TEST_DOUBLE_EASY, true);
+    query3->addConstraintForDouble("DefaultEXACT", simdb::Constraints::EQUAL, TEST_DOUBLE_EXACT, true);
     EXPECT_EQUAL(query3->count(), 2);
 
     query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultHARD", simdb::Constraints::EQUAL, TEST_DOUBLE_HARD, false);
+    query3->addConstraintForDouble("DefaultINEXACT", simdb::Constraints::EQUAL, TEST_DOUBLE_INEXACT, false);
     EXPECT_EQUAL(query3->count(), 2);
     query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultHARD", simdb::Constraints::EQUAL, TEST_DOUBLE_HARD, true);
+    query3->addConstraintForDouble("DefaultINEXACT", simdb::Constraints::EQUAL, TEST_DOUBLE_INEXACT, true);
     EXPECT_EQUAL(query3->count(), 2);
 
     // Test SQL queries for string types.
