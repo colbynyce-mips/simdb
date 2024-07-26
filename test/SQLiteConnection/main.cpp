@@ -491,7 +491,25 @@ int main()
         EXPECT_EQUAL(query2->count(), 10);
     }
 
-    // TODO test fuzzyMatch() and without for less/greater/etc.
+    // Check WHERE clause for comparisons using <, <=, >, >=
+    for (auto fuzzy : {false,true}) {
+        query2->resetConstraints();
+        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::LESS, TEST_DOUBLE_PI, fuzzy);
+        EXPECT_EQUAL(query2->count(), 8);
+
+        query2->resetConstraints();
+        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::LESS_EQUAL, TEST_DOUBLE_PI, fuzzy);
+        EXPECT_EQUAL(query2->count(), 10);
+
+        query2->resetConstraints();
+        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::GREATER, TEST_DOUBLE_PI, fuzzy);
+        EXPECT_EQUAL(query2->count(), 2);
+
+        query2->resetConstraints();
+        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::GREATER_EQUAL, TEST_DOUBLE_PI, fuzzy);
+        EXPECT_EQUAL(query2->count(), 4);
+    }
+
     // TODO test fuzzyMatch() against default values.
 
     // Test SQL queries for string types.
