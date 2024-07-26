@@ -752,4 +752,25 @@ int main()
     const double non_indexed_query_time = timer.elapsedTime();
 
     EXPECT_TRUE(non_indexed_query_time > 10 * indexed_query_time);
+
+    // Ensure that we can connect a new DatabaseManager to a .db that was
+    // created by another DatabaseManager.
+    simdb::DatabaseManager db_mgr2;
+    EXPECT_TRUE(db_mgr2.connectToExistingDatabase(db_mgr.getDatabaseFullFilename()));
+
+    int id;
+    query7->select("Id", id);
+    query7->select("SomeInt32", i32);
+    query7->select("SomeDouble", dbl);
+    query7->select("SomeString", str);
+
+    {
+        auto result_set = query7->getResultSet();
+        EXPECT_TRUE(result_set.getNextRecord());
+    }
+
+    auto record12 = db_mgr2.findRecord("NonIndexedColumns", id);
+    EXPECT_EQUAL(record12->getPropertyInt32("SomeInt32"), i32);
+    EXPECT_EQUAL(record12->getPropertyDouble("SomeDouble"), dbl);
+    EXPECT_EQUAL(record12->getPropertyString("SomeString"), str);
 }
