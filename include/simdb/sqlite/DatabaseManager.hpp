@@ -120,18 +120,6 @@ public:
     //! destructor is called.
     ~DatabaseManager() = default;
 
-    //! Get the schema this DatabaseManager is using.
-    Schema & getSchema()
-    {
-        return schema_;
-    }
-
-    //! Get the schema this DatabaseManager is using.
-    const Schema & getSchema() const
-    {
-        return schema_;
-    }
-
     //! Execute the functor inside BEGIN/COMMIT TRANSACTION.
     void safeTransaction(const TransactionFunc & func) const
     {
