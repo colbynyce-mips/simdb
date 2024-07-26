@@ -24,11 +24,6 @@ static const std::vector<int> TEST_VECTOR2 = {6,7,8,9,10};
 static const simdb::Blob TEST_BLOB         = TEST_VECTOR;
 static const simdb::Blob TEST_BLOB2        = TEST_VECTOR2;
 
-    const double foo1 = 3.0;
-    const double foo2 = 7.8899239572345;
-    const double foo3 = (0.1 + 0.1 + 0.1);
-
-
 int main()
 {
     using dt = simdb::ColumnDataType;
