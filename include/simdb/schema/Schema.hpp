@@ -1,5 +1,6 @@
 #pragma once
 
+#include "simdb/sqlite/SQLiteTable.hpp"
 #include "simdb/schema/ColumnTypedefs.hpp"
 #include "simdb/Errors.hpp"
 
@@ -313,7 +314,66 @@ public:
     {
         columns_.emplace_back(new Column(name, dt));
         columns_by_name_[name] = columns_.back();
-        column_modifier_.reset();
+        return *this;
+    }
+
+    //! Assign a default value for the given column.
+    template <typename T>
+    Table & setColumnDefaultValue(const std::string & col_name, const T default_val) {
+        auto iter = columns_by_name_.find(col_name);
+        if (iter == columns_by_name_.end()) {
+            throw DBException("No column named ") << col_name << " in table " << name_;
+        }
+
+        iter->second->setDefaultValue_(default_val);
+        return *this;
+    }
+
+    //! Assign a default value for the given column.
+    Table & setColumnDefaultValue(const std::string & col_name, const std::string & default_val) {
+        auto iter = columns_by_name_.find(col_name);
+        if (iter == columns_by_name_.end()) {
+            throw DBException("No column named ") << col_name << " in table " << name_;
+        }
+
+        iter->second->setDefaultValueString_(default_val);
+        return *this;
+    }
+
+    //! Index records by the given column.
+    //! CREATE INDEX IndexName ON TableName(ColumnName)
+    Table & createIndexOn(const std::string & col_name) {
+        return createCompoundIndexOn(SQL_COLUMNS(col_name.c_str()));
+    }
+
+    //! Index records by the given columns.
+    //! CREATE INDEX IndexName ON TableName(ColA,ColB,ColC)
+    Table & createCompoundIndexOn(const SqlColumns & cols) {
+        const auto & col_names = cols.getColNames();
+        for (const auto & col_name : col_names) {
+            if (columns_by_name_.find(col_name) == columns_by_name_.end()) {
+                throw DBException("Column ") << col_name << " does not exist in table " << name_;
+            }
+        }
+
+        std::ostringstream oss;
+        oss << "CREATE INDEX " << name_  << "_Index"
+            << index_creation_strs_.size() + 1
+            << " ON " << name_ << "(";
+
+        size_t idx = 0;
+        auto iter = col_names.begin();
+        while (iter != col_names.end()) {
+            oss << *iter;
+            if (idx != col_names.size() - 1) {
+                oss << ",";
+            }
+            ++iter;
+            ++idx;
+        }
+        oss << ")";
+
+        index_creation_strs_.push_back(oss.str());
         return *this;
     }
 
@@ -332,325 +392,16 @@ public:
         return !columns_.empty();
     }
 
-    //! This class serves as a level of indirection which allows
-    //! the schema creation call site to look something like this:
-    //!
-    //!     Schema schema;
-    //!     using dt = simdb::ColumnDataType;
-    //!
-    //!     schema.addTable("Customers")
-    //!       .addColumn("First", dt::string_t)
-    //!          ->index()
-    //!       .addColumn("Last", dt::string_t)
-    //!          ->indexAgainst("First")
-    //!       .addColumn("RewardsBal", dt::double_t)
-    //!          ->setDefaultValue(50);
-    //!
-    //! And so on. The index(), indexAgainst() and setDefaultValue()
-    //! calls will apply to the column that was just added on the
-    //! line of code above it in addColumn().
-    class ColumnPropsModifier {
-    public:
-        Table & index() {
-            table_->setIndexedColumn_NO_THROW_(col_name_);
-            return *table_;
-        }
-
-        Table & indexAgainst(const std::string & other_column) {
-            table_->setCompoundIndexedColumn_NO_THROW_(col_name_, {other_column});
-            return *table_;
-        }
-
-        Table & indexAgainst(const std::vector<std::string> & other_columns) {
-            table_->setCompoundIndexedColumn_NO_THROW_(col_name_, other_columns);
-            return *table_;
-        }
-
-        Table & indexAgainst(const std::initializer_list<const char*> & other_columns) {
-            std::vector<std::string> cols(other_columns.begin(), other_columns.end());
-            return indexAgainst(cols);
-        }
-
-        template <typename DefaultValueT>
-        Table & setDefaultValue(const DefaultValueT & val) {
-            table_->setDefaultValue_(col_name_, val);
-            return *table_;
-        }
-
-        Table & setDefaultValue(const std::string & val) {
-            table_->setDefaultValueString_(col_name_, val);
-            return *table_;
-        }
-
-    private:
-        ColumnPropsModifier(Table * tbl, const std::string & col_name) :
-            table_(tbl),
-            col_name_(col_name)
-        {}
-
-        Table * table_ = nullptr;
-        std::string col_name_;
-        friend class Table;
-    };
-
-    //! Overloaded operator->() so we know when to switch
-    //! into "column modification" mode during a call that
-    //! looks like this:
-    //!
-    //!    schema.addTable("Customers")
-    //!        .addColumn("FirstName", dt::string_t)
-    //!        .addColumn("LastName", dt::string_t)
-    //!            ->indexAgainst("FirstName")
-    //!        .addColumn(...)
-    //!            ... <continue with the schema creation> ...
-    //!            ...........................................
-    //!
-    //! The call to '->indexAgainst("First")' actually means:
-    //!   "Go back to the previous column 'LastName', and create a
-    //!    compound index for it together with the 'FirstName' column."
-    //!
-    //! The subsequent call to addColumn() will tip off the
-    //! Table object that column modification mode is done,
-    //! at least until operator->() gets called again.
-    //!
-    //! These modification APIs can be strung together too, like this:
-    //!
-    //!    schema.addTable("RewardsAccounts")
-    //!        .addColumn("FirstName", dt::string_t)
-    //!        .addColumn("LastName", dt::string_t)
-    //!        .addColumn("Amount", dt::double_t)
-    //!            ->indexAgainst("LastName")
-    //!            ->setDefaultValue(100)
-    //!        .addColumn("DaysToExpiration", dt::int32_t)
-    //!            ->setDefaultValue(365);
-    //!
-    ColumnPropsModifier * operator->() {
-        if (columns_.empty()) {
-            throw DBException("Invalid use of the schema creation utility. ")
-                << "An attempt was made to modify a table's column indexing or "
-                << "default values, but the table does not have any columns to "
-                << "modify. The offending table was '" << getName() << "'.";
-        }
-
-        column_modifier_.reset(new ColumnPropsModifier(
-            this, columns_.back()->getName()));
-
-        return column_modifier_.get();
-    }
-
 private:
-    // Optionally specify a default value for the given Column
-    template <typename DefaultValueT>
-    void setDefaultValue_(const std::string & column_name,
-                          const DefaultValueT & val)
-    {
-        auto iter = columns_by_name_.find(column_name);
-        if (iter == columns_by_name_.end()) {
-            throw DBException("Table::setDefaultValue_() called with ")
-                << "a column name that does not exist: '"
-                << column_name << "'";
-        }
-        iter->second->setDefaultValue_(val);
-    }
-
-    // Optionally specify a default value for the given Column
-    void setDefaultValueString_(const std::string & column_name,
-                                const std::string & val)
-    {
-        auto iter = columns_by_name_.find(column_name);
-        if (iter == columns_by_name_.end()) {
-            throw DBException("Table::setDefaultValue_() called with ")
-                << "a column name that does not exist: '"
-                << column_name << "'";
-        }
-        iter->second->setDefaultValueString_(val);
-    }
-
-    // Set the column by the given name to be indexed
-    void setIndexedColumn_(const std::string & column_name) {
-        auto iter = columns_by_name_.find(column_name);
-        if (iter == columns_by_name_.end()) {
-            throw DBException("Table::setIndexedColumn_() called with ")
-                << "a column name that does not exist: '"
-                << column_name << "'";
-        }
-        iter->second->setIsIndexed_();
-    }
-
-    // Set the column by the given name to be indexed
-    // together with one or more other columns. This
-    // is used to enable fast queries that look like
-    // this:
-    //
-    //   SELECT * FROM Customers WHERE Last='Smith' AND Age>50
-    void setCompoundIndexedColumn_(
-        const std::string & primary_column_name,
-        const std::vector<std::string> & other_indexed_column_names)
-    {
-        auto primary_iter = columns_by_name_.find(primary_column_name);
-        if (primary_iter == columns_by_name_.end()) {
-            throw DBException("Column '") << primary_column_name
-                << "' does not exist in table '" << getName() << "'";
-        }
-
-        std::vector<Column*> other_indexed_columns;
-        for (const auto & other_col_name : other_indexed_column_names) {
-            auto other_iter = columns_by_name_.find(other_col_name);
-            if (other_iter == columns_by_name_.end()) {
-                throw DBException("Column '") << primary_column_name
-                    << "' does not exist in table '" << getName() << "'";
-            }
-            other_indexed_columns.emplace_back(other_iter->second.get());
-        }
-
-        primary_iter->second->setIsIndexed_(other_indexed_columns);
-    }
-
-    // The ColumnPropsModifier class may need to inform us if a schema
-    // call site looks like this:
-    //
-    //     Schema schema;
-    //     using dt = simdb::ColumnDataType;
-    //
-    //     schema.addTable("Customers")
-    //         .addColumn("LastName", dt::string_t)
-    //             ->indexAgainst("FirstName")
-    //         .addColumn("FirstName", dt::string_t);
-    //
-    // The indexAgainst("FirstName") call would be made before the
-    // column "FirstName" was even added to the table. It would not
-    // be very user-friendly to throw an exception and enforce the
-    // addColumn() calls be ordered in a specific way.
-    //
-    // Aside from user-unfriendly behavior, it would also prevent
-    // indexes like the following completely:
-    //
-    //     schema.addTable("Sales")
-    //         .addColumn("Amount", dt::double_t)
-    //             ->indexAgainst("LastName")
-    //         .addColumn("LastName", dt::string_t)
-    //             ->indexAgainst("FirstName")
-    //         .addColumn("FirstName", dt::string_t)
-    //             ->indexAgainst("Amount");
-    //
-    void setIndexedColumn_NO_THROW_(const std::string & column_name)
-    {
-        if (columns_by_name_.find(column_name) == columns_by_name_.end()) {
-            unresolved_column_idxs_[column_name] = {};
-            return;
-        } else {
-            setIndexedColumn_(column_name);
-        }
-    }
-
-    // No-throw API for setting a compound index. Called by ColumnPropsModifier.
-    void setCompoundIndexedColumn_NO_THROW_(
-        const std::string & primary_column_name,
-        const std::vector<std::string> & other_indexed_column_names)
-    {
-        // Note that we only allow the indexed *against* columns to
-        // be unresolved, not the primary column. This is valid:
-        //
-        //    using dt = simdb::ColumnDataType;
-        //
-        //    schema.addTable("Customers")
-        //        .addColumn("LastName", dt::string_t)
-        //            ->indexAgainst({"FirstName", "AccountActive"}
-        //        .addColumn("FirstName", dt::string_t)
-        //        .addColumn("AccountActive", dt::int32_t);
-        //
-        // Here, the primary column name would be "LastName", which the
-        // Table object (this) explicitly gave to the ColumnPropsModifier
-        // ahead of time when Table::operator->() was called.
-        //
-        // There is no way ColumnPropsModifier would pass in a primary
-        // column name that the Table did not already have, unless it
-        // ignored the column name we just gave it, and turned around
-        // and gave us another column name instead.
-        //
-        // The *secondary* columns in the compound index are allowed to
-        // be unresolved until the Schema is given to an DatabaseManager.
-        // In the above example, "FirstName" and "AccountActive" are the
-        // secondary columns in the index.
-        //
-        //    SELECT * FROM Customers WHERE
-        //    LastName='Smith' AND FirstName='Bob' AND AccountActive=1
-        //
-        //    ----------------     -----------------------------------
-        //       (primary)                     (secondary)
-        //
-        bool all_resolved = true;
-        for (const auto & secondary_col_name : other_indexed_column_names) {
-            if (columns_by_name_.find(secondary_col_name) == columns_by_name_.end()) {
-                all_resolved = false;
-                break;
-            }
-        }
-
-        if (!all_resolved) {
-            unresolved_column_idxs_[primary_column_name] = other_indexed_column_names;
-            return;
-        } else {
-            setCompoundIndexedColumn_(
-                primary_column_name, other_indexed_column_names);
-        }
-    }
-
-    // Called by the Schema object this Table belongs to when
-    // the Schema is given to an DatabaseManager for database
-    // instantiation. Schema is a friend of this class to
-    // make this private call.
-    void finalizeTable_() {
-        std::unordered_map<Column*, std::vector<Column*>> resolved_column_idxs;
-
-        for (const auto & unresolved : unresolved_column_idxs_) {
-            auto primary_column_iter = columns_by_name_.find(unresolved.first);
-
-            if (primary_column_iter == columns_by_name_.end()) {
-                throw DBException("Unrecognized column '") <<
-                    unresolved.first << "' encountered in the " <<
-                    "SimDB table '" << getName() << "'.";
-            }
-
-            Column * primary_column_obj = primary_column_iter->second.get();
-            resolved_column_idxs[primary_column_obj] = {};
-
-            for (const auto & unresolved_secondary : unresolved.second) {
-                auto secondary_column_iter = columns_by_name_.find(
-                    unresolved_secondary);
-
-                if (secondary_column_iter == columns_by_name_.end()) {
-                    throw DBException("Unrecognized column '") <<
-                        unresolved_secondary << "' encountered in the " <<
-                        "SimDB table '" << getName() << "'.";
-                }
-
-                resolved_column_idxs[primary_column_obj].emplace_back(
-                    secondary_column_iter->second.get());
-            }
-        }
-
-        // If we got this far, the resolved column indexes map has
-        // all the objects we need to finalize the schema. The keys
-        // in this map are the primary columns, and the values they
-        // point to are the secondary columns that go with it to
-        // make the compound index.
-        for (auto & resolved : resolved_column_idxs) {
-            resolved.first->setIsIndexed_(resolved.second);
-        }
-        unresolved_column_idxs_.clear();
-    }
-
     std::string name_;
     std::string name_prefix_;
     CompressionType compression_ = CompressionType::BEST_COMPRESSION_RATIO;
     std::vector<std::shared_ptr<Column>> columns_;
-    std::shared_ptr<ColumnPropsModifier> column_modifier_;
     std::unordered_map<std::string, std::shared_ptr<Column>> columns_by_name_;
-    std::unordered_map<std::string, std::vector<std::string>> unresolved_column_idxs_;
+    std::vector<std::string> index_creation_strs_;
 
-    friend class ColumnPropsModifier;
     friend class Schema;
+    friend class SQLiteConnection;
 };
 
 //! Schema class used for creating SimDB databases
@@ -797,15 +548,6 @@ public:
 
 private:
     std::deque<Table> tables_;
-
-    //When this Schema is given to an DatabaseManager, it will call back
-    //into this method to give us a chance to finalize the Schema and
-    //throw any exceptions if we need to.
-    void finalizeSchema_() {
-        for (auto & tbl : tables_) {
-            tbl.finalizeTable_();
-        }
-    }
 
     friend class DatabaseManager;
 };

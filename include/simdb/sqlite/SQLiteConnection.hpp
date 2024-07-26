@@ -130,7 +130,9 @@ public:
             //    CREATE INDEX customer_fullname ON Customers (First,Last)
             //    CREATE INDEX county_population ON Counties (CountyName,Population)
             //    ...
-            makeIndexesForTable_(table);
+            for (const auto & cmd : table.index_creation_strs_) {
+                eval(cmd);
+            } 
         }
     }
 
@@ -428,55 +430,6 @@ private:
         if (command.back() == ',') { command.pop_back(); }
 
         return command;
-    }
-
-    //! Create indexes for a given Table, depending on how the
-    //! user set up the Column indexes (indexed by itself, vs.
-    //! indexed together with other columns)
-    void makeIndexesForTable_(const Table & table) const
-    {
-        if (!table.hasColumns()) {
-            return;
-        }
-
-        for (const auto & column : table) {
-            if (column->isIndexed()) {
-                makeIndexesForColumnInTable_(table, *column);
-            }
-        }
-    }
-
-    //! Execute index creation statements like:
-    //! 
-    //!     "CREATE INDEX Customers_Last ON Customers(Last)"
-    //!         ^^ indexes Customers table by Last column only
-    //! 
-    //!     "CREATE INDEX Customers_Last ON Customers(First,Last)"
-    //!         ^^ multi-column index on the Customers table by First+Last columns
-    //! 
-    void makeIndexesForColumnInTable_(const Table & table,
-                                      const Column & column) const
-    {
-        std::ostringstream oss;
-        oss << " CREATE INDEX " << table.getName() << "_" << column.getName()
-            << " ON " << table.getName()
-            << " (" << makePropertyIndexesStr_(column) << ")";
-        eval(oss.str());
-    }
-
-    //! For the CREATE INDEX statements, this helper makes a comma-
-    //! separated string of Column names like "First,Last"
-    std::string makePropertyIndexesStr_(const Column & column) const
-    {
-        std::ostringstream oss;
-        for (const auto & indexed_property : column.getIndexedProperties()) {
-            oss << indexed_property->getName() << ",";
-        }
-        std::string indexes_str = oss.str();
-        if (indexes_str.back() == ',') {
-            indexes_str.pop_back();
-        }
-        return indexes_str;
     }
 
     //See if there is an existing file by the name <dir/file>

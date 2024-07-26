@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "simdb/sqlite/SQLiteConnection.hpp"
-#include "simdb/schema/Schema.hpp"
+#include "simdb/schema/ColumnTypedefs.hpp"
 #include "simdb_fwd.hpp"
+
+#include <sqlite3.h>
+#include <list>
 
 namespace simdb {
 
@@ -60,6 +62,11 @@ public:
             ++iter;
         }
         oss << ") ";
+    }
+
+    const std::list<std::string> getColNames() const
+    {
+        return col_names_;
     }
 
 private:

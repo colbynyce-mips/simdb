@@ -25,6 +25,7 @@ static const simdb::Blob TEST_BLOB         = TEST_VECTOR;
 static const simdb::Blob TEST_BLOB2        = TEST_VECTOR2;
 
 simdb::PerfTimer timer;
+simdb::Schema schema5;
 
 int main()
 {
@@ -53,25 +54,38 @@ int main()
         .addColumn("SomeBlob", dt::blob_t);
 
     schema.addTable("DefaultValues")
-        .addColumn("DefaultInt32" , dt::int32_t )->setDefaultValue(TEST_INT32)
-        .addColumn("DefaultInt64" , dt::int64_t )->setDefaultValue(TEST_INT64)
-        .addColumn("DefaultUInt32", dt::uint32_t)->setDefaultValue(TEST_UINT32)
-        .addColumn("DefaultUInt64", dt::uint64_t)->setDefaultValue(TEST_UINT64)
-        .addColumn("DefaultDouble", dt::double_t)->setDefaultValue(TEST_DOUBLE)
-        .addColumn("DefaultString", dt::string_t)->setDefaultValue(TEST_STRING);
+        .addColumn("DefaultInt32" , dt::int32_t )
+        .addColumn("DefaultInt64" , dt::int64_t )
+        .addColumn("DefaultUInt32", dt::uint32_t)
+        .addColumn("DefaultUInt64", dt::uint64_t)
+        .addColumn("DefaultDouble", dt::double_t)
+        .addColumn("DefaultString", dt::string_t)
+        .setColumnDefaultValue("DefaultInt32" , TEST_INT32)
+        .setColumnDefaultValue("DefaultInt64" , TEST_INT64)
+        .setColumnDefaultValue("DefaultUInt32", TEST_UINT32)
+        .setColumnDefaultValue("DefaultUInt64", TEST_UINT64)
+        .setColumnDefaultValue("DefaultDouble", TEST_DOUBLE)
+        .setColumnDefaultValue("DefaultString", TEST_STRING);
 
     schema.addTable("DefaultDoubles")
-        .addColumn("DefaultEPS",  dt::double_t)->setDefaultValue(TEST_EPSILON)
-        .addColumn("DefaultMIN",  dt::double_t)->setDefaultValue(TEST_DOUBLE_MIN)
-        .addColumn("DefaultMAX",  dt::double_t)->setDefaultValue(TEST_DOUBLE_MAX)
-        .addColumn("DefaultPI",   dt::double_t)->setDefaultValue(TEST_DOUBLE_PI)
-        .addColumn("DefaultEASY", dt::double_t)->setDefaultValue(TEST_DOUBLE_EASY)
-        .addColumn("DefaultHARD", dt::double_t)->setDefaultValue(TEST_DOUBLE_HARD);
+        .addColumn("DefaultEPS" , dt::double_t)
+        .addColumn("DefaultMIN" , dt::double_t)
+        .addColumn("DefaultMAX" , dt::double_t)
+        .addColumn("DefaultPI"  , dt::double_t)
+        .addColumn("DefaultEASY", dt::double_t)
+        .addColumn("DefaultHARD", dt::double_t)
+        .setColumnDefaultValue("DefaultEPS" , TEST_EPSILON)
+        .setColumnDefaultValue("DefaultMIN" , TEST_DOUBLE_MIN)
+        .setColumnDefaultValue("DefaultMAX" , TEST_DOUBLE_MAX)
+        .setColumnDefaultValue("DefaultPI"  , TEST_DOUBLE_PI)
+        .setColumnDefaultValue("DefaultEASY", TEST_DOUBLE_EASY)
+        .setColumnDefaultValue("DefaultHARD", TEST_DOUBLE_HARD);
 
     schema.addTable("IndexedColumns")
-        .addColumn("SomeInt32", dt::int32_t)->index()
-        .addColumn("SomeDouble", dt::double_t)->index()
-        .addColumn("SomeString", dt::string_t)->index();
+        .addColumn("SomeInt32", dt::int32_t)
+        .addColumn("SomeDouble", dt::double_t)
+        .addColumn("SomeString", dt::string_t)
+        .createCompoundIndexOn(SQL_COLUMNS("SomeInt32", "SomeDouble","SomeString"));
 
     schema.addTable("NonIndexedColumns")
         .addColumn("SomeInt32", dt::int32_t)

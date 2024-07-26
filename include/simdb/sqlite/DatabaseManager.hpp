@@ -43,7 +43,6 @@ public:
     //! Returns true if successful, false otherwise.
     bool createDatabaseFromSchema(Schema & schema)
     {
-        schema.finalizeSchema_();
         db_conn_.reset(new SQLiteConnection(this));
         schema_ = schema;
 
@@ -73,7 +72,6 @@ public:
                 << "database connection";
         }
 
-        schema.finalizeSchema_();
         db_conn_->realizeSchema(schema, *this);
         schema_ += schema;
         return true;
