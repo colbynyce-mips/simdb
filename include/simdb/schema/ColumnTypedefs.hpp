@@ -14,9 +14,7 @@ namespace simdb {
 //! Data types supported by SimDB schemas
 enum class ColumnDataType : int8_t {
     int32_t,
-    uint32_t,
     int64_t,
-    uint64_t,
     double_t,
     string_t,
     blob_t,
@@ -31,9 +29,7 @@ inline std::ostream & operator<<(std::ostream & os, const ColumnDataType dtype)
     switch (dtype) {
         case dt::fkey_t:
         case dt::int32_t:
-        case dt::uint32_t:
-        case dt::int64_t:
-        case dt::uint64_t: {
+        case dt::int64_t: {
             os << "INT"; break;
         }
 
@@ -42,7 +38,7 @@ inline std::ostream & operator<<(std::ostream & os, const ColumnDataType dtype)
         }
 
         case dt::double_t: {
-            os << "FLOAT"; break;
+            os << "REAL"; break;
         }
 
         case dt::blob_t: {

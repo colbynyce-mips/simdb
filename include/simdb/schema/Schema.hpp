@@ -69,18 +69,6 @@ public:
         return dt_;
     }
 
-    //! See if this column is indexed, either by itself or
-    //! indexed against other Columns too.
-    bool isIndexed() const {
-        return !indexed_properties_.empty();
-    }
-
-    //! If indexed, return the list of indexed Column names.
-    //! Returns an empty vector if this Column is not indexed.
-    const std::vector<Column*> & getIndexedProperties() const {
-        return indexed_properties_;
-    }
-
     //! See if this Column has a default value set or not.
     bool hasDefaultValue() const {
         return !default_val_string_.empty();
@@ -120,9 +108,7 @@ private:
 
         switch (dt_) {
             case ColumnDataType::int32_t:
-            case ColumnDataType::int64_t:
-            case ColumnDataType::uint32_t:
-            case ColumnDataType::uint64_t: {
+            case ColumnDataType::int64_t: {
                 verifyDefaultValueIsInt_<DefaultValueT>();
                 break;
             }
@@ -195,51 +181,9 @@ private:
         throw DBException("Default value type mismatch (expected floating point type)");
     }
 
-    // You can tell the database to create indexes on specific
-    // table columns for faster queries later on. For example:
-    //
-    //    using dt = simdb::ColumnDataType;
-    //    simdb::Schema schema;
-    //
-    //    schema.addTable("Customers")
-    //        .addColumn("Last", dt::string_t)
-    //            ->index();
-    //
-    // This results in fast lookup performance for queries like this:
-    //
-    //    SELECT * FROM Customers WHERE Last = 'Smith'
-    //
-    // If you want to build indexes based on multiple columns'
-    // values, pass in those other Column objects like this:
-    //
-    //    schema.addTable("Customers")
-    //        .addColumn("First", dt::string_t)
-    //        .addColumn("Last", dt::string_t)
-    //            ->indexAgainst("First");
-    //
-    // This results in fast lookup performance for queries like this:
-    //
-    //    SELECT * FROM Customers WHERE Last = 'Smith' AND Age > 40
-    //
-    void setIsIndexed_(const std::vector<Column*> & indexed_columns = {})
-    {
-        indexed_properties_.clear();
-        indexed_properties_.emplace_back(this);
-
-        indexed_properties_.insert(
-            indexed_properties_.end(),
-            indexed_columns.begin(),
-            indexed_columns.end());
-
-        indexed_properties_.erase(
-            std::unique(indexed_properties_.begin(), indexed_properties_.end()),
-            indexed_properties_.end());
-    }
-
     std::string name_;
     ColumnDataType dt_;
     std::string default_val_string_;
-    std::vector<Column*> indexed_properties_;
 
     friend class Table;
 };

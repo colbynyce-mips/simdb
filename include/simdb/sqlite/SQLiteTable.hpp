@@ -301,12 +301,6 @@ public:
     //! SELECT the given column value (int64)
     int64_t getPropertyInt64(const char * col_name) const;
 
-    //! SELECT the given column value (uint32)
-    uint32_t getPropertyUInt32(const char * col_name) const;
-
-    //! SELECT the given column value (uint64)
-    uint64_t getPropertyUInt64(const char * col_name) const;
-
     //! SELECT the given column value (double)
     double getPropertyDouble(const char * col_name) const;
 
@@ -431,16 +425,6 @@ inline int32_t SqlRecord::getPropertyInt32(const char * col_name) const
 inline int64_t SqlRecord::getPropertyInt64(const char * col_name) const
 {
     return queryPropertyValue<int64_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
-}
-
-inline uint32_t SqlRecord::getPropertyUInt32(const char * col_name) const
-{
-    return queryPropertyValue<uint32_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
-}
-
-inline uint64_t SqlRecord::getPropertyUInt64(const char * col_name) const
-{
-    return queryPropertyValue<uint64_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 inline double SqlRecord::getPropertyDouble(const char * col_name) const
