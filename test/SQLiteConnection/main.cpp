@@ -320,10 +320,48 @@ int main()
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
-    // TODO test int queries with NOT_EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL
-    // TODO test int queries with IN SET / NOT IN SET.
+    // Test queries with NOT_EQUAL.
+    query1->resetOrderBy();
+    query1->addConstraintForInt("SomeUInt32", simdb::Constraints::NOT_EQUAL, 444);
+    {
+        auto result_set = query1->getResultSet();
 
-    // TODO test double queries with tolerance.
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 111);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 789);
+        EXPECT_EQUAL(u64, 50505050);
+
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 333);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 789);
+        EXPECT_EQUAL(u64, 50505050);
+
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
+
+    // SomeInt32    SomeInt64    SomeUInt32    SomeUInt64
+    // 111          555          789           50505050
+    // 222          555          444           50505050
+    // 333          555          789           50505050
+
+    // Test queries with NOT IN clause.
+    query1->resetConstraints();
+    query1->addConstraintForInt("SomeInt32", simdb::SetConstraints::NOT_IN_SET, {111,333});
+    {
+        auto result_set = query1->getResultSet();
+
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 222);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 444);
+        EXPECT_EQUAL(u64, 50505050);
+
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
+
+    // TODO test double queries with tolerance, including EQUAL / NOT_EQUAL, and LESS_EQUAL.
 
     // Test SQL queries for string types.
     std::string str;
