@@ -407,13 +407,13 @@ private:
 };
 
 template <typename T>
-inline T queryScalarPropertyValue(const char * table_name, const char * col_name, const int db_id, sqlite3 * db_conn)
+inline T queryPropertyValue(const char * table_name, const char * col_name, const int db_id, sqlite3 * db_conn)
 {
     SqlQuery query(table_name, db_conn);
 
     T val;
     query.select(col_name, val);
-    query.addConstraintForInt("Id", simdb::Constraints::EQUAL, db_id);
+    query.addConstraintForInt("Id", Constraints::EQUAL, db_id);
 
     auto result_set = query.getResultSet();
     if (!result_set.getNextRecord()) {
@@ -425,50 +425,38 @@ inline T queryScalarPropertyValue(const char * table_name, const char * col_name
 
 inline int32_t SqlRecord::getPropertyInt32(const char * col_name) const
 {
-    return queryScalarPropertyValue<int32_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
+    return queryPropertyValue<int32_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 inline int64_t SqlRecord::getPropertyInt64(const char * col_name) const
 {
-    return queryScalarPropertyValue<int64_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
+    return queryPropertyValue<int64_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 inline uint32_t SqlRecord::getPropertyUInt32(const char * col_name) const
 {
-    return queryScalarPropertyValue<uint32_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
+    return queryPropertyValue<uint32_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 inline uint64_t SqlRecord::getPropertyUInt64(const char * col_name) const
 {
-    return queryScalarPropertyValue<uint64_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
+    return queryPropertyValue<uint64_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 inline double SqlRecord::getPropertyDouble(const char * col_name) const
 {
-    return queryScalarPropertyValue<double>(table_name_.c_str(), col_name, db_id_, db_conn_);
+    return queryPropertyValue<double>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 inline std::string SqlRecord::getPropertyString(const char * col_name) const
 {
-    return queryScalarPropertyValue<std::string>(table_name_.c_str(), col_name, db_id_, db_conn_);
+    return queryPropertyValue<std::string>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 template <typename T>
 inline std::vector<T> SqlRecord::getPropertyBlob(const char * col_name) const
 {
-    sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
-    stepStatement_(stmt, {SQLITE_ROW});
-    auto num_bytes = sqlite3_column_bytes(stmt, 0);
-    auto data_ptr = sqlite3_column_blob(stmt, 0);
-
-    static_assert(std::is_arithmetic<T>::value && !std::is_same<T, bool>::value,
-                  "SimDB blobs can only be retrieved with vectors of integral types.");
-
-    std::vector<T> vals(num_bytes / sizeof(T));
-    memcpy(vals.data(), data_ptr, num_bytes);
-    stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
-    return vals;
+    return queryPropertyValue<std::vector<T>>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 inline void SqlRecord::setPropertyInt32(const char * col_name, const int32_t val) const
