@@ -389,20 +389,57 @@ int main()
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
-    // TODO test double queries with tolerance, including EQUAL / NOT_EQUAL, and LESS_EQUAL.
+    // FloatingPointTypes
+    // ---------------------------------------------------------------------------------
+    // SomeDouble
+    // 1.1
+    // 2.2
+    // 3.3
+    // 4.4
+    // 5.5
+
+    // Test SQL queries for floating-point types. This use case is special since it requires
+    // a custom comparator to deal with machine precision issues.
+    double dbl;
+
+    auto query2 = db_mgr.createQuery("FloatingPointTypes");
+
+    // Each successful call to result_set.getNextRecord() populates these variables.
+    query2->select("SomeDouble", dbl);
+
+    // SELECT COUNT(Id) should return 5 records.
+    EXPECT_EQUAL(query2->count(), 5);
+    {
+        auto result_set = query2->getResultSet();
+
+        // Iterate over the records one at a time and verify the data.
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_WITHIN_EPSILON(dbl, 1.1);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_WITHIN_EPSILON(dbl, 2.2);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_WITHIN_EPSILON(dbl, 3.3);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_WITHIN_EPSILON(dbl, 4.4);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_WITHIN_EPSILON(dbl, 5.5);
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
+
+    // TODO double precision / eps tests with constraints.
 
     // Test SQL queries for string types.
     std::string str;
 
-    auto query2 = db_mgr.createQuery("StringTypes");
+    auto query3 = db_mgr.createQuery("StringTypes");
 
     // Each successful call to result_set.getNextRecord() populates these variables.
-    query2->select("SomeString", str);
+    query3->select("SomeString", str);
 
     // SELECT COUNT(Id) should return 4 records.
-    EXPECT_EQUAL(query2->count(), 4);
+    EXPECT_EQUAL(query3->count(), 4);
     {
-        auto result_set = query2->getResultSet();
+        auto result_set = query3->getResultSet();
 
         // Iterate over the records one at a time and verify the data.
         EXPECT_TRUE(result_set.getNextRecord());
@@ -419,9 +456,9 @@ int main()
     }
 
     // Add WHERE constraints, rerun the query, and check the results.
-    query2->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    query3->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
     {
-        auto result_set = query2->getResultSet();
+        auto result_set = query3->getResultSet();
 
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_EQUAL(str, "foo");
@@ -430,11 +467,11 @@ int main()
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
-    query2->resetConstraints();
-    query2->addConstraintForString("SomeString", simdb::SetConstraints::IN_SET, {"bar", "baz"});
-    query2->orderBy("SomeString", simdb::QueryOrder::DESC);
+    query3->resetConstraints();
+    query3->addConstraintForString("SomeString", simdb::SetConstraints::IN_SET, {"bar", "baz"});
+    query3->orderBy("SomeString", simdb::QueryOrder::DESC);
     {
-        auto result_set = query2->getResultSet();
+        auto result_set = query3->getResultSet();
 
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_EQUAL(str, "baz");
@@ -454,20 +491,20 @@ int main()
     // Test queries that include multiple kinds of data type constraints,
     // and which includes a blob column.
     std::vector<int> ivec;
-    auto query3 = db_mgr.createQuery("MixAndMatch");
+    auto query4 = db_mgr.createQuery("MixAndMatch");
 
     // Each successful call to result_set.getNextRecord() populates these variables.
-    query3->select("SomeInt32", i32);
-    query3->select("SomeString", str);
-    query3->select("SomeBlob", ivec);
+    query4->select("SomeInt32", i32);
+    query4->select("SomeString", str);
+    query4->select("SomeBlob", ivec);
 
     // SELECT COUNT(Id) should return 4 records.
-    EXPECT_EQUAL(query3->count(), 4);
+    EXPECT_EQUAL(query4->count(), 4);
 
-    query3->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 20);
-    query3->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    query4->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 20);
+    query4->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
     {
-        auto result_set = query3->getResultSet();
+        auto result_set = query4->getResultSet();
 
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_EQUAL(i32, 20);

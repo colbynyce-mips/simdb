@@ -12,51 +12,11 @@ enum class QueryOrder
     DESC
 };
 
-enum class Constraints
-{
-    EQUAL,
-    NOT_EQUAL,
-    LESS,
-    LESS_EQUAL,
-    GREATER,
-    GREATER_EQUAL
-};
-
-enum class SetConstraints
-{
-    IN_SET,
-    NOT_IN_SET
-};
-
 inline std::ostream & operator<<(std::ostream & os, const QueryOrder order)
 {
     switch (order) {
         case QueryOrder::ASC:  os << "ASC";  break;
         case QueryOrder::DESC: os << "DESC"; break;
-    }
-
-    return os;
-}
-
-inline std::ostream & operator<<(std::ostream & os, const Constraints constraint)
-{
-    switch (constraint) {
-        case Constraints::EQUAL:         os << " = ";  break;
-        case Constraints::NOT_EQUAL:     os << " != "; break;
-        case Constraints::LESS:          os << " < ";  break;
-        case Constraints::LESS_EQUAL:    os << " <= "; break;
-        case Constraints::GREATER:       os << " > ";  break;
-        case Constraints::GREATER_EQUAL: os << " >= "; break;
-    }
-
-    return os;
-}
-
-inline std::ostream & operator<<(std::ostream & os, const SetConstraints constraint)
-{
-    switch (constraint) {
-        case SetConstraints::IN_SET:     os << " IN ";     break;
-        case SetConstraints::NOT_IN_SET: os << " NOT IN "; break;
     }
 
     return os;

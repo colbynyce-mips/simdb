@@ -9,36 +9,43 @@
 
 namespace simdb {
 
-//! Constraints enumeration used when building
-//! SELECT, UPDATE, and DELETE statements.
-enum class constraints : int8_t {
-    equal,            // =
-    not_equal,        // !=
-    greater,          // >
-    less,             // <
-    greater_equal,    // >=
-    less_equal,       // <=
-    in_set,           // IN
-    not_in_set,       // NOT IN
-    INVALID
+enum class Constraints
+{
+    EQUAL         = 1,
+    NOT_EQUAL     = 2,
+    LESS          = 3,
+    LESS_EQUAL    = 4,
+    GREATER       = 5,
+    GREATER_EQUAL = 6
 };
 
-//! Stream operator for constraints enumeration.
-inline std::ostream & operator<<(std::ostream & os,
-                                 const constraints constraint)
+enum class SetConstraints
+{
+    IN_SET        = 7,
+    NOT_IN_SET    = 8
+};
+
+inline std::ostream & operator<<(std::ostream & os, const Constraints constraint)
 {
     switch (constraint) {
-        case constraints::equal:          os << " =  "     ; break;
-        case constraints::not_equal:      os << " != "     ; break;
-        case constraints::greater:        os << " >  "     ; break;
-        case constraints::less:           os << " <  "     ; break;
-        case constraints::greater_equal:  os << " >= "     ; break;
-        case constraints::less_equal:     os << " <= "     ; break;
-        case constraints::in_set:         os << " IN "     ; break;
-        case constraints::not_in_set:     os << " NOT IN " ; break;
-        case constraints::INVALID:
-            throw DBException("Cannot stringify constraints::INVALID");
+        case Constraints::EQUAL:         os << " = ";  break;
+        case Constraints::NOT_EQUAL:     os << " != "; break;
+        case Constraints::LESS:          os << " < ";  break;
+        case Constraints::LESS_EQUAL:    os << " <= "; break;
+        case Constraints::GREATER:       os << " > ";  break;
+        case Constraints::GREATER_EQUAL: os << " >= "; break;
     }
+
+    return os;
+}
+
+inline std::ostream & operator<<(std::ostream & os, const SetConstraints constraint)
+{
+    switch (constraint) {
+        case SetConstraints::IN_SET:     os << " IN ";     break;
+        case SetConstraints::NOT_IN_SET: os << " NOT IN "; break;
+    }
+
     return os;
 }
     

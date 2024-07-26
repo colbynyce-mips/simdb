@@ -1,8 +1,8 @@
 #pragma once
 
 #include "simdb/sqlite/SQLiteTransaction.hpp"
+#include "simdb/sqlite/Constraints.hpp"
 #include "simdb/async/AsyncTaskQueue.hpp"
-#include "simdb/schema/ColumnValue.hpp"
 #include "simdb/utils/Stringifiers.hpp"
 #include "simdb/utils/MathUtils.hpp"
 #include "simdb_fwd.hpp"
@@ -16,17 +16,67 @@ namespace simdb {
 
 //! Callback which gets invoked during SELECT queries that involve
 //! floating point comparisons with a supplied tolerance.
-void isWithinTolerance(sqlite3_context * context,
-                       int, sqlite3_value ** argv)
+void fuzzyMatch(sqlite3_context * context,
+                int, sqlite3_value ** argv)
 {
     const double column_value = sqlite3_value_double(argv[0]);
     const double target_value = sqlite3_value_double(argv[1]);
-    const double tolerance = sqlite3_value_double(argv[2]);
+    const int constraint = sqlite3_value_int(argv[2]);
+    static constexpr double tolerance = std::numeric_limits<double>::epsilon();
 
-    if (utils::approximatelyEqual(column_value, target_value, tolerance)) {
-        sqlite3_result_int(context, 1);
-    } else {
-        sqlite3_result_int(context, 0);
+    if (constraint >= static_cast<int>(SetConstraints::IN_SET)) {
+        throw DBException("Invalid constraint in fuzzyMatch(). Should be Constraints enum.");
+    }
+
+    const Constraints e_constraint = static_cast<Constraints>(constraint);
+
+    auto set_is_match = [context](const bool match) {
+        sqlite3_result_int(context, match ? 1 : 0);
+    };
+
+    auto check_equal = [=](const bool should_be_equal) {
+        const bool approx_equal = utils::approximatelyEqual(column_value, target_value, tolerance);
+        if (approx_equal == should_be_equal) {
+            set_is_match(true);
+        } else {
+            set_is_match(false);
+        }
+    };
+
+    switch (e_constraint) {
+        case Constraints::EQUAL: {
+            check_equal(true);
+            break;
+        }
+        case Constraints::NOT_EQUAL: {
+            check_equal(false);
+            break;
+        }
+        case Constraints::LESS: {
+            set_is_match(column_value < target_value);
+            break;
+        }
+        case Constraints::LESS_EQUAL: {
+            if (column_value < target_value) {
+                set_is_match(true);
+                break;
+            } else {
+                check_equal(true);
+            }
+            break;
+        }
+        case Constraints::GREATER: {
+            set_is_match(column_value > target_value);
+            break;
+        }
+        case Constraints::GREATER_EQUAL: {
+            if (column_value > target_value) {
+                set_is_match(true);
+            } else {
+                check_equal(true);
+            }
+            break;
+        }
     }
 }
 
@@ -144,115 +194,6 @@ public:
     bool isValid() const
     {
         return (db_conn_ != nullptr);
-    }
-
-    //! When a call into the TableRef class is made to delete one
-    //! or more records that match a certain set of constraints,
-    //! this method will end up getting invoked. In SQL, this
-    //! is equivalent to something like this:
-    //!
-    //!    DELETE FROM Accounts WHERE PendingDelete=1
-    //!
-    void performDeletion(
-        const std::string & table_name,
-        const ColumnValues & where_clauses) const
-    {
-        std::ostringstream oss;
-        oss << "DELETE FROM " << table_name;
-        if (!where_clauses.empty()) {
-            oss << " WHERE ";
-            if (where_clauses.size() == 1) {
-                oss << createWhereClause_(where_clauses[0]);
-            } else {
-                for (size_t idx = 0; idx < where_clauses.size() - 1; ++idx) {
-                    oss << createWhereClause_(where_clauses[idx]) << " AND ";
-                }
-                oss << createWhereClause_(where_clauses.back());
-            }
-        }
-
-        const std::string command = oss.str();
-        eval(command);
-    }
-
-    //! When a call into the TableRef class is made to update the
-    //! values of one or more records that match a certain set of
-    //! constraints, this method will end up getting invoked. In
-    //! SQL, this is equivalent to something like this:
-    //!
-    //!    UPDATE Accounts SET PendingDelete=1
-    //!    WHERE Balance=0 AND LastUseDays>365
-    //!
-    //! Returns the total number of updated records.
-    size_t performUpdate(
-        const std::string & table_name,
-        const ColumnValues & col_values,
-        const ColumnValues & where_clauses) const
-    {
-        //Build the prepared SQL statement. This will put
-        //placeholders ("?") for all the column values,
-        //which we'll bind to shortly.
-        //
-        //The resulting SQL command looks something like this:
-        //
-        //   UPDATE Customers SET AccountActive=?
-        //   WHERE Name='Smith'
-        std::ostringstream oss;
-        oss << "UPDATE " << table_name << " SET ";
-        if (col_values.size() == 1) {
-            oss << col_values[0].getColumnName() << "=?";
-        } else {
-            for (size_t idx = 0; idx < col_values.size() - 1; ++idx) {
-                oss << col_values[idx].getColumnName() << "=?,";
-            }
-            oss << col_values.back().getColumnName() << "=?";
-        }
-
-        std::string command;
-        if (where_clauses.empty()) {
-            command = oss.str();
-        } else {
-            oss << " WHERE ";
-            if (where_clauses.size() == 1) {
-                oss << createWhereClause_(where_clauses[0]);
-            } else {
-                for (size_t idx = 0; idx < where_clauses.size() - 1; ++idx) {
-                    oss << createWhereClause_(where_clauses[idx]) << " AND ";
-                }
-                oss << createWhereClause_(where_clauses.back());
-            }
-            command = oss.str();
-        }
-
-        //Execute the prepared statement
-        void * prepared_stmt = nullptr;
-        prepareStatement_(command, &prepared_stmt);
-        assert(prepared_stmt != nullptr);
-
-        finalizeInsertOrUpdateStatement_(static_cast<sqlite3_stmt*>(prepared_stmt), col_values);
-        return sqlite3_changes(db_conn_);
-    }
-
-    //! Create a new object with the provided arguments.
-    DatabaseID createObject(
-        const std::string & table_name,
-        const ColumnValues & values)
-    {
-        if (values.empty()) {
-            eval("INSERT INTO " + table_name + " DEFAULT VALUES");
-        } else {
-            const std::string command =
-                prepareSqlInsertStatement_(table_name, values);
-
-            void * prepared_stmt = nullptr;
-            prepareStatement_(command, &prepared_stmt);
-            assert(prepared_stmt != nullptr);
-
-            //Execute the prepared statement
-            finalizeInsertOrUpdateStatement_(static_cast<sqlite3_stmt*>(prepared_stmt), values);
-        }
-
-        return sqlite3_last_insert_rowid(db_conn_);
     }
 
     //! Execute the provided statement against the database
@@ -389,9 +330,9 @@ private:
 
         db_conn_ = sqlite_conn;
         if (db_conn_) {
-            sqlite3_create_function(db_conn_, "withinTol", 3,
+            sqlite3_create_function(db_conn_, "fuzzyMatch", 3,
                                     SQLITE_UTF8, nullptr,
-                                    &isWithinTolerance,
+                                    &fuzzyMatch,
                                     nullptr, nullptr);
         }
         return (db_conn_ != nullptr ? db_full_filename_ : "");
@@ -582,293 +523,6 @@ private:
         } catch (...) {
         }
         return false;
-    }
-
-    //! Turn a ColumnValueBase object's value into a clause
-    //! that looks something like this:
-    //!
-    //!     WHERE LastName='Smith'
-    //!
-    //! This is used when building constrained UPDATE and
-    //! DELETE statements.
-    std::string createWhereClause_(const ColumnValueBase & col) const
-    {
-        std::ostringstream oss;
-        oss << col.getColumnName() << col.getConstraint();
-        stringifyColumnValue_(col, oss);
-        return oss.str();
-    }
-
-    //! Stringify column values such as:
-    //!   3.14
-    //!   "the_string"
-    //!   (1,2,3)
-    //!   ("the", "string")
-    void stringifyColumnValue_(const ColumnValueBase & col,
-                               std::ostream & os) const
-    {
-        using dt = ColumnDataType;
-
-        auto print_char_if_has_set_constraint = [&](const char ch) {
-            if (!col.hasConstraint()) {
-                return;
-            }
-
-            switch (col.getConstraint()) {
-                case constraints::in_set:
-                case constraints::not_in_set: {
-                    os << ch;
-                    break;
-                }
-                default:
-                    break;
-            }
-        };
-
-        print_char_if_has_set_constraint('(');
-
-        auto print_col_value_at_idx = [&](const size_t idx) {
-            switch (col.getDataType()) {
-                case dt::int32_t: {
-                    os << utils::stringify(col.getAs<int32_t>(idx));
-                    break;
-                }
-                case dt::uint32_t: {
-                    os << utils::stringify(col.getAs<uint32_t>(idx));
-                    break;
-                }
-                case dt::int64_t: {
-                    os << utils::stringify(col.getAs<int64_t>(idx));
-                    break;
-                }
-                case dt::uint64_t: {
-                    os << utils::stringify(col.getAs<uint64_t>(idx));
-                    break;
-                }
-                case dt::double_t: {
-                    os << utils::stringify(col.getAs<double>(idx));
-                    break;
-                }
-                case dt::string_t: {
-                    os << utils::stringify(col.getAs<std::string>(idx));
-                    break;
-                }
-                case dt::fkey_t: {
-                    os << utils::stringify(col.getAs<DatabaseID>(idx));
-                    break;
-                }
-                default:
-                    throw DBException("ColumnValueBase cannot be stringified");
-            }
-        };
-
-        if (col.getNumValues() == 1) {
-            print_col_value_at_idx(0);
-        } else {
-            for (size_t idx = 0; idx < col.getNumValues() - 1; ++idx) {
-                print_col_value_at_idx(idx);
-                os << ",";
-            }
-            print_col_value_at_idx(col.getNumValues() - 1);
-        }
-
-        print_char_if_has_set_constraint(')');
-    }
-
-    //! Local helper method used by INSERT and UPDATE code in
-    //! SQLiteConnProxy code below.
-    void finalizeInsertOrUpdateStatement_(
-        sqlite3_stmt * prepared_stmt,
-        const ColumnValues & col_values) const
-    {
-        int rc = SQLITE_OK;
-        auto check_sql = [&rc]() {
-            if (rc != SQLITE_OK) {
-                throw DBException("An error was encountered while ")
-                << "a TableRef object was writing to the database. "
-                    << "The sqlite error code was " << rc << ".";
-            }
-        };
-        auto check_done = [&rc]() {
-            if (rc != SQLITE_OK && rc != SQLITE_DONE) {
-                throw DBException("An error was encountered while ")
-                    << "a TableRef object was writing to the database. "
-                    << "The sqlite error code was " << rc << ".";
-            }
-        };
-
-        //Scoped object which finalizes a SQLite statement
-        struct OnCreateOrUpdateExit {
-            OnCreateOrUpdateExit(sqlite3_stmt * prepared_stmt) :
-                stmt_(prepared_stmt)
-            {}
-            ~OnCreateOrUpdateExit() {
-                if (stmt_) {
-                    sqlite3_finalize(stmt_);
-                }
-            }
-
-        private:
-            sqlite3_stmt * stmt_ = nullptr;
-        };
-
-        OnCreateOrUpdateExit scoped_exit(prepared_stmt);
-        (void) scoped_exit;
-
-        using dt = ColumnDataType;
-
-        //Bind the TableRef's column values to the prepared statement.
-        for (int idx = 0; idx < (int)col_values.size(); ++idx) {
-            const int sql_col_idx = idx + 1;
-            const ColumnValueBase & col = col_values[idx];
-
-            switch (col.getDataType()) {
-                case dt::fkey_t:
-                case dt::int32_t:
-                case dt::uint32_t: {
-                    const int val = getColumnValueAsInt32_(col);
-                    rc = sqlite3_bind_int(prepared_stmt, sql_col_idx, val);
-                    break;
-                }
-
-                case dt::int64_t:
-                case dt::uint64_t: {
-                    const sqlite3_int64 val = getColumnValueAsInt64_(col);
-                    rc = sqlite3_bind_int64(prepared_stmt, sql_col_idx, val);
-                    break;
-                }
-
-                case dt::double_t: {
-                    const double val = getColumnValueAsDouble_(col);
-                    rc = sqlite3_bind_double(prepared_stmt, sql_col_idx, val);
-                    break;
-                }
-
-                case dt::string_t: {
-                    const char * val = col.getAs<const char*>();
-                    rc = sqlite3_bind_text(prepared_stmt, sql_col_idx, val, -1, 0);
-                    break;
-                }
-
-                case ColumnDataType::blob_t: {
-                    const Blob blob_descriptor = col.getAs<Blob>();
-                    rc = sqlite3_bind_blob(prepared_stmt, sql_col_idx,
-                                        blob_descriptor.data_ptr,
-                                        (int)blob_descriptor.num_bytes,
-                                        0);
-                    break;
-                }
-
-                default:
-                    throw DBException("Unrecognized column data type encountered");
-            }
-            check_sql();
-        }
-
-        rc = sqlite3_step(prepared_stmt);
-        check_done();
-    }
-
-    //Put together an INSERT statement for this table's
-    //current column values.
-    std::string prepareSqlInsertStatement_(
-        const std::string & table_name,
-        const ColumnValues & col_values) const
-    {
-        //Build the prepared SQL statement. This will put
-        //placeholders ("?") for all the column values,
-        //which we'll bind to shortly.
-        //
-        //The resulting SQL command looks something like this:
-        //
-        //   INSERT INTO Customers values (?,?,?)
-        //
-        std::string stmt;
-        std::ostringstream oss;
-        oss << "INSERT INTO " << table_name << " (";
-        if (col_values.size() == 1) {
-            oss << col_values[0].getColumnName() << ")";
-        } else {
-            for (size_t idx = 0; idx < col_values.size() - 1; ++idx) {
-                oss << col_values[idx].getColumnName() << ",";
-            }
-            oss << col_values.back().getColumnName() << ")";
-        }
-
-        oss << " values (";
-        if (col_values.size() == 1) {
-            oss << "?";
-        } else {
-            for (size_t idx = 0; idx < col_values.size() - 1; ++idx) {
-                oss << "?,";
-            }
-            oss << "?";
-        }
-        oss << ")";
-        stmt = oss.str();
-        return stmt;
-    }
-
-    //! Local utility to turn any 8, 16, or 32 bit integer
-    //! column value into an int32_t
-    int getColumnValueAsInt32_(const ColumnValueBase & col) const
-    {
-        using dt = ColumnDataType;
-
-        switch (col.getDataType()) {
-            case dt::int32_t: {
-                const auto val = col.getAs<int32_t>();
-                return static_cast<int>(val);
-            }
-            case dt::uint32_t: {
-                const auto val = col.getAs<uint32_t>();
-                return static_cast<int>(val);
-            }
-            default:
-                throw DBException("Invalid call to getColumnValueAsInt32_() ")
-                    << "- the ColumnValueBase object passed in has a value "
-                    << "that cannot be cast to 32-bit int.";
-        }
-    }
-
-    //! Local utility to turn any 64 bit integer column value
-    //! into an int64_t
-    sqlite3_int64 getColumnValueAsInt64_(const ColumnValueBase & col) const
-    {
-        using dt = ColumnDataType;
-
-        switch (col.getDataType()) {
-            case dt::int64_t: {
-                const auto val = col.getAs<int64_t>();
-                return static_cast<sqlite3_int64>(val);
-            }
-            case dt::uint64_t: {
-                const auto val = col.getAs<uint64_t>();
-                return static_cast<sqlite3_int64>(val);
-            }
-            default:
-                throw DBException("Invalid call to getColumnValueAsInt64_() ")
-                    << "- the ColumnValueBase object passed in has a value "
-                    << "that cannot be cast to 64-bit int.";
-        }
-    }
-
-    //! Local utility to turn any floating point column value
-    //! into a double
-    double getColumnValueAsDouble_(const ColumnValueBase & col) const
-    {
-        using dt = ColumnDataType;
-
-        switch (col.getDataType()) {
-            case dt::double_t: {
-                const auto val = col.getAs<double>();
-                return static_cast<double>(val);
-            }
-            default:
-                throw DBException("Invalid call to getColumnValueAsDouble_() ")
-                    << "- the ColumnValueBase object passed in has a value "
-                    << "that cannot be cast to double.";
-        }
     }
 
     //! Physical database connection
