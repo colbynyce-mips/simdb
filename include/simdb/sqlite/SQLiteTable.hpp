@@ -3,6 +3,7 @@
 #pragma once
 
 #include "simdb/schema/ColumnTypedefs.hpp"
+#include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb_fwd.hpp"
 
 #include <sqlite3.h>
@@ -405,57 +406,51 @@ private:
     sqlite3 *const db_conn_;
 };
 
+template <typename T>
+inline T queryScalarPropertyValue(const char * table_name, const char * col_name, const int db_id, sqlite3 * db_conn)
+{
+    SqlQuery query(table_name, db_conn);
+
+    T val;
+    query.select(col_name, val);
+    query.addConstraintForInt("Id", simdb::Constraints::EQUAL, db_id);
+
+    auto result_set = query.getResultSet();
+    if (!result_set.getNextRecord()) {
+        throw DBException("Record not found");
+    }
+
+    return val;
+}
+
 inline int32_t SqlRecord::getPropertyInt32(const char * col_name) const
 {
-    sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
-    stepStatement_(stmt, {SQLITE_ROW});
-    auto val = sqlite3_column_int(stmt, 0);
-    stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
-    return val;
+    return queryScalarPropertyValue<int32_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 inline int64_t SqlRecord::getPropertyInt64(const char * col_name) const
 {
-    sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
-    stepStatement_(stmt, {SQLITE_ROW});
-    auto val = sqlite3_column_int64(stmt, 0);
-    stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
-    return val;
+    return queryScalarPropertyValue<int64_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 inline uint32_t SqlRecord::getPropertyUInt32(const char * col_name) const
 {
-    auto val = getPropertyInt32(col_name);
-    return static_cast<uint32_t>(val);
+    return queryScalarPropertyValue<uint32_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 inline uint64_t SqlRecord::getPropertyUInt64(const char * col_name) const
 {
-    auto val = getPropertyInt64(col_name);
-    return static_cast<uint64_t>(val);
+    return queryScalarPropertyValue<uint64_t>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 inline double SqlRecord::getPropertyDouble(const char * col_name) const
 {
-    sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
-    stepStatement_(stmt, {SQLITE_ROW});
-    auto val = sqlite3_column_double(stmt, 0);
-    stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
-    return val;
+    return queryScalarPropertyValue<double>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 inline std::string SqlRecord::getPropertyString(const char * col_name) const
 {
-    sqlite3_stmt * stmt = createGetPropertyStmt_(col_name);
-    stepStatement_(stmt, {SQLITE_ROW});
-    auto val = sqlite3_column_text(stmt, 0);
-    auto ret = val ? std::string((const char*)(val)) : std::string("");
-    stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
-    return ret;
+    return queryScalarPropertyValue<std::string>(table_name_.c_str(), col_name, db_id_, db_conn_);
 }
 
 template <typename T>

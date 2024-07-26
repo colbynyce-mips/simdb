@@ -1,6 +1,7 @@
 #pragma once
 
 #include "simdb/sqlite/SQLiteIterator.hpp"
+#include "simdb/sqlite/Constraints.hpp"
 #include <iomanip>
 #include <iostream>
 
