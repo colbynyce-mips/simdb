@@ -205,110 +205,120 @@ int main()
 
     // SELECT COUNT(Id) should return 3 records.
     EXPECT_EQUAL(query1->count(), 3);
-    auto result_set1 = query1->getResultSet();
+    {
+        auto result_set = query1->getResultSet();
 
-    // Iterate over the records one at a time and verify the data.
-    EXPECT_TRUE(result_set1.getNextRecord());
-    EXPECT_EQUAL(i32, 111);
-    EXPECT_EQUAL(i64, 555);
-    EXPECT_EQUAL(u32, 789);
-    EXPECT_EQUAL(u64, 50505050);
+        // Iterate over the records one at a time and verify the data.
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 111);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 789);
+        EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_TRUE(result_set1.getNextRecord());
-    EXPECT_EQUAL(i32, 222);
-    EXPECT_EQUAL(i64, 555);
-    EXPECT_EQUAL(u32, 444);
-    EXPECT_EQUAL(u64, 50505050);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 222);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 444);
+        EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_TRUE(result_set1.getNextRecord());
-    EXPECT_EQUAL(i32, 333);
-    EXPECT_EQUAL(i64, 555);
-    EXPECT_EQUAL(u32, 789);
-    EXPECT_EQUAL(u64, 50505050);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 333);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 789);
+        EXPECT_EQUAL(u64, 50505050);
 
-    // We should have read all the records.
-    EXPECT_FALSE(result_set1.getNextRecord());
+        // We should have read all the records.
+        EXPECT_FALSE(result_set.getNextRecord());
 
-    // Reset the iterator and make sure it can iterate again from the start.
-    result_set1.reset();
-    EXPECT_TRUE(result_set1.getNextRecord());
-    EXPECT_TRUE(result_set1.getNextRecord());
-    EXPECT_TRUE(result_set1.getNextRecord());
-    EXPECT_FALSE(result_set1.getNextRecord());
+        // Reset the iterator and make sure it can iterate again from the start.
+        result_set.reset();
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
 
     // Add WHERE constraints, rerun the query, and check the results.
     query1->addConstraintForInt("SomeInt32", simdb::Constraints::NOT_EQUAL, 111);
-    auto result_set2 = query1->getResultSet();
+    {
+        auto result_set = query1->getResultSet();
 
-    EXPECT_TRUE(result_set2.getNextRecord());
-    EXPECT_EQUAL(i32, 222);
-    EXPECT_EQUAL(i64, 555);
-    EXPECT_EQUAL(u32, 444);
-    EXPECT_EQUAL(u64, 50505050);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 222);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 444);
+        EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_TRUE(result_set2.getNextRecord());
-    EXPECT_EQUAL(i32, 333);
-    EXPECT_EQUAL(i64, 555);
-    EXPECT_EQUAL(u32, 789);
-    EXPECT_EQUAL(u64, 50505050);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 333);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 789);
+        EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_FALSE(result_set2.getNextRecord());
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
 
     query1->addConstraintForInt("SomeUInt32", simdb::Constraints::EQUAL, 789);
-    auto result_set3 = query1->getResultSet();
+    {
+        auto result_set = query1->getResultSet();
 
-    EXPECT_TRUE(result_set3.getNextRecord());
-    EXPECT_EQUAL(i32, 333);
-    EXPECT_EQUAL(i64, 555);
-    EXPECT_EQUAL(u32, 789);
-    EXPECT_EQUAL(u64, 50505050);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 333);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 789);
+        EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_FALSE(result_set3.getNextRecord());
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
 
     // Remove WHERE constraints, add limit, rerun query.
     query1->resetConstraints();
     query1->setLimit(2);
-    auto result_set4 = query1->getResultSet();
+    {
+        auto result_set = query1->getResultSet();
 
-    EXPECT_TRUE(result_set4.getNextRecord());
-    EXPECT_EQUAL(i32, 111);
-    EXPECT_EQUAL(i64, 555);
-    EXPECT_EQUAL(u32, 789);
-    EXPECT_EQUAL(u64, 50505050);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 111);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 789);
+        EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_TRUE(result_set4.getNextRecord());
-    EXPECT_EQUAL(i32, 222);
-    EXPECT_EQUAL(i64, 555);
-    EXPECT_EQUAL(u32, 444);
-    EXPECT_EQUAL(u64, 50505050);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 222);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 444);
+        EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_FALSE(result_set4.getNextRecord());
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
 
     // Add ORDER BY clauses, rerun query.
     query1->resetLimit();
     query1->orderBy("SomeUInt32", simdb::QueryOrder::DESC);
     query1->orderBy("SomeInt32", simdb::QueryOrder::ASC);
-    auto result_set5 = query1->getResultSet();
+    {
+        auto result_set = query1->getResultSet();
 
-    EXPECT_TRUE(result_set5.getNextRecord());
-    EXPECT_EQUAL(i32, 111);
-    EXPECT_EQUAL(i64, 555);
-    EXPECT_EQUAL(u32, 789);
-    EXPECT_EQUAL(u64, 50505050);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 111);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 789);
+        EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_TRUE(result_set5.getNextRecord());
-    EXPECT_EQUAL(i32, 333);
-    EXPECT_EQUAL(i64, 555);
-    EXPECT_EQUAL(u32, 789);
-    EXPECT_EQUAL(u64, 50505050);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 333);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 789);
+        EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_TRUE(result_set5.getNextRecord());
-    EXPECT_EQUAL(i32, 222);
-    EXPECT_EQUAL(i64, 555);
-    EXPECT_EQUAL(u32, 444);
-    EXPECT_EQUAL(u64, 50505050);
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 222);
+        EXPECT_EQUAL(i64, 555);
+        EXPECT_EQUAL(u32, 444);
+        EXPECT_EQUAL(u64, 50505050);
 
-    EXPECT_FALSE(result_set5.getNextRecord());
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
 
     // TODO test int queries with NOT_EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL
     // TODO test int queries with IN SET / NOT IN SET.
@@ -325,41 +335,47 @@ int main()
 
     // SELECT COUNT(Id) should return 4 records.
     EXPECT_EQUAL(query2->count(), 4);
-    auto result_set6 = query2->getResultSet();
+    {
+        auto result_set = query2->getResultSet();
 
-    // Iterate over the records one at a time and verify the data.
-    EXPECT_TRUE(result_set6.getNextRecord());
-    EXPECT_EQUAL(str, "foo");
-    EXPECT_TRUE(result_set6.getNextRecord());
-    EXPECT_EQUAL(str, "foo");
-    EXPECT_TRUE(result_set6.getNextRecord());
-    EXPECT_EQUAL(str, "bar");
-    EXPECT_TRUE(result_set6.getNextRecord());
-    EXPECT_EQUAL(str, "baz");
+        // Iterate over the records one at a time and verify the data.
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(str, "foo");
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(str, "foo");
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(str, "bar");
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(str, "baz");
 
-    // We should have read all the records.
-    EXPECT_FALSE(result_set6.getNextRecord());
+        // We should have read all the records.
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
 
     // Add WHERE constraints, rerun the query, and check the results.
     query2->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
-    auto result_set7 = query2->getResultSet();
+    {
+        auto result_set = query2->getResultSet();
 
-    EXPECT_TRUE(result_set7.getNextRecord());
-    EXPECT_EQUAL(str, "foo");
-    EXPECT_TRUE(result_set7.getNextRecord());
-    EXPECT_EQUAL(str, "foo");
-    EXPECT_FALSE(result_set7.getNextRecord());
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(str, "foo");
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(str, "foo");
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
 
     query2->resetConstraints();
     query2->addConstraintForString("SomeString", simdb::SetConstraints::IN_SET, {"bar", "baz"});
     query2->orderBy("SomeString", simdb::QueryOrder::DESC);
-    auto result_set8 = query2->getResultSet();
+    {
+        auto result_set = query2->getResultSet();
 
-    EXPECT_TRUE(result_set8.getNextRecord());
-    EXPECT_EQUAL(str, "baz");
-    EXPECT_TRUE(result_set8.getNextRecord());
-    EXPECT_EQUAL(str, "bar");
-    EXPECT_FALSE(result_set8.getNextRecord());
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(str, "baz");
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(str, "bar");
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
 
     // TODO test queries that include blob columns.
 }
