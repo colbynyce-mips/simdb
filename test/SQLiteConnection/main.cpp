@@ -546,45 +546,45 @@ int main()
 
     query3->resetConstraints();
     query3->addConstraintForDouble("DefaultEPS", simdb::Constraints::EQUAL, TEST_EPSILON, false);
-    EXPECT_EQUAL(query3->count(true), 2);
+    EXPECT_EQUAL(query3->count(), 2);
     query3->resetConstraints();
     query3->addConstraintForDouble("DefaultEPS", simdb::Constraints::EQUAL, TEST_EPSILON, true);
-    EXPECT_EQUAL(query3->count(true), 2);
+    EXPECT_EQUAL(query3->count(), 2);
 
     query3->resetConstraints();
     query3->addConstraintForDouble("DefaultMIN", simdb::Constraints::EQUAL, TEST_DOUBLE_MIN, false);
-    EXPECT_EQUAL(query3->count(true), 2);
+    EXPECT_EQUAL(query3->count(), 2);
     query3->resetConstraints();
     query3->addConstraintForDouble("DefaultMIN", simdb::Constraints::EQUAL, TEST_DOUBLE_MIN, true);
-    EXPECT_EQUAL(query3->count(true), 2);
+    EXPECT_EQUAL(query3->count(), 2);
 
     query3->resetConstraints();
     query3->addConstraintForDouble("DefaultMAX", simdb::Constraints::EQUAL, TEST_DOUBLE_MAX, false);
-    EXPECT_EQUAL(query3->count(true), 2);
+    EXPECT_EQUAL(query3->count(), 2);
     query3->resetConstraints();
     query3->addConstraintForDouble("DefaultMAX", simdb::Constraints::EQUAL, TEST_DOUBLE_MAX, true);
-    EXPECT_EQUAL(query3->count(true), 2);
+    EXPECT_EQUAL(query3->count(), 2);
 
     query3->resetConstraints();
     query3->addConstraintForDouble("DefaultPI", simdb::Constraints::EQUAL, TEST_DOUBLE_PI, false);
-    EXPECT_EQUAL(query3->count(true), 2);
+    EXPECT_EQUAL(query3->count(), 2);
     query3->resetConstraints();
     query3->addConstraintForDouble("DefaultPI", simdb::Constraints::EQUAL, TEST_DOUBLE_PI, true);
-    EXPECT_EQUAL(query3->count(true), 2);
+    EXPECT_EQUAL(query3->count(), 2);
 
     query3->resetConstraints();
     query3->addConstraintForDouble("DefaultEASY", simdb::Constraints::EQUAL, TEST_DOUBLE_EASY, false);
-    EXPECT_EQUAL(query3->count(true), 2);
+    EXPECT_EQUAL(query3->count(), 2);
     query3->resetConstraints();
     query3->addConstraintForDouble("DefaultEASY", simdb::Constraints::EQUAL, TEST_DOUBLE_EASY, true);
-    EXPECT_EQUAL(query3->count(true), 2);
+    EXPECT_EQUAL(query3->count(), 2);
 
     query3->resetConstraints();
     query3->addConstraintForDouble("DefaultHARD", simdb::Constraints::EQUAL, TEST_DOUBLE_HARD, false);
-    EXPECT_EQUAL(query3->count(true), 2);
+    EXPECT_EQUAL(query3->count(), 2);
     query3->resetConstraints();
     query3->addConstraintForDouble("DefaultHARD", simdb::Constraints::EQUAL, TEST_DOUBLE_HARD, true);
-    EXPECT_EQUAL(query3->count(true), 2);
+    EXPECT_EQUAL(query3->count(), 2);
 
     // Test SQL queries for string types.
     std::string str;
