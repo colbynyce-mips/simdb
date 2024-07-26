@@ -24,6 +24,8 @@ static const std::vector<int> TEST_VECTOR2 = {6,7,8,9,10};
 static const simdb::Blob TEST_BLOB         = TEST_VECTOR;
 static const simdb::Blob TEST_BLOB2        = TEST_VECTOR2;
 
+simdb::PerfTimer timer;
+
 int main()
 {
     using dt = simdb::ColumnDataType;
@@ -65,6 +67,16 @@ int main()
         .addColumn("DefaultPI",   dt::double_t)->setDefaultValue(TEST_DOUBLE_PI)
         .addColumn("DefaultEASY", dt::double_t)->setDefaultValue(TEST_DOUBLE_EASY)
         .addColumn("DefaultHARD", dt::double_t)->setDefaultValue(TEST_DOUBLE_HARD);
+
+    schema.addTable("IndexedColumns")
+        .addColumn("SomeInt32", dt::int32_t)->index()
+        .addColumn("SomeDouble", dt::double_t)->index()
+        .addColumn("SomeString", dt::string_t)->index();
+
+    schema.addTable("NonIndexedColumns")
+        .addColumn("SomeInt32", dt::int32_t)
+        .addColumn("SomeDouble", dt::double_t)
+        .addColumn("SomeString", dt::string_t);
 
     simdb::DatabaseManager db_mgr;
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
@@ -249,6 +261,42 @@ int main()
     db_mgr.INSERT(SQL_TABLE("DefaultDoubles"),
                   SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEASY", "DefaultHARD"),
                   SQL_VALUES(TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EASY, TEST_DOUBLE_HARD));
+
+    db_mgr.safeTransaction([&]() {
+        // IndexedColumns
+        // ------------------------------------------------------------------------------------------------------
+        // SomeInt32    SomeDouble    SomeString
+        // 1            1.1           "1.1"
+        // 2            2.1           "2.1"
+        // ...          ...           ...
+        // 100000       100000.1      "100000.1"
+        for (int idx = 1; idx <= 100000; ++idx) {
+            auto val_int = idx;
+            auto val_dbl = idx + 0.1;
+            auto val_str = std::to_string(val_int);
+
+            db_mgr.INSERT(SQL_TABLE("IndexedColumns"),
+                          SQL_COLUMNS("SomeInt32", "SomeDouble", "SomeString"),
+                          SQL_VALUES(val_int, val_dbl, val_str));
+        }
+
+        // NonIndexedColumns
+        // ------------------------------------------------------------------------------------------------------
+        // SomeInt32    SomeDouble    SomeString
+        // 1            1.1           "1.1"
+        // 2            2.1           "2.1"
+        // ...          ...           ...
+        // 100000       100000.1      "100000.1"
+        for (int idx = 1; idx <= 100000; ++idx) {
+            auto val_int = idx;
+            auto val_dbl = idx + 0.1;
+            auto val_str = std::to_string(val_int);
+
+            db_mgr.INSERT(SQL_TABLE("NonIndexedColumns"),
+                          SQL_COLUMNS("SomeInt32", "SomeDouble", "SomeString"),
+                          SQL_VALUES(val_int, val_dbl, val_str));
+        }
+    });
 
     // Test SQL queries for integer types.
     int32_t i32;
@@ -671,4 +719,37 @@ int main()
         // We should have read all the records.
         EXPECT_FALSE(result_set.getNextRecord());
     }
+
+    // IndexedColumns
+    // ------------------------------------------------------------------------------------------------------
+    // SomeInt32    SomeDouble    SomeString
+
+    // Ensure that indexing works by running the same queries against tables
+    // that are indexed and not (with the same number of records / schema)
+    // and verifying that the indexed queries are faster.
+    //
+    // We'll pick the last record in the table to give the highest chance
+    // of a large discrepancy in the query times (full table walk for the
+    // non-indexed query).
+    auto query6 = db_mgr.createQuery("IndexedColumns");
+
+    query6->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 100000);
+    query6->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, 100000.1);
+    query6->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "100000");
+
+    auto query7 = db_mgr.createQuery("NonIndexedColumns");
+
+    query7->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 100000);
+    query7->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, 100000.1);
+    query7->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "100000");
+
+    timer.restart();
+    EXPECT_EQUAL(query6->count(), 1);
+    const double indexed_query_time = timer.elapsedTime();
+
+    timer.restart();
+    EXPECT_EQUAL(query7->count(), 1);
+    const double non_indexed_query_time = timer.elapsedTime();
+
+    EXPECT_TRUE(non_indexed_query_time > 10 * indexed_query_time);
 }
