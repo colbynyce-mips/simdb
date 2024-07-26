@@ -773,4 +773,28 @@ int main()
     EXPECT_EQUAL(record12->getPropertyInt32("SomeInt32"), i32);
     EXPECT_EQUAL(record12->getPropertyDouble("SomeDouble"), dbl);
     EXPECT_EQUAL(record12->getPropertyString("SomeString"), str);
+
+    // Ensure that we can append tables to an existing database schema.
+    simdb::Schema schema2;
+
+    schema2.addTable("AppendedTable")
+        .addColumn("SomeInt32", dt::int32_t);
+
+    db_mgr.appendSchema(schema2);
+
+    db_mgr.INSERT(SQL_TABLE("AppendedTable"),
+                  SQL_COLUMNS("SomeInt32"),
+                  SQL_VALUES(101));
+
+    db_mgr.INSERT(SQL_TABLE("AppendedTable"),
+                  SQL_COLUMNS("SomeInt32"),
+                  SQL_VALUES(101));
+
+    db_mgr.INSERT(SQL_TABLE("AppendedTable"),
+                  SQL_COLUMNS("SomeInt32"),
+                  SQL_VALUES(202));
+
+    auto query8 = db_mgr.createQuery("AppendedTable");
+    query8->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 101);
+    EXPECT_EQUAL(query8->count(), 2);
 }
