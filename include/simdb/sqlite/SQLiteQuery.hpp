@@ -55,8 +55,8 @@ inline std::ostream & operator<<(std::ostream & os, const Constraints constraint
 inline std::ostream & operator<<(std::ostream & os, const SetConstraints constraint)
 {
     switch (constraint) {
-        case SetConstraints::IN_SET:     os << " IN SET ";     break;
-        case SetConstraints::NOT_IN_SET: os << " NOT IN SET "; break;
+        case SetConstraints::IN_SET:     os << " IN ";     break;
+        case SetConstraints::NOT_IN_SET: os << " NOT IN "; break;
     }
 
     return os;
@@ -415,7 +415,7 @@ public:
     }
 
     //! Execute the query.
-    SqlResultIterator getResultSet()
+    SqlResultIterator getResultSet(bool verbose = false)
     {
         std::ostringstream oss;
         oss << "SELECT ";
@@ -433,6 +433,10 @@ public:
         appendLimitClause_(oss);
 
         const auto cmd = oss.str();
+        if (verbose) {
+            std::cout << "Query cmd: " << cmd << std::endl;
+        }
+
         sqlite3_stmt * stmt = nullptr;
         if (sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0)) {
             throw DBException(sqlite3_errmsg(db_conn_));
