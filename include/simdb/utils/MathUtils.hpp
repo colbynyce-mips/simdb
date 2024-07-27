@@ -11,8 +11,6 @@
 namespace simdb {
 namespace utils {
 
-    void colbydebug(){}
-
 //! \brief Comparison of two floating-point values with
 //! a supplied tolerance. The tolerance value defaults
 //! to machine epsilon.
@@ -23,7 +21,6 @@ bool>::type
 approximatelyEqual(const T a, const T b,
                    const T epsilon = std::numeric_limits<T>::epsilon())
 {
-    colbydebug();
     const T fabs_a = std::fabs(a);
     const T fabs_b = std::fabs(b);
     const T fabs_diff = std::fabs(a - b);
