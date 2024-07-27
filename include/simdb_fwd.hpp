@@ -6,7 +6,8 @@
  * \brief Forward declarations of SimDB classes.
  */
 
-namespace simdb {
+namespace simdb
+{
 
 //! Forward declarations   --------------------------
 class AsyncTaskQueue;
@@ -20,4 +21,4 @@ class TimerThread;
 template <typename>
 class ConcurrentQueue;
 
-}
+} // namespace simdb

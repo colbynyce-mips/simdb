@@ -2,10 +2,10 @@
 
 #pragma once
 
-namespace simdb {
+namespace simdb
+{
 
 //! Unique database ID's for all records in a SimDB table.
 typedef int DatabaseID;
 
-}
-
+} // namespace simdb

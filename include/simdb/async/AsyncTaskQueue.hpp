@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "simdb/async/TimerThread.hpp"
 #include "simdb/async/ConcurrentQueue.hpp"
+#include "simdb/async/TimerThread.hpp"
 #include "simdb/sqlite/SQLiteTransaction.hpp"
 #include "simdb_fwd.hpp"
 
@@ -11,7 +11,8 @@
 #include <memory>
 #include <vector>
 
-namespace simdb {
+namespace simdb
+{
 
 /*!
  * \brief Base class used for all tasks that are given
@@ -35,7 +36,8 @@ class WorkerInterrupt : public WorkerTask
 {
 protected:
     //! WorkerTask implementation
-    void completeTask() override {
+    void completeTask() override
+    {
         throw InterruptException();
     }
 };
@@ -45,30 +47,33 @@ class AsyncTaskQueue
 public:
     //! Construct a task evaluator that will execute every
     //! 'interval_seconds' that you specify.
-    AsyncTaskQueue(SQLiteTransaction *db_conn, DatabaseManager *db_mgr, double interval_seconds = 0.1)
+    AsyncTaskQueue(SQLiteTransaction* db_conn, DatabaseManager* db_mgr, double interval_seconds = 0.1)
         : db_conn_(db_conn)
         , db_mgr_(db_mgr)
         , timed_eval_(interval_seconds, this)
-    {}
+    {
+    }
 
-    ~AsyncTaskQueue() {
+    ~AsyncTaskQueue()
+    {
         timed_eval_.stop();
     }
 
     //! Get the database connection associated with this task queue.
-    SQLiteTransaction *getConnection() const
+    SQLiteTransaction* getConnection() const
     {
         return db_conn_;
     }
 
     //! Get the database manager associated with this task queue.
-    DatabaseManager *getDatabaseManager() const
+    DatabaseManager* getDatabaseManager() const
     {
         return db_mgr_;
     }
 
     //! Add a task you wish to evaluate off the main thread
-    void addTask(std::unique_ptr<WorkerTask> task) {
+    void addTask(std::unique_ptr<WorkerTask> task)
+    {
         concurrent_queue_.emplace(task.release());
 
         if (!timed_eval_.isRunning()) {
@@ -80,13 +85,14 @@ public:
     //! typically called by a worker thread, but may be called
     //! from the main thread at synchronization points like
     //! simulation pause/stop.
-    void flushQueue() {
+    void flushQueue()
+    {
         safeTransaction([&]() {
             std::unique_ptr<WorkerTask> task;
             while (concurrent_queue_.try_pop(task)) {
                 try {
                     task->completeTask();
-                } catch (const InterruptException &) {
+                } catch (const InterruptException&) {
                     break;
                 }
             }
@@ -104,7 +110,8 @@ public:
     //! from code that you know is always on the main thread,
     //! for example in setup or teardown / post-processing
     //! code in a simulation.
-    void stopThread() {
+    void stopThread()
+    {
         //Put a special interrupt packet in the queue. This
         //does nothing but throw an interrupt exception when
         //its turn is up.
@@ -117,7 +124,7 @@ public:
     }
 
     //! Execute the functor inside BEGIN/COMMIT TRANSACTION.
-    void safeTransaction(const TransactionFunc & func) const
+    void safeTransaction(const TransactionFunc& func) const
     {
         db_conn_->safeTransaction(func);
     }
@@ -128,23 +135,23 @@ private:
     class TimedEval : public TimerThread
     {
     public:
-        TimedEval(const double interval_seconds,
-                  AsyncTaskQueue * task_eval) :
-            TimerThread(TimerThread::Interval::FIXED_RATE,
-                        interval_seconds),
-            task_eval_(task_eval)
-        {}
+        TimedEval(const double interval_seconds, AsyncTaskQueue* task_eval)
+            : TimerThread(TimerThread::Interval::FIXED_RATE, interval_seconds)
+            , task_eval_(task_eval)
+        {
+        }
 
     private:
-        void execute_() override {
+        void execute_() override
+        {
             task_eval_->flushQueue();
         }
 
-        AsyncTaskQueue *const task_eval_;
+        AsyncTaskQueue* const task_eval_;
     };
 
-    SQLiteTransaction * db_conn_ = nullptr;
-    DatabaseManager * db_mgr_ = nullptr;
+    SQLiteTransaction* db_conn_ = nullptr;
+    DatabaseManager* db_mgr_ = nullptr;
     ConcurrentQueue<std::unique_ptr<WorkerTask>> concurrent_queue_;
     TimedEval timed_eval_;
 };

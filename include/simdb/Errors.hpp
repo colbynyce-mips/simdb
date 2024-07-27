@@ -2,12 +2,13 @@
 
 #pragma once
 
-#include <exception>
-#include <string>
-#include <sstream>
 #include <cassert>
+#include <exception>
+#include <sstream>
+#include <string>
 
-namespace simdb {
+namespace simdb
+{
 
 //! Used to construct and throw a standard C++ exception
 class DBException : public std::exception
@@ -16,12 +17,14 @@ public:
     DBException() = default;
 
     //! Construct a DBException object
-    DBException(const std::string & reason) {
+    DBException(const std::string& reason)
+    {
         reason_ << reason;
     }
 
     //! Copy construct a DBException object
-    DBException(const DBException & rhs) {
+    DBException(const DBException& rhs)
+    {
         reason_ << rhs.reason_.str();
     }
 
@@ -32,7 +35,8 @@ public:
      * \brief Overload from std::exception
      * \return Const char * of the exception reason
      */
-    virtual const char * what() const noexcept override {
+    virtual const char* what() const noexcept override
+    {
         reason_str_ = reason_.str();
         return reason_str_.c_str();
     }
@@ -40,8 +44,9 @@ public:
     /**
      * \brief Append additional information to the message.
      */
-    template<class T>
-    DBException & operator<<(const T & msg) {
+    template <class T>
+    DBException& operator<<(const T& msg)
+    {
         reason_ << msg;
         return *this;
     }
@@ -59,7 +64,8 @@ private:
 class DatabaseInterrupt : public DBException
 {
 public:
-    const char * what() const noexcept override final {
+    const char* what() const noexcept override final
+    {
         exception_message_ << "  [simdb] Database operation was interrupted";
         const std::string details = getExceptionDetails_();
         if (!details.empty()) {
@@ -95,7 +101,8 @@ class DBAccessException : public DBException
 class SqlFileLockedException : public DBAccessException
 {
 public:
-    const char * what() const noexcept override {
+    const char* what() const noexcept override
+    {
         return "The database file is locked";
     }
 };
@@ -105,23 +112,21 @@ public:
 class SqlTableLockedException : public DBAccessException
 {
 public:
-    const char * what() const noexcept override {
+    const char* what() const noexcept override
+    {
         return "A table in the database is locked";
     }
 };
 
 } // namespace simdb
 
-#define ADD_FILE_INFORMATION(ex, file, line)                      \
-  ex << ": in file: '" << file << "', on line: "                  \
-     << std::dec << line;
+#define ADD_FILE_INFORMATION(ex, file, line) ex << ": in file: '" << file << "', on line: " << std::dec << line;
 
-#define simdb_throw(message)                                      \
-  {                                                               \
-      std::stringstream msg;                                      \
-      msg << message;                                             \
-      simdb::DBException ex(std::string("abort: ") + msg.str());  \
-      ADD_FILE_INFORMATION(ex, __FILE__, __LINE__);               \
-      throw ex;                                                   \
-  }
-
+#define simdb_throw(message)                                                                                           \
+    {                                                                                                                  \
+        std::stringstream msg;                                                                                         \
+        msg << message;                                                                                                \
+        simdb::DBException ex(std::string("abort: ") + msg.str());                                                     \
+        ADD_FILE_INFORMATION(ex, __FILE__, __LINE__);                                                                  \
+        throw ex;                                                                                                      \
+    }

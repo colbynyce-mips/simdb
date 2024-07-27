@@ -6,7 +6,8 @@
 #include <chrono>
 #include <thread>
 
-namespace simdb {
+namespace simdb
+{
 
 /*!
  * \brief Interruption class. We put one of these into the
@@ -18,7 +19,8 @@ namespace simdb {
 class InterruptException : public std::exception
 {
 public:
-    const char * what() const noexcept override {
+    const char* what() const noexcept override
+    {
         return "Infinite consumer loop has been interrupted";
     }
 
@@ -37,9 +39,7 @@ class TimerThread
 public:
     //! Types of timer intervals. Currently, this utility
     //! only supports fixed-rate execution.
-    enum class Interval : int8_t {
-        FIXED_RATE
-    };
+    enum class Interval : int8_t { FIXED_RATE };
 
     //! Give the timer the fixed wall clock interval in
     //! seconds. Your execute_() method will be called
@@ -74,26 +74,26 @@ public:
     //!     interval specified, your callback will be called
     //!     again immediately. It will not sleep before calling
     //!     your method.
-    TimerThread(const Interval interval, const double seconds) :
-        interval_seconds_(seconds)
+    TimerThread(const Interval interval, const double seconds)
+        : interval_seconds_(seconds)
     {
-        (void) interval;
+        (void)interval;
     }
 
     //! When the timer goes out of scope, the execute_() callbacks
     //! will be stopped.
-    virtual ~TimerThread() {
+    virtual ~TimerThread()
+    {
         stop();
     }
 
     //! Call this method from the main thread to start
     //! timed execution of your execute_() method.
-    void start() {
+    void start()
+    {
         if (thread_ == nullptr) {
             is_running_ = true;
-            thread_.reset(new std::thread([&]() {
-                start_();
-            }));
+            thread_.reset(new std::thread([&]() { start_(); }));
         }
     }
 
@@ -102,7 +102,8 @@ public:
     //! You may NOT call this method from inside your
     //! execute_() callback, or the timer thread will
     //! not be able to be torn down.
-    void stop() {
+    void stop()
+    {
         is_running_ = false;
         if (thread_ != nullptr) {
             thread_->join();
@@ -115,13 +116,15 @@ public:
     //! This does not mean that it is in the middle
     //! of calling the client background thread code,
     //! just that the thread itself is still alive.
-    bool isRunning() const {
+    bool isRunning() const
+    {
         return thread_ != nullptr;
     }
 
 private:
     //! The timer's delayed start callback
-    void start_() {
+    void start_()
+    {
         sleepUntilIntervalEnd_();
         intervalFcn_();
     }
@@ -129,7 +132,8 @@ private:
     //! The timer's own interval callback which includes
     //! your execute_() implementation and sleep duration
     //! calculation.
-    void intervalFcn_() {
+    void intervalFcn_()
+    {
         while (is_running_ || !first_execute_occurred_) {
             //Get the time before calling the user's code
             const Time interval_start = getCurrentTime_();
@@ -137,7 +141,7 @@ private:
             try {
                 execute_();
                 first_execute_occurred_ = true;
-            } catch (const InterruptException &) {
+            } catch (const InterruptException&) {
                 is_running_ = false;
                 continue;
             }
@@ -147,11 +151,9 @@ private:
             //that puts the next call to execute_() close to the fixed
             //interval.
             auto interval_end = getCurrentTime_();
-            std::chrono::duration<double> user_code_execution_time =
-                interval_end - interval_start;
+            std::chrono::duration<double> user_code_execution_time = interval_end - interval_start;
 
-            const double num_seconds_into_this_interval =
-                user_code_execution_time.count();
+            const double num_seconds_into_this_interval = user_code_execution_time.count();
             sleepUntilIntervalEnd_(num_seconds_into_this_interval);
         }
     }
@@ -165,7 +167,8 @@ private:
     //!     |----------------|----------------|----------------|
     //!                           ^
     //!                       (sleeps until...^)
-    void sleepUntilIntervalEnd_(const double offset_seconds = 0) {
+    void sleepUntilIntervalEnd_(const double offset_seconds = 0)
+    {
         const double sleep_seconds = interval_seconds_ - offset_seconds;
         if (sleep_seconds > 0) {
             auto sleep_ms = std::chrono::milliseconds(static_cast<uint64_t>(sleep_seconds * 1000));
@@ -176,7 +179,8 @@ private:
     typedef std::chrono::time_point<std::chrono::high_resolution_clock> Time;
 
     //! Get the current time. Used in sleep_for calculation.
-    Time getCurrentTime_() const {
+    Time getCurrentTime_() const
+    {
         return std::chrono::high_resolution_clock::now();
     }
 

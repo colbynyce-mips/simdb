@@ -2,25 +2,25 @@
  \brief Tests for SQLite connections, INSERT, UPDATE, etc.
  */
 
-#include "simdb/test/SimDBTester.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
+#include "simdb/test/SimDBTester.hpp"
 
 TEST_INIT;
 
-static constexpr auto TEST_INT32           = std::numeric_limits<int32_t>::max();
-static constexpr auto TEST_INT64           = std::numeric_limits<int64_t>::max();
-static constexpr auto TEST_DOUBLE          = std::numeric_limits<double>::max();
-static constexpr auto TEST_EPSILON         = std::numeric_limits<double>::epsilon();
-static constexpr auto TEST_DOUBLE_MIN      = std::numeric_limits<double>::min();
-static constexpr auto TEST_DOUBLE_MAX      = std::numeric_limits<double>::max();
-static constexpr auto TEST_DOUBLE_PI       = M_PI;
-static constexpr auto TEST_DOUBLE_EXACT    = 1.0;
-static constexpr auto TEST_DOUBLE_INEXACT  = (0.1 + 0.1 + 0.1);
-static const std::string TEST_STRING       = "TheExampleString";
-static const std::vector<int> TEST_VECTOR  = {1,2,3,4,5};
-static const std::vector<int> TEST_VECTOR2 = {6,7,8,9,10};
-static const simdb::Blob TEST_BLOB         = TEST_VECTOR;
-static const simdb::Blob TEST_BLOB2        = TEST_VECTOR2;
+static constexpr auto TEST_INT32 = std::numeric_limits<int32_t>::max();
+static constexpr auto TEST_INT64 = std::numeric_limits<int64_t>::max();
+static constexpr auto TEST_DOUBLE = std::numeric_limits<double>::max();
+static constexpr auto TEST_EPSILON = std::numeric_limits<double>::epsilon();
+static constexpr auto TEST_DOUBLE_MIN = std::numeric_limits<double>::min();
+static constexpr auto TEST_DOUBLE_MAX = std::numeric_limits<double>::max();
+static constexpr auto TEST_DOUBLE_PI = M_PI;
+static constexpr auto TEST_DOUBLE_EXACT = 1.0;
+static constexpr auto TEST_DOUBLE_INEXACT = (0.1 + 0.1 + 0.1);
+static const std::string TEST_STRING = "TheExampleString";
+static const std::vector<int> TEST_VECTOR = {1, 2, 3, 4, 5};
+static const std::vector<int> TEST_VECTOR2 = {6, 7, 8, 9, 10};
+static const simdb::Blob TEST_BLOB = TEST_VECTOR;
+static const simdb::Blob TEST_BLOB2 = TEST_VECTOR2;
 
 simdb::PerfTimer timer;
 
@@ -30,18 +30,13 @@ int main()
 
     simdb::Schema schema;
 
-    schema.addTable("IntegerTypes")
-        .addColumn("SomeInt32" , dt::int32_t)
-        .addColumn("SomeInt64" , dt::int64_t);
+    schema.addTable("IntegerTypes").addColumn("SomeInt32", dt::int32_t).addColumn("SomeInt64", dt::int64_t);
 
-    schema.addTable("FloatingPointTypes")
-        .addColumn("SomeDouble", dt::double_t);
+    schema.addTable("FloatingPointTypes").addColumn("SomeDouble", dt::double_t);
 
-    schema.addTable("StringTypes")
-        .addColumn("SomeString", dt::string_t);
+    schema.addTable("StringTypes").addColumn("SomeString", dt::string_t);
 
-    schema.addTable("BlobTypes")
-        .addColumn("SomeBlob", dt::blob_t);
+    schema.addTable("BlobTypes").addColumn("SomeBlob", dt::blob_t);
 
     schema.addTable("MixAndMatch")
         .addColumn("SomeInt32", dt::int32_t)
@@ -49,34 +44,34 @@ int main()
         .addColumn("SomeBlob", dt::blob_t);
 
     schema.addTable("DefaultValues")
-        .addColumn("DefaultInt32" , dt::int32_t )
-        .addColumn("DefaultInt64" , dt::int64_t )
+        .addColumn("DefaultInt32", dt::int32_t)
+        .addColumn("DefaultInt64", dt::int64_t)
         .addColumn("DefaultDouble", dt::double_t)
         .addColumn("DefaultString", dt::string_t)
-        .setColumnDefaultValue("DefaultInt32" , TEST_INT32)
-        .setColumnDefaultValue("DefaultInt64" , TEST_INT64)
+        .setColumnDefaultValue("DefaultInt32", TEST_INT32)
+        .setColumnDefaultValue("DefaultInt64", TEST_INT64)
         .setColumnDefaultValue("DefaultDouble", TEST_DOUBLE)
         .setColumnDefaultValue("DefaultString", TEST_STRING);
 
     schema.addTable("DefaultDoubles")
-        .addColumn("DefaultEPS"     , dt::double_t)
-        .addColumn("DefaultMIN"     , dt::double_t)
-        .addColumn("DefaultMAX"     , dt::double_t)
-        .addColumn("DefaultPI"      , dt::double_t)
-        .addColumn("DefaultEXACT"   , dt::double_t)
-        .addColumn("DefaultINEXACT" , dt::double_t)
-        .setColumnDefaultValue("DefaultEPS"     , TEST_EPSILON)
-        .setColumnDefaultValue("DefaultMIN"     , TEST_DOUBLE_MIN)
-        .setColumnDefaultValue("DefaultMAX"     , TEST_DOUBLE_MAX)
-        .setColumnDefaultValue("DefaultPI"      , TEST_DOUBLE_PI)
-        .setColumnDefaultValue("DefaultEXACT"   , TEST_DOUBLE_EXACT)
-        .setColumnDefaultValue("DefaultINEXACT" , TEST_DOUBLE_INEXACT);
+        .addColumn("DefaultEPS", dt::double_t)
+        .addColumn("DefaultMIN", dt::double_t)
+        .addColumn("DefaultMAX", dt::double_t)
+        .addColumn("DefaultPI", dt::double_t)
+        .addColumn("DefaultEXACT", dt::double_t)
+        .addColumn("DefaultINEXACT", dt::double_t)
+        .setColumnDefaultValue("DefaultEPS", TEST_EPSILON)
+        .setColumnDefaultValue("DefaultMIN", TEST_DOUBLE_MIN)
+        .setColumnDefaultValue("DefaultMAX", TEST_DOUBLE_MAX)
+        .setColumnDefaultValue("DefaultPI", TEST_DOUBLE_PI)
+        .setColumnDefaultValue("DefaultEXACT", TEST_DOUBLE_EXACT)
+        .setColumnDefaultValue("DefaultINEXACT", TEST_DOUBLE_INEXACT);
 
     schema.addTable("IndexedColumns")
         .addColumn("SomeInt32", dt::int32_t)
         .addColumn("SomeDouble", dt::double_t)
         .addColumn("SomeString", dt::string_t)
-        .createCompoundIndexOn(SQL_COLUMNS("SomeInt32", "SomeDouble","SomeString"));
+        .createCompoundIndexOn(SQL_COLUMNS("SomeInt32", "SomeDouble", "SomeString"));
 
     schema.addTable("NonIndexedColumns")
         .addColumn("SomeInt32", dt::int32_t)
@@ -87,9 +82,8 @@ int main()
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     // Verify set/get APIs for integer types
-    auto record1 = db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                                 SQL_COLUMNS("SomeInt32", "SomeInt64"),
-                                 SQL_VALUES(TEST_INT32, TEST_INT64));
+    auto record1 = db_mgr.INSERT(
+        SQL_TABLE("IntegerTypes"), SQL_COLUMNS("SomeInt32", "SomeInt64"), SQL_VALUES(TEST_INT32, TEST_INT64));
 
     EXPECT_EQUAL(record1->getPropertyInt32("SomeInt32"), TEST_INT32);
     EXPECT_EQUAL(record1->getPropertyInt64("SomeInt64"), TEST_INT64);
@@ -101,9 +95,7 @@ int main()
     EXPECT_EQUAL(record1->getPropertyInt64("SomeInt64"), TEST_INT64 / 2);
 
     // Verify set/get APIs for floating-point types
-    auto record2 = db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"),
-                                 SQL_COLUMNS("SomeDouble"),
-                                 SQL_VALUES(TEST_DOUBLE));
+    auto record2 = db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(TEST_DOUBLE));
 
     EXPECT_EQUAL(record2->getPropertyDouble("SomeDouble"), TEST_DOUBLE);
 
@@ -111,9 +103,7 @@ int main()
     EXPECT_EQUAL(record2->getPropertyDouble("SomeDouble"), TEST_DOUBLE / 2);
 
     // Verify set/get APIs for string types
-    auto record3 = db_mgr.INSERT(SQL_TABLE("StringTypes"),
-                                 SQL_COLUMNS("SomeString"),
-                                 SQL_VALUES(TEST_STRING));
+    auto record3 = db_mgr.INSERT(SQL_TABLE("StringTypes"), SQL_COLUMNS("SomeString"), SQL_VALUES(TEST_STRING));
 
     EXPECT_EQUAL(record3->getPropertyString("SomeString"), TEST_STRING);
 
@@ -121,18 +111,14 @@ int main()
     EXPECT_EQUAL(record3->getPropertyString("SomeString"), TEST_STRING + "2");
 
     // Verify set/get APIs for blob types
-    auto record4 = db_mgr.INSERT(SQL_TABLE("BlobTypes"),
-                                 SQL_COLUMNS("SomeBlob"),
-                                 SQL_VALUES(TEST_VECTOR));
+    auto record4 = db_mgr.INSERT(SQL_TABLE("BlobTypes"), SQL_COLUMNS("SomeBlob"), SQL_VALUES(TEST_VECTOR));
 
     EXPECT_EQUAL(record4->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR);
 
     record4->setPropertyBlob("SomeBlob", TEST_VECTOR2);
     EXPECT_EQUAL(record4->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR2);
 
-    auto record5 = db_mgr.INSERT(SQL_TABLE("BlobTypes"),
-                                 SQL_COLUMNS("SomeBlob"),
-                                 SQL_VALUES(TEST_BLOB));
+    auto record5 = db_mgr.INSERT(SQL_TABLE("BlobTypes"), SQL_COLUMNS("SomeBlob"), SQL_VALUES(TEST_BLOB));
 
     EXPECT_EQUAL(record5->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR);
 
@@ -180,29 +166,17 @@ int main()
     // 111          777
     // 222          777
     // 333          101
-    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                  SQL_COLUMNS("SomeInt32", "SomeInt64"),
-                  SQL_VALUES(111, 555));
+    db_mgr.INSERT(SQL_TABLE("IntegerTypes"), SQL_COLUMNS("SomeInt32", "SomeInt64"), SQL_VALUES(111, 555));
 
-    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                  SQL_COLUMNS("SomeInt32", "SomeInt64"),
-                  SQL_VALUES(222, 555));
+    db_mgr.INSERT(SQL_TABLE("IntegerTypes"), SQL_COLUMNS("SomeInt32", "SomeInt64"), SQL_VALUES(222, 555));
 
-    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                  SQL_COLUMNS("SomeInt32", "SomeInt64"),
-                  SQL_VALUES(333, 555));
+    db_mgr.INSERT(SQL_TABLE("IntegerTypes"), SQL_COLUMNS("SomeInt32", "SomeInt64"), SQL_VALUES(333, 555));
 
-    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                  SQL_COLUMNS("SomeInt32", "SomeInt64"),
-                  SQL_VALUES(111, 777));
+    db_mgr.INSERT(SQL_TABLE("IntegerTypes"), SQL_COLUMNS("SomeInt32", "SomeInt64"), SQL_VALUES(111, 777));
 
-    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                  SQL_COLUMNS("SomeInt32", "SomeInt64"),
-                  SQL_VALUES(222, 777));
+    db_mgr.INSERT(SQL_TABLE("IntegerTypes"), SQL_COLUMNS("SomeInt32", "SomeInt64"), SQL_VALUES(222, 777));
 
-    db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                  SQL_COLUMNS("SomeInt32", "SomeInt64"),
-                  SQL_VALUES(333, 101));
+    db_mgr.INSERT(SQL_TABLE("IntegerTypes"), SQL_COLUMNS("SomeInt32", "SomeInt64"), SQL_VALUES(333, 101));
 
     // FloatingPointTypes
     // ---------------------------------------------------------------------------------
@@ -219,7 +193,8 @@ int main()
     // 1.0
     // 0.3
     // 0.3
-    for (auto val : {TEST_EPSILON,TEST_DOUBLE_MIN,TEST_DOUBLE_MAX,TEST_DOUBLE_PI,TEST_DOUBLE_EXACT,TEST_DOUBLE_INEXACT}) {
+    for (auto val :
+         {TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT}) {
         db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(val));
         db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(val));
     }
@@ -264,13 +239,17 @@ int main()
     // DefaultEPS       DefaultMIN       DefaultMAX       DefaultPI       DefaultEXACT       DefaultINEXACT
     // TEST_EPSILON     TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EXACT  TEST_DOUBLE_INEXACT
     // TEST_EPSILON     TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EXACT  TEST_DOUBLE_INEXACT
-    db_mgr.INSERT(SQL_TABLE("DefaultDoubles"),
-                  SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEXACT", "DefaultINEXACT"),
-                  SQL_VALUES(TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT));
+    db_mgr.INSERT(
+        SQL_TABLE("DefaultDoubles"),
+        SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEXACT", "DefaultINEXACT"),
+        SQL_VALUES(
+            TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT));
 
-    db_mgr.INSERT(SQL_TABLE("DefaultDoubles"),
-                  SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEXACT", "DefaultINEXACT"),
-                  SQL_VALUES(TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT));
+    db_mgr.INSERT(
+        SQL_TABLE("DefaultDoubles"),
+        SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEXACT", "DefaultINEXACT"),
+        SQL_VALUES(
+            TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT));
 
     db_mgr.safeTransaction([&]() {
         // IndexedColumns
@@ -482,7 +461,7 @@ int main()
 
     // Test queries with NOT IN clause.
     query1->resetConstraints();
-    query1->addConstraintForInt("SomeInt32", simdb::SetConstraints::NOT_IN_SET, {111,333});
+    query1->addConstraintForInt("SomeInt32", simdb::SetConstraints::NOT_IN_SET, {111, 333});
     {
         auto result_set = query1->getResultSet();
 
@@ -543,7 +522,8 @@ int main()
     }
 
     // Check WHERE clauses for doubles.
-    for (auto target : {TEST_EPSILON,TEST_DOUBLE_MIN,TEST_DOUBLE_MAX,TEST_DOUBLE_PI,TEST_DOUBLE_EXACT,TEST_DOUBLE_INEXACT}) {
+    for (auto target :
+         {TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT}) {
         // Not using fuzzyMatch() - test for equality.
         query2->resetConstraints();
         query2->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, target, false);
@@ -586,7 +566,7 @@ int main()
     }
 
     // Check WHERE clause for comparisons using <, <=, >, >=
-    for (auto fuzzy : {false,true}) {
+    for (auto fuzzy : {false, true}) {
         query2->resetConstraints();
         query2->addConstraintForDouble("SomeDouble", simdb::Constraints::LESS, TEST_DOUBLE_PI, fuzzy);
         EXPECT_EQUAL(query2->count(), 8);
@@ -797,22 +777,15 @@ int main()
     // Ensure that we can append tables to an existing database schema.
     simdb::Schema schema2;
 
-    schema2.addTable("AppendedTable")
-        .addColumn("SomeInt32", dt::int32_t);
+    schema2.addTable("AppendedTable").addColumn("SomeInt32", dt::int32_t);
 
     db_mgr.appendSchema(schema2);
 
-    db_mgr.INSERT(SQL_TABLE("AppendedTable"),
-                  SQL_COLUMNS("SomeInt32"),
-                  SQL_VALUES(101));
+    db_mgr.INSERT(SQL_TABLE("AppendedTable"), SQL_COLUMNS("SomeInt32"), SQL_VALUES(101));
 
-    db_mgr.INSERT(SQL_TABLE("AppendedTable"),
-                  SQL_COLUMNS("SomeInt32"),
-                  SQL_VALUES(101));
+    db_mgr.INSERT(SQL_TABLE("AppendedTable"), SQL_COLUMNS("SomeInt32"), SQL_VALUES(101));
 
-    db_mgr.INSERT(SQL_TABLE("AppendedTable"),
-                  SQL_COLUMNS("SomeInt32"),
-                  SQL_VALUES(202));
+    db_mgr.INSERT(SQL_TABLE("AppendedTable"), SQL_COLUMNS("SomeInt32"), SQL_VALUES(202));
 
     auto query8 = db_mgr.createQuery("AppendedTable");
     query8->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 101);
@@ -823,18 +796,18 @@ int main()
     // from simulations.
     simdb::Schema schema3;
 
-    schema3.addTable("HighVolumeData")
-        .addColumn("RawData", dt::blob_t);
+    schema3.addTable("HighVolumeData").addColumn("RawData", dt::blob_t);
 
     db_mgr.appendSchema(schema3);
 
     class AsyncWriter : public simdb::WorkerTask
     {
     public:
-        AsyncWriter(simdb::DatabaseManager * db_mgr, size_t num_vals, int val)
+        AsyncWriter(simdb::DatabaseManager* db_mgr, size_t num_vals, int val)
             : db_mgr_(db_mgr)
             , data_(num_vals, val)
-        {}
+        {
+        }
 
         void completeTask() override
         {
@@ -842,10 +815,10 @@ int main()
         }
 
     private:
-        simdb::DatabaseManager * db_mgr_;
+        simdb::DatabaseManager* db_mgr_;
         std::vector<int> data_;
     };
-    
+
     auto task_queue = db_mgr.getConnection()->getTaskQueue();
 
     for (size_t idx = 10; idx < 1000; ++idx) {

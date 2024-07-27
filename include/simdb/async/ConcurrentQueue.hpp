@@ -5,7 +5,8 @@
 #include <mutex>
 #include <queue>
 
-namespace simdb {
+namespace simdb
+{
 
 /*! 
  * \brief Thread-safe wrapper around std::queue (FIFO)
@@ -17,14 +18,16 @@ public:
     ConcurrentQueue() = default;
 
     //! Push an item to the back of the queue.
-    void push(const DataT & item) {
+    void push(const DataT& item)
+    {
         std::lock_guard<std::mutex> guard(mutex_);
         queue_.emplace(std::move(item));
     }
 
     //! Emplace an item to the back of the queue.
     template <class... Args>
-    void emplace(Args&&... args) {
+    void emplace(Args&&... args)
+    {
         std::lock_guard<std::mutex> guard(mutex_);
         queue_.emplace(std::forward<Args>(args)...);
     }
@@ -32,7 +35,8 @@ public:
     //! Get the item at the front of the queue. This
     //! returns true if successful, or false if there
     //! was no data in the queue.
-    bool try_pop(DataT & item) {
+    bool try_pop(DataT& item)
+    {
         std::lock_guard<std::mutex> guard(mutex_);
         if (queue_.empty()) {
             return false;
@@ -43,7 +47,8 @@ public:
     }
 
     //! How many data points are in the queue?
-    size_t size() const {
+    size_t size() const
+    {
         std::lock_guard<std::mutex> guard(mutex_);
         return queue_.size();
     }

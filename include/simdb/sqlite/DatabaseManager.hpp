@@ -4,8 +4,8 @@
 
 #include "simdb/schema/Schema.hpp"
 #include "simdb/sqlite/SQLiteConnection.hpp"
-#include "simdb/sqlite/SQLiteTable.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
+#include "simdb/sqlite/SQLiteTable.hpp"
 #include "simdb/utils/uuids.hpp"
 #include "simdb_fwd.hpp"
 
@@ -17,7 +17,8 @@
 #include <thread>
 #include <unordered_set>
 
-namespace simdb {
+namespace simdb
+{
 
 /*!
  * \brief Database manager class. Used in order to create
@@ -32,7 +33,7 @@ public:
     //! database connection or create any database just yet.
     //! The database path that you pass in is wherever you
     //! want the database to ultimately live.
-    DatabaseManager(const std::string & db_dir = ".")
+    DatabaseManager(const std::string& db_dir = ".")
         : db_dir_(db_dir)
     {
     }
@@ -41,7 +42,7 @@ public:
     //! the physical database file and open the connection.
     //!
     //! Returns true if successful, false otherwise.
-    bool createDatabaseFromSchema(Schema & schema)
+    bool createDatabaseFromSchema(Schema& schema)
     {
         db_conn_.reset(new SQLiteConnection(this));
         schema_ = schema;
@@ -62,14 +63,13 @@ public:
     //! Returns true if the provided schema's tables were
     //! successfuly added to this DatabaseManager's schema,
     //! otherwise returns false.
-    bool appendSchema(Schema & schema)
+    bool appendSchema(Schema& schema)
     {
         if (!db_conn_) {
             return false;
         } else if (!db_conn_->isValid()) {
-            throw DBException("Attempt to append schema tables to ")
-                << "an DatabaseManager that does not have a valid "
-                << "database connection";
+            throw DBException("Attempt to append schema tables to ") << "an DatabaseManager that does not have a valid "
+                                                                     << "database connection";
         }
 
         db_conn_->realizeSchema(schema, *this);
@@ -86,7 +86,7 @@ public:
     //! from a previous call to getDatabaseFullFilename()
     //!
     //! Returns true if successful, false otherwise.
-    bool connectToExistingDatabase(const std::string & db_file)
+    bool connectToExistingDatabase(const std::string& db_file)
     {
         assertNoDatabaseConnectionOpen_();
         db_conn_.reset(new SQLiteConnection(this));
@@ -104,14 +104,14 @@ public:
     //! Get the full database file name, including its path and
     //! file extension. If the database has not been opened or
     //! created yet, this will just return the database path.
-    const std::string & getDatabaseFullFilename() const
+    const std::string& getDatabaseFullFilename() const
     {
         return db_full_filename_;
     }
 
     //! Get the internal database proxy. Will return nullptr
     //! if no database connection has been made yet.
-    SQLiteConnection * getConnection() const
+    SQLiteConnection* getConnection() const
     {
         return db_conn_.get();
     }
@@ -121,7 +121,7 @@ public:
     ~DatabaseManager() = default;
 
     //! Execute the functor inside BEGIN/COMMIT TRANSACTION.
-    void safeTransaction(const TransactionFunc & func) const
+    void safeTransaction(const TransactionFunc& func) const
     {
         db_conn_->safeTransaction(func);
     }
@@ -134,7 +134,7 @@ public:
     //!               SQL_VALUES(3.14, "foo"));
     //!
     //! The returned value is the database ID of the created record.
-    std::unique_ptr<SqlRecord> INSERT(SqlTable &&table, SqlColumns &&cols, SqlValues &&vals)
+    std::unique_ptr<SqlRecord> INSERT(SqlTable&& table, SqlColumns&& cols, SqlValues&& vals)
     {
         std::ostringstream oss;
         oss << "INSERT INTO " << table.getName();
@@ -142,7 +142,7 @@ public:
         vals.writeValsForINSERT(oss);
 
         std::string cmd = oss.str();
-        sqlite3_stmt * stmt = db_conn_->prepareStatement(cmd);
+        sqlite3_stmt* stmt = db_conn_->prepareStatement(cmd);
         vals.bindValsForINSERT(stmt);
 
         auto rc = sqlite3_step(stmt);
@@ -158,10 +158,10 @@ public:
     //! record created with default values. These values are either explicitly
     //! set with setDefaultValue() during schema creation, or they are uninitialized
     //! and may be garbage and unsafe to read.
-    std::unique_ptr<SqlRecord> INSERT(SqlTable &&table)
+    std::unique_ptr<SqlRecord> INSERT(SqlTable&& table)
     {
         const std::string cmd = "INSERT INTO " + table.getName() + " DEFAULT VALUES";
-        sqlite3_stmt * stmt = db_conn_->prepareStatement(cmd);
+        sqlite3_stmt* stmt = db_conn_->prepareStatement(cmd);
 
         auto rc = sqlite3_step(stmt);
         if (rc != SQLITE_DONE) {
@@ -173,13 +173,13 @@ public:
     }
 
     //! Get a SqlRecord from a database ID for the given table. Returns null if not found.
-    std::unique_ptr<SqlRecord> findRecord(const char * table_name, const int db_id) const
+    std::unique_ptr<SqlRecord> findRecord(const char* table_name, const int db_id) const
     {
         return findRecord_(table_name, db_id, false);
     }
 
     //! Get a SqlRecord from a database ID for the given table. Throws if not found.
-    std::unique_ptr<SqlRecord> getRecord(const char * table_name, const int db_id) const
+    std::unique_ptr<SqlRecord> getRecord(const char* table_name, const int db_id) const
     {
         return findRecord_(table_name, db_id, true);
     }
@@ -187,7 +187,7 @@ public:
     //! Delete one record from the given table with the given ID.
     //! Returns TRUE if successful, FALSE otherwise. Should return
     //! FALSE on subsequent identical calls to this method.
-    bool removeRecordFromTable(const char * table_name, const int db_id)
+    bool removeRecordFromTable(const char* table_name, const int db_id)
     {
         std::ostringstream oss;
         oss << "DELETE FROM " << table_name << " WHERE Id=" << db_id;
@@ -202,7 +202,7 @@ public:
 
     //! Delete every record from the given table. Returns the total
     //! number of deleted records.
-    uint32_t removeAllRecordsFromTable(const char * table_name)
+    uint32_t removeAllRecordsFromTable(const char* table_name)
     {
         std::ostringstream oss;
         oss << "DELETE FROM " << table_name;
@@ -219,8 +219,8 @@ public:
     //! Returns the total number of deleted records across all tables.
     uint32_t removeAllRecordsFromAllTables()
     {
-        sqlite3_stmt * stmt = nullptr;
-        const char * cmd = "SELECT name FROM sqlite_master WHERE type='table'";
+        sqlite3_stmt* stmt = nullptr;
+        const char* cmd = "SELECT name FROM sqlite_master WHERE type='table'";
         if (sqlite3_prepare_v2(db_conn_->getDatabase(), cmd, -1, &stmt, 0)) {
             throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
         }
@@ -228,14 +228,14 @@ public:
         uint32_t count = 0;
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             auto table_name = sqlite3_column_text(stmt, 0);
-            count += removeAllRecordsFromTable((const char *)table_name);
+            count += removeAllRecordsFromTable((const char*)table_name);
         }
 
         return count;
     }
 
     //! Get a query object to issue SELECT statements with constraints.
-    std::unique_ptr<SqlQuery> createQuery(const char * table_name)
+    std::unique_ptr<SqlQuery> createQuery(const char* table_name)
     {
         return std::unique_ptr<SqlQuery>(new SqlQuery(table_name, db_conn_->getDatabase()));
     }
@@ -244,8 +244,7 @@ private:
     //! Open the given database file. If the connection is
     //! successful, this file will be the DatabaseManager's
     //! "db_full_filename_" value.
-    bool openDbFile_(const std::string & db_file,
-                     const bool create_file)
+    bool openDbFile_(const std::string& db_file, const bool create_file)
     {
         if (!db_conn_) {
             return false;
@@ -279,20 +278,19 @@ private:
         }
 
         if (db_conn_->isValid()) {
-            throw DBException(
-                "A database connection has already been "
-                "made for this DatabaseManager");
+            throw DBException("A database connection has already been "
+                              "made for this DatabaseManager");
         }
     }
 
     //! Get a SqlRecord from a database ID for the given table.
-    std::unique_ptr<SqlRecord> findRecord_(const char * table_name, const int db_id, const bool must_exist) const
+    std::unique_ptr<SqlRecord> findRecord_(const char* table_name, const int db_id, const bool must_exist) const
     {
         std::ostringstream oss;
         oss << "SELECT * FROM " << table_name << " WHERE Id=" << db_id;
         const auto cmd = oss.str();
 
-        sqlite3_stmt * stmt = nullptr;
+        sqlite3_stmt* stmt = nullptr;
         if (sqlite3_prepare_v2(db_conn_->getDatabase(), cmd.c_str(), -1, &stmt, 0)) {
             throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
         }

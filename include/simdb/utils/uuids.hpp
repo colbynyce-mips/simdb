@@ -3,14 +3,15 @@
 #pragma once
 
 #include <chrono>
-#include <sstream>
 #include <random>
+#include <sstream>
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
-namespace simdb {
+namespace simdb
+{
 
 //! \note There is a known issue with the Boost
 //! UUID library that causes valgrind to fail.
@@ -30,8 +31,7 @@ namespace simdb {
 inline std::string generateUUID()
 {
     std::mt19937 ran;
-    auto seed = std::chrono::high_resolution_clock::now().
-        time_since_epoch().count();
+    auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
 
     ran.seed(static_cast<uint64_t>(seed));
 

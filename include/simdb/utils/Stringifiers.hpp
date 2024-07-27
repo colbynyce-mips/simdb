@@ -8,14 +8,16 @@
 #include <limits>
 #include <sstream>
 
-namespace simdb {
-namespace utils {
+namespace simdb
+{
+namespace utils
+{
 
 //! Stringify scalar numbers for SQL statement creation
 template <typename ColumnT>
-typename std::enable_if<
-    !std::is_same<typename std::decay<ColumnT>::type, const char*>::value and
-    std::is_trivial<ColumnT>::value, std::string>::type
+typename std::enable_if<!std::is_same<typename std::decay<ColumnT>::type, const char*>::value and
+                            std::is_trivial<ColumnT>::value,
+                        std::string>::type
 stringify(const ColumnT val)
 {
     std::ostringstream oss;
@@ -27,8 +29,7 @@ stringify(const ColumnT val)
 
 //! Stringify std::string's for SQL statement creation
 template <typename ColumnT>
-typename std::enable_if<std::is_same<ColumnT, std::string>::value, std::string>::type
-stringify(const ColumnT & val)
+typename std::enable_if<std::is_same<ColumnT, std::string>::value, std::string>::type stringify(const ColumnT& val)
 {
     std::ostringstream oss;
     oss << "'" << val << "'";
@@ -37,8 +38,7 @@ stringify(const ColumnT & val)
 
 //! Stringify const char*'s for SQL statement creation
 template <typename ColumnT>
-typename std::enable_if<
-    std::is_same<typename std::decay<ColumnT>::type, const char*>::value, std::string>::type
+typename std::enable_if<std::is_same<typename std::decay<ColumnT>::type, const char*>::value, std::string>::type
 stringify(const ColumnT val)
 {
     std::ostringstream oss;
@@ -48,8 +48,7 @@ stringify(const ColumnT val)
 
 //! Stringify STL containers
 template <typename ColumnT>
-typename std::enable_if<is_container<ColumnT>::value, std::string>::type
-stringify(const ColumnT & val)
+typename std::enable_if<is_container<ColumnT>::value, std::string>::type stringify(const ColumnT& val)
 {
     auto begin = val.begin();
     auto end = val.end();
@@ -65,7 +64,7 @@ stringify(const ColumnT & val)
 
     std::ostringstream oss;
     oss << "(";
-    for (long idx = 0; idx < num_els-1; ++idx) {
+    for (long idx = 0; idx < num_els - 1; ++idx) {
         oss << stringify(*begin) << ",";
         ++begin;
     }
@@ -75,8 +74,7 @@ stringify(const ColumnT & val)
 
 //! Stringifier std::initializer_list<T>
 template <typename ColumnT>
-typename std::enable_if<is_initializer_list<ColumnT>::value, std::string>::type
-stringify(ColumnT val)
+typename std::enable_if<is_initializer_list<ColumnT>::value, std::string>::type stringify(ColumnT val)
 {
     auto begin = val.begin();
     auto end = val.end();
@@ -92,7 +90,7 @@ stringify(ColumnT val)
 
     std::ostringstream oss;
     oss << "(";
-    for (size_t idx = 0; idx < num_els-1; ++idx) {
+    for (size_t idx = 0; idx < num_els - 1; ++idx) {
         oss << stringify(*begin) << ",";
         ++begin;
     }

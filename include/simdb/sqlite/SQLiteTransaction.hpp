@@ -7,7 +7,8 @@
 #include <mutex>
 #include <thread>
 
-namespace simdb {
+namespace simdb
+{
 
 typedef std::function<void()> TransactionFunc;
 
@@ -21,7 +22,7 @@ public:
     virtual void endTransaction() const = 0;
 
     //! Execute the functor inside BEGIN/COMMIT TRANSACTION.
-    void safeTransaction(const TransactionFunc & transaction) const
+    void safeTransaction(const TransactionFunc& transaction) const
     {
         //There are "normal" or "acceptable" SQLite errors that
         //we trap: SQLITE_BUSY (the database file is locked), and
@@ -58,8 +59,8 @@ public:
                 //has been called (if it supports atomic transactions).
                 break;
 
-            //Retry transaction due to database access errors
-            } catch (const DBAccessException & ex) {
+                //Retry transaction due to database access errors
+            } catch (const DBAccessException& ex) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 continue;
             }
@@ -74,16 +75,16 @@ private:
     //! needed to we know whether to tell SQL to "BEGIN
     //! TRANSACTION" or not (i.e. if we're already in the
     //! middle of another safeTransaction).
-    //! 
+    //!
     //! This allows users to freely do something like this:
-    //! 
+    //!
     //!     obj_mgr_.safeTransaction([&]() {
     //!         writeReportHeader_(report);
     //!     });
-    //! 
+    //!
     //! Even if their writeReportHeader_() code does the
     //! same thing:
-    //! 
+    //!
     //!     void CSV::writeReportHeader_(sparta::Report * r) {
     //!         obj_mgr_.safeTransaction([&]() {
     //!             writeReportName_(r);
@@ -98,12 +99,12 @@ private:
     //! RAII used for BEGIN/COMMIT TRANSACTION calls to make safeTransaction
     //! more performant.
     struct ScopedTransaction {
-        ScopedTransaction(const SQLiteTransaction * db_conn,
-                          const TransactionFunc & transaction,
-                          bool & in_transaction_flag) :
-            db_conn_(db_conn),
-            transaction_(transaction),
-            in_transaction_flag_(in_transaction_flag)
+        ScopedTransaction(const SQLiteTransaction* db_conn,
+                          const TransactionFunc& transaction,
+                          bool& in_transaction_flag)
+            : db_conn_(db_conn)
+            , transaction_(transaction)
+            , in_transaction_flag_(in_transaction_flag)
         {
             in_transaction_flag_ = true;
             db_conn_->beginTransaction();
@@ -118,17 +119,17 @@ private:
 
     private:
         //! Open database connection
-        const SQLiteTransaction * db_conn_ = nullptr;
+        const SQLiteTransaction* db_conn_ = nullptr;
 
         //! The caller's function they want inside BEGIN/COMMIT TRANSACTION
-        const TransactionFunc & transaction_;
+        const TransactionFunc& transaction_;
 
         //! The caller's "in transaction flag" - in case they
         //! need to know whether *their code* is already in
         //! an ongoing transaction. This protects against
         //! recursive calls to BEGIN TRANSACTION, which is
         //! disallowed.
-        bool & in_transaction_flag_;
+        bool& in_transaction_flag_;
     };
 };
 

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "simdb/sqlite/SQLiteTable.hpp"
-#include "simdb/schema/ColumnTypedefs.hpp"
 #include "simdb/Errors.hpp"
+#include "simdb/schema/ColumnTypedefs.hpp"
+#include "simdb/sqlite/SQLiteTable.hpp"
 
 #include <algorithm>
 #include <deque>
@@ -11,17 +11,13 @@
 #include <unordered_set>
 #include <vector>
 
-namespace simdb {
+namespace simdb
+{
 
 //! Compression enumeration specifying various levels
 //! of compression which may be available in the SimDB
 //! implementation.
-enum class CompressionType : int8_t {
-    NONE,
-    DEFAULT_COMPRESSION,
-    BEST_COMPRESSION_RATIO,
-    BEST_COMPRESSION_SPEED
-};
+enum class CompressionType : int8_t { NONE, DEFAULT_COMPRESSION, BEST_COMPRESSION_RATIO, BEST_COMPRESSION_SPEED };
 
 //! Column class used for creating SimDB tables
 class Column
@@ -29,22 +25,22 @@ class Column
 public:
     //! Construct a column with a name and one of the supported data types.
     //! The column name must not be empty.
-    Column(const std::string & column_name, const ColumnDataType dt) :
-        name_(column_name),
-        dt_(dt)
+    Column(const std::string& column_name, const ColumnDataType dt)
+        : name_(column_name)
+        , dt_(dt)
     {
         if (name_.empty()) {
-            throw DBException(
-                "You cannot create a database column with no name");
+            throw DBException("You cannot create a database column with no name");
         }
     }
 
     //! Default copies, default assignments
-    Column(const Column &) = default;
-    Column & operator=(const Column &) = default;
+    Column(const Column&) = default;
+    Column& operator=(const Column&) = default;
 
     //! Equivalence against another Column
-    bool operator==(const Column & rhs) const {
+    bool operator==(const Column& rhs) const
+    {
         if (getName() != rhs.getName()) {
             return false;
         }
@@ -55,22 +51,26 @@ public:
     }
 
     //! Equivalence against another Column
-    bool operator!=(const Column & rhs) const {
+    bool operator!=(const Column& rhs) const
+    {
         return !(*this == rhs);
     }
 
     //! Name of this table column
-    const std::string & getName() const {
+    const std::string& getName() const
+    {
         return name_;
     }
 
     //! Data type of this table column
-    ColumnDataType getDataType() const {
+    ColumnDataType getDataType() const
+    {
         return dt_;
     }
 
     //! See if this Column has a default value set or not.
-    bool hasDefaultValue() const {
+    bool hasDefaultValue() const
+    {
         return !default_val_string_.empty();
     }
 
@@ -81,7 +81,8 @@ public:
     //! are only allowed on simple column data types (any type
     //! that isn't a blob) so these strings can be lexical-casted
     //! back to their native form if needed ("123" -> 123, etc.)
-    const std::string & getDefaultValueAsString() const {
+    const std::string& getDefaultValueAsString() const
+    {
         return default_val_string_;
     }
 
@@ -93,59 +94,58 @@ private:
     // be lexical-casted to a std::string, or this method
     // will throw.
     template <typename DefaultValueT>
-    void setDefaultValue_(const DefaultValueT & val) {
+    void setDefaultValue_(const DefaultValueT& val)
+    {
         if (dt_ == ColumnDataType::blob_t) {
-            throw DBException(
-                "Cannot set default value for a database "
-                "column with blob data type");
+            throw DBException("Cannot set default value for a database "
+                              "column with blob data type");
         }
 
         if (dt_ == ColumnDataType::fkey_t) {
-            throw DBException(
-                "Cannot set default value for a database "
-                "column with foreign key data type");
+            throw DBException("Cannot set default value for a database "
+                              "column with foreign key data type");
         }
 
         switch (dt_) {
-            case ColumnDataType::int32_t:
-            case ColumnDataType::int64_t: {
-                verifyDefaultValueIsInt_<DefaultValueT>();
-                break;
-            }
+        case ColumnDataType::int32_t:
+        case ColumnDataType::int64_t: {
+            verifyDefaultValueIsInt_<DefaultValueT>();
+            break;
+        }
 
-            case ColumnDataType::double_t: {
-                verifyDefaultValueIsFloat_<DefaultValueT>();
-                break;
-            }
+        case ColumnDataType::double_t: {
+            verifyDefaultValueIsFloat_<DefaultValueT>();
+            break;
+        }
 
-            default:
-                break;
+        default:
+            break;
         }
 
         std::ostringstream ss;
         writeDefaultValue_(ss, val);
         default_val_string_ = ss.str();
         if (default_val_string_.empty()) {
-            throw DBException("Unable to convert default value ")
-                << val << " into a std::string";
+            throw DBException("Unable to convert default value ") << val << " into a std::string";
         }
     }
 
     template <typename DefaultValueT>
     typename std::enable_if<std::is_floating_point<DefaultValueT>::value, void>::type
-    writeDefaultValue_(std::ostringstream & oss, DefaultValueT val) const
+    writeDefaultValue_(std::ostringstream& oss, DefaultValueT val) const
     {
         oss << std::numeric_limits<long double>::digits10 + 1 << val;
     }
 
     template <typename DefaultValueT>
     typename std::enable_if<!std::is_floating_point<DefaultValueT>::value, void>::type
-    writeDefaultValue_(std::ostringstream & oss, DefaultValueT val) const
+    writeDefaultValue_(std::ostringstream& oss, DefaultValueT val) const
     {
         oss << val;
     }
 
-    void setDefaultValueString_(const std::string & val) {
+    void setDefaultValueString_(const std::string& val)
+    {
         if (dt_ != ColumnDataType::string_t) {
             throw DBException("Unable to set default value string (data type mismatch)");
         }
@@ -154,30 +154,29 @@ private:
         ss << val;
         default_val_string_ = ss.str();
         if (default_val_string_.empty()) {
-            throw DBException("Unable to convert default value ")
-                << val << " into a std::string";
+            throw DBException("Unable to convert default value ") << val << " into a std::string";
         }
     }
 
     template <typename T>
-    typename std::enable_if<std::is_integral<T>::value, void>::type
-    verifyDefaultValueIsInt_() {
+    typename std::enable_if<std::is_integral<T>::value, void>::type verifyDefaultValueIsInt_()
+    {
     }
 
     template <typename T>
-    typename std::enable_if<!std::is_integral<T>::value, void>::type
-    verifyDefaultValueIsInt_() {
+    typename std::enable_if<!std::is_integral<T>::value, void>::type verifyDefaultValueIsInt_()
+    {
         throw DBException("Default value type mismatch (expected integer type)");
     }
 
     template <typename T>
-    typename std::enable_if<std::is_floating_point<T>::value, void>::type
-    verifyDefaultValueIsFloat_() {
+    typename std::enable_if<std::is_floating_point<T>::value, void>::type verifyDefaultValueIsFloat_()
+    {
     }
 
     template <typename T>
-    typename std::enable_if<!std::is_floating_point<T>::value, void>::type
-    verifyDefaultValueIsFloat_() {
+    typename std::enable_if<!std::is_floating_point<T>::value, void>::type verifyDefaultValueIsFloat_()
+    {
         throw DBException("Default value type mismatch (expected floating point type)");
     }
 
@@ -202,14 +201,12 @@ public:
     //! specific implementation (DbConnProxy subclass) may not
     //! support compression, in which case this option would be
     //! ignored.
-    Table(const std::string & table_name,
-          const CompressionType compression = CompressionType::BEST_COMPRESSION_RATIO) :
-        name_(table_name),
-        compression_(compression)
+    Table(const std::string& table_name, const CompressionType compression = CompressionType::BEST_COMPRESSION_RATIO)
+        : name_(table_name)
+        , compression_(compression)
     {
         if (name_.empty()) {
-            throw DBException(
-                "You cannot create a database table with no name");
+            throw DBException("You cannot create a database table with no name");
         }
     }
 
@@ -217,11 +214,12 @@ public:
     Table() = default;
 
     //! Default copies, default assignments
-    Table(const Table &) = default;
-    Table & operator=(const Table &) = default;
+    Table(const Table&) = default;
+    Table& operator=(const Table&) = default;
 
     //! Equivalence against another Table
-    bool operator==(const Table & rhs) const {
+    bool operator==(const Table& rhs) const
+    {
         if (getName() != rhs.getName()) {
             return false;
         }
@@ -237,24 +235,25 @@ public:
     }
 
     //! Equivalence against another Table
-    bool operator!=(const Table & rhs) const {
+    bool operator!=(const Table& rhs) const
+    {
         return !(*this == rhs);
     }
 
     //! Get this Table's name
-    std::string getName() const {
+    std::string getName() const
+    {
         return name_;
     }
 
     //! \return Table's compression setting
-    CompressionType getCompression() const {
+    CompressionType getCompression() const
+    {
         return compression_;
     }
 
     //! Add a Column to this Table.
-    Table & addColumn(
-        const std::string & name,
-        const ColumnDataType dt)
+    Table& addColumn(const std::string& name, const ColumnDataType dt)
     {
         columns_.emplace_back(new Column(name, dt));
         columns_by_name_[name] = columns_.back();
@@ -263,7 +262,8 @@ public:
 
     //! Assign a default value for the given column.
     template <typename T>
-    Table & setColumnDefaultValue(const std::string & col_name, const T default_val) {
+    Table& setColumnDefaultValue(const std::string& col_name, const T default_val)
+    {
         auto iter = columns_by_name_.find(col_name);
         if (iter == columns_by_name_.end()) {
             throw DBException("No column named ") << col_name << " in table " << name_;
@@ -274,7 +274,8 @@ public:
     }
 
     //! Assign a default value for the given column.
-    Table & setColumnDefaultValue(const std::string & col_name, const std::string & default_val) {
+    Table& setColumnDefaultValue(const std::string& col_name, const std::string& default_val)
+    {
         auto iter = columns_by_name_.find(col_name);
         if (iter == columns_by_name_.end()) {
             throw DBException("No column named ") << col_name << " in table " << name_;
@@ -286,24 +287,24 @@ public:
 
     //! Index records by the given column.
     //! CREATE INDEX IndexName ON TableName(ColumnName)
-    Table & createIndexOn(const std::string & col_name) {
+    Table& createIndexOn(const std::string& col_name)
+    {
         return createCompoundIndexOn(SQL_COLUMNS(col_name.c_str()));
     }
 
     //! Index records by the given columns.
     //! CREATE INDEX IndexName ON TableName(ColA,ColB,ColC)
-    Table & createCompoundIndexOn(const SqlColumns & cols) {
-        const auto & col_names = cols.getColNames();
-        for (const auto & col_name : col_names) {
+    Table& createCompoundIndexOn(const SqlColumns& cols)
+    {
+        const auto& col_names = cols.getColNames();
+        for (const auto& col_name : col_names) {
             if (columns_by_name_.find(col_name) == columns_by_name_.end()) {
                 throw DBException("Column ") << col_name << " does not exist in table " << name_;
             }
         }
 
         std::ostringstream oss;
-        oss << "CREATE INDEX " << name_  << "_Index"
-            << index_creation_strs_.size() + 1
-            << " ON " << name_ << "(";
+        oss << "CREATE INDEX " << name_ << "_Index" << index_creation_strs_.size() + 1 << " ON " << name_ << "(";
 
         size_t idx = 0;
         auto iter = col_names.begin();
@@ -322,17 +323,20 @@ public:
     }
 
     //! Iterator access
-    std::vector<std::shared_ptr<Column>>::const_iterator begin() const {
+    std::vector<std::shared_ptr<Column>>::const_iterator begin() const
+    {
         return columns_.begin();
     }
 
     //! Iterator access
-    std::vector<std::shared_ptr<Column>>::const_iterator end() const {
+    std::vector<std::shared_ptr<Column>>::const_iterator end() const
+    {
         return columns_.end();
     }
 
     //! Ask if this Table has any Columns yet
-    bool hasColumns() const {
+    bool hasColumns() const
+    {
         return !columns_.empty();
     }
 
@@ -363,9 +367,8 @@ public:
     //! being used does not support compression.
     //!
     //! \return Reference to the added table
-    Table & addTable(
-        const std::string & table_name,
-        const CompressionType compression = CompressionType::BEST_COMPRESSION_RATIO)
+    Table& addTable(const std::string& table_name,
+                    const CompressionType compression = CompressionType::BEST_COMPRESSION_RATIO)
     {
         tables_.emplace_back(table_name, compression);
         return tables_.back();
@@ -380,12 +383,12 @@ public:
     //! returns a reference to an existing table in this schema that
     //! matched the incoming table (same table name, same colum names,
     //! and the same column data types).
-    Table & addTable(const Table & rhs) {
-        if (Table * existing_table = getTableNamed(rhs.getName())) {
+    Table& addTable(const Table& rhs)
+    {
+        if (Table* existing_table = getTableNamed(rhs.getName())) {
             if (*existing_table != rhs) {
-                throw DBException("Cannot add table '")
-                    << rhs.getName() << "' to schema. A table "
-                    << "with that name already exists.";
+                throw DBException("Cannot add table '") << rhs.getName() << "' to schema. A table "
+                                                        << "with that name already exists.";
             }
             return *existing_table;
         }
@@ -412,8 +415,9 @@ public:
      *      different if they have a different name (case-
      *      sensitive) and/or a different ColumnDataType.
      */
-    Schema & operator+=(const Schema & rhs) {
-        for (const auto & table : rhs) {
+    Schema& operator+=(const Schema& rhs)
+    {
+        for (const auto& table : rhs) {
             addTable(table);
         }
         return *this;
@@ -429,8 +433,9 @@ public:
      * \return Pointer to the table with the given name.
      * Returns null if no table by that name exists.
      */
-    Table * getTableNamed(const std::string & table_name) {
-        for (auto & lhs : tables_) {
+    Table* getTableNamed(const std::string& table_name)
+    {
+        for (auto& lhs : tables_) {
             if (lhs.getName() == table_name) {
                 return &lhs;
             }
@@ -448,8 +453,9 @@ public:
      * \return Pointer to the table with the given name.
      * Returns null if no table by that name exists.
      */
-    const Table * getTableNamed(const std::string & table_name) const {
-        for (auto & lhs : tables_) {
+    const Table* getTableNamed(const std::string& table_name) const
+    {
+        for (auto& lhs : tables_) {
             if (lhs.getName() == table_name) {
                 return &lhs;
             }
@@ -458,22 +464,26 @@ public:
     }
 
     //! Iterator access
-    std::deque<Table>::const_iterator begin() const {
+    std::deque<Table>::const_iterator begin() const
+    {
         return tables_.begin();
     }
 
     //! Iterator access
-    std::deque<Table>::const_iterator end() const {
+    std::deque<Table>::const_iterator end() const
+    {
         return tables_.end();
     }
 
     //! Ask if this Schema has any Tables yet
-    bool hasTables() const {
+    bool hasTables() const
+    {
         return !tables_.empty();
     }
 
     //! Equivalence check
-    bool operator==(const Schema & rhs) const {
+    bool operator==(const Schema& rhs) const
+    {
         if (tables_.size() != rhs.tables_.size()) {
             return false;
         }
@@ -486,7 +496,8 @@ public:
     }
 
     //! Equivalence check
-    bool operator!=(const Schema & rhs) const {
+    bool operator!=(const Schema& rhs) const
+    {
         return !(*this == rhs);
     }
 

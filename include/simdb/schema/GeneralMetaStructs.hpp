@@ -16,11 +16,13 @@
 #include <unordered_set>
 #include <vector>
 
-namespace simdb {
+namespace simdb
+{
 
 //! Base case: is_container<T> is FALSE
 template <typename>
-struct is_container : std::false_type {};
+struct is_container : std::false_type {
+};
 
 //! Vectors
 template <typename ColumnT>
@@ -60,15 +62,18 @@ struct is_container<std::deque<ColumnT>> : std::true_type {
 
 //! Base case: is_initializer_list<T> is FALSE
 template <typename>
-struct is_initializer_list : std::false_type {};
+struct is_initializer_list : std::false_type {
+};
 
 //! Initializer lists for supported types: {"a","b"} / {4,5,3,6} / etc.
 template <typename ColumnT>
-struct is_initializer_list<std::initializer_list<ColumnT>> : std::true_type {};
+struct is_initializer_list<std::initializer_list<ColumnT>> : std::true_type {
+};
 
 //! Base case: is_contiguous<T> is FALSE
 template <typename>
-struct is_contiguous : std::false_type {};
+struct is_contiguous : std::false_type {
+};
 
 //! Vectors are the only supported contiguous types for blob retrieval
 template <typename ColumnT>
@@ -76,5 +81,4 @@ struct is_contiguous<std::vector<ColumnT>> : std::true_type {
     using value_type = ColumnT;
 };
 
-}
-
+} // namespace simdb
