@@ -817,4 +817,64 @@ int main()
     auto query8 = db_mgr.createQuery("AppendedTable");
     query8->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 101);
     EXPECT_EQUAL(query8->count(), 2);
+
+    // Ensure that we can send a bunch of data to the database on the
+    // worker thread. This is a common approach for high-volume data
+    // from simulations.
+    simdb::Schema schema3;
+
+    schema3.addTable("HighVolumeData")
+        .addColumn("RawData", dt::blob_t);
+
+    db_mgr.appendSchema(schema3);
+
+    class AsyncWriter : public simdb::WorkerTask
+    {
+    public:
+        AsyncWriter(simdb::DatabaseManager * db_mgr, size_t num_vals, int val)
+            : db_mgr_(db_mgr)
+            , data_(num_vals, val)
+        {}
+
+        void completeTask() override
+        {
+            db_mgr_->INSERT(SQL_TABLE("HighVolumeData"), SQL_COLUMNS("RawData"), SQL_VALUES(data_));
+        }
+
+    private:
+        simdb::DatabaseManager * db_mgr_;
+        std::vector<int> data_;
+    };
+    
+    auto task_queue = db_mgr.getConnection()->getTaskQueue();
+
+    for (size_t idx = 10; idx < 1000; ++idx) {
+        const size_t num_vals = idx;
+        const int val = 500 - idx;
+
+        std::unique_ptr<simdb::WorkerTask> task(new AsyncWriter(&db_mgr, num_vals, val));
+        task_queue->addTask(std::move(task));
+    }
+
+    // Note that stopping the working thread implicitly flushes the queue first.
+    task_queue->stopThread();
+
+    auto query9 = db_mgr.createQuery("HighVolumeData");
+
+    std::vector<int> data_vec;
+    query9->select("RawData", data_vec);
+
+    {
+        auto result_set = query9->getResultSet();
+        for (size_t idx = 10; idx < 1000; ++idx) {
+            const size_t num_vals = idx;
+            const int val = 500 - idx;
+            const std::vector<int> expected_data(num_vals, val);
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(data_vec, expected_data);
+        }
+
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
 }

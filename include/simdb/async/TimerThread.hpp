@@ -130,12 +130,13 @@ private:
     //! your execute_() implementation and sleep duration
     //! calculation.
     void intervalFcn_() {
-        while (is_running_) {
+        while (is_running_ || !first_execute_occurred_) {
             //Get the time before calling the user's code
             const Time interval_start = getCurrentTime_();
 
             try {
                 execute_();
+                first_execute_occurred_ = true;
             } catch (const InterruptException &) {
                 is_running_ = false;
                 continue;
@@ -186,6 +187,7 @@ private:
     const double interval_seconds_;
     std::unique_ptr<std::thread> thread_;
     bool is_running_ = false;
+    bool first_execute_occurred_ = false;
 };
 
 } // namespace simdb
