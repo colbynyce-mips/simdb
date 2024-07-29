@@ -13,21 +13,21 @@
 namespace simdb
 {
 
-//! \note There is a known issue with the Boost
-//! UUID library that causes valgrind to fail.
-//! Some Boost versions intentionally read from
-//! uninitialized memory in order to increase
-//! randomness of their UUID algorithms. This
-//! occurs in the default constructor of:
-//!
-//! boost::uuids::basic_random_generator<T>::ctor()
-//!
-//! The Boost documentation notes related to
-//! boost::uuid and valgrind suggest to get
-//! around the valgrind failure by either
-//! suppressing these valgrind errors, or
-//! by using a non-default constructor for
-//! the basic_random_generator<T> class.
+/// \note There is a known issue with the Boost
+/// UUID library that causes valgrind to fail.
+/// Some Boost versions intentionally read from
+/// uninitialized memory in order to increase
+/// randomness of their UUID algorithms. This
+/// occurs in the default constructor of:
+///
+/// boost::uuids::basic_random_generator<T>::ctor()
+///
+/// The Boost documentation notes related to
+/// boost::uuid and valgrind suggest to get
+/// around the valgrind failure by either
+/// suppressing these valgrind errors, or
+/// by using a non-default constructor for
+/// the basic_random_generator<T> class.
 inline std::string generateUUID()
 {
     std::mt19937 ran;

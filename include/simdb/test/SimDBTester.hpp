@@ -25,9 +25,9 @@
 
 namespace simdb
 {
-//! ostream operator so we can do EXPECT_EQUAL(vec1, vec2)
-template <class DataT>
-inline std::ostream& operator<<(std::ostream& os, const std::vector<DataT>& data)
+/// ostream operator so we can do EXPECT_EQUAL(vec1, vec2)
+template <typename T>
+inline std::ostream& operator<<(std::ostream& os, const std::vector<T>& data)
 {
     if (data.empty()) {
         return os;
@@ -295,7 +295,7 @@ public:
             ++num_errors_;
             ret = false;
         } else {
-            ret = simdb::utils::approximatelyEqual(v1, v2, tol);
+            ret = simdb::approximatelyEqual(v1, v2, tol);
             if (!ret) {
                 cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line
                       << " in file " << file << ". Value: '" << v1 << "' should be equal to '" << v2
@@ -841,7 +841,7 @@ private:
                   << std::endl;                                                                                        \
     }
 
-//! Simple elapsed time helper.
+/// Simple elapsed time helper.
 class PerfTimer
 {
 public:

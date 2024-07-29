@@ -14,20 +14,20 @@ enum class QueryOrder { ASC, DESC };
 inline std::ostream& operator<<(std::ostream& os, const QueryOrder order)
 {
     switch (order) {
-    case QueryOrder::ASC:
-        os << "ASC";
-        break;
-    case QueryOrder::DESC:
-        os << "DESC";
-        break;
+        case QueryOrder::ASC:
+            os << "ASC";
+            break;
+        case QueryOrder::DESC:
+            os << "DESC";
+            break;
     }
 
     return os;
 }
 
-//! This class issues SELECT statements with Constraints, with
-//! an iterable getResultSet() method that writes record values in
-//! local variables for each selected column.
+/// This class issues SELECT statements with Constraints, with
+/// an iterable getResultSet() method that writes record values in
+/// local variables for each selected column.
 class SqlQuery
 {
 public:
@@ -37,59 +37,59 @@ public:
     {
     }
 
-    //! Query for at most N matching records.
+    /// Query for at most N matching records.
     void setLimit(uint32_t limit)
     {
         limit_ = limit;
     }
 
-    //! Remove the LIMIT clause.
+    /// Remove the LIMIT clause.
     void resetLimit()
     {
         limit_ = 0;
     }
 
-    //! Order the query result set by the given column.
-    //!
-    //!     // SELECT ... ORDER BY foo DESC
-    //!     query->orderBy("foo", QueryOrder::DESC);
-    //!
-    //!     // SELECT ... ORDER BY foo DESC, bar ASC
-    //!     query->orderBy("bar", QueryOrder::ASC);
-    //!
-    //!     // Remove the ORDER BY clauses
-    //!     query->resetOrderBy();
-    //!
-    //!     // SELECT ... ORDER BY bar ASC
-    //!     query->orderBy("bar", QueryOrder::ASC);
+    /// Order the query result set by the given column.
+    ///
+    ///     // SELECT ... ORDER BY foo DESC
+    ///     query->orderBy("foo", QueryOrder::DESC);
+    ///
+    ///     // SELECT ... ORDER BY foo DESC, bar ASC
+    ///     query->orderBy("bar", QueryOrder::ASC);
+    ///
+    ///     // Remove the ORDER BY clauses
+    ///     query->resetOrderBy();
+    ///
+    ///     // SELECT ... ORDER BY bar ASC
+    ///     query->orderBy("bar", QueryOrder::ASC);
     void orderBy(const char* col_name, const QueryOrder order)
     {
         order_clauses_.emplace_back(col_name, order);
     }
 
-    //! Remove the ORDER BY clauses.
+    /// Remove the ORDER BY clauses.
     void resetOrderBy()
     {
         order_clauses_.clear();
     }
 
-    //! Add a constraint to this query specific to integer types and
-    //! scalar target values.
+    /// Add a constraint to this query specific to integer types and
+    /// scalar target values.
     template <typename T>
     void addConstraintForInt(const char* col_name, const Constraints constraint, const T target)
     {
         static_assert(std::is_integral<T>::value && std::is_scalar<T>::value, "Wrong addConstraint*() API");
 
         std::ostringstream oss;
-        oss << col_name << constraint << target;
+        oss << col_name << stringify(constraint) << target;
         constraint_clauses_.emplace_back(oss.str());
     }
 
-    //! Add a constraint to this query specific to floating-point types
-    //! and scalar target values.
-    //!
-    //! Pass in fuzzy=TRUE to tell SQLite to look for matches that are
-    //! within EPS of the target value.
+    /// Add a constraint to this query specific to floating-point types
+    /// and scalar target values.
+    ///
+    /// Pass in fuzzy=TRUE to tell SQLite to look for matches that are
+    /// within EPS of the target value.
     template <typename T>
     void
     addConstraintForDouble(const char* col_name, const Constraints constraint, const T target, const bool fuzzy = false)
@@ -104,31 +104,31 @@ public:
             oss << target << ",";
             oss << static_cast<int>(constraint) << ")";
         } else {
-            oss << col_name << constraint;
+            oss << col_name << stringify(constraint);
             oss << std::setprecision(std::numeric_limits<T>::max_digits10) << target;
         }
 
         constraint_clauses_.emplace_back(oss.str());
     }
 
-    //! Add a constraint to this query specific to string types and
-    //! scalar target values.
+    /// Add a constraint to this query specific to string types and
+    /// scalar target values.
     void addConstraintForString(const char* col_name, const Constraints constraint, const std::string& target)
     {
         addConstraintForString(col_name, constraint, target.c_str());
     }
 
-    //! Add a constraint to this query specific to string types and
-    //! scalar target values.
+    /// Add a constraint to this query specific to string types and
+    /// scalar target values.
     void addConstraintForString(const char* col_name, const Constraints constraint, const char* target)
     {
         std::ostringstream oss;
-        oss << col_name << constraint << "'" << target << "'";
+        oss << col_name << stringify(constraint) << "'" << target << "'";
         constraint_clauses_.emplace_back(oss.str());
     }
 
-    //! Add a constraint to this query specific to integer types and
-    //! multiple target values.
+    /// Add a constraint to this query specific to integer types and
+    /// multiple target values.
     template <typename T>
     void
     addConstraintForInt(const char* col_name, const SetConstraints constraint, const std::initializer_list<T>& targets)
@@ -136,15 +136,15 @@ public:
         addConstraintForInt(col_name, constraint, std::vector<T>{targets.begin(), targets.end()});
     }
 
-    //! Add a constraint to this query specific to integer types and
-    //! multiple target values.
+    /// Add a constraint to this query specific to integer types and
+    /// multiple target values.
     template <typename T>
     void addConstraintForInt(const char* col_name, const SetConstraints constraint, const std::vector<T>& targets)
     {
         static_assert(std::is_integral<T>::value && std::is_scalar<T>::value, "Wrong addConstraint*() API");
 
         std::ostringstream oss;
-        oss << col_name << constraint << "(";
+        oss << col_name << stringify(constraint) << "(";
 
         for (size_t idx = 0; idx < targets.size(); ++idx) {
             oss << targets[idx];
@@ -157,11 +157,11 @@ public:
         constraint_clauses_.emplace_back(oss.str());
     }
 
-    //! Add a constraint to this query specific to floating-point types
-    //! and multiple target values.
-    //!
-    //! Pass in fuzzy=TRUE to tell SQLite to look for matches that are
-    //! within EPS of the target values.
+    /// Add a constraint to this query specific to floating-point types
+    /// and multiple target values.
+    ///
+    /// Pass in fuzzy=TRUE to tell SQLite to look for matches that are
+    /// within EPS of the target values.
     template <typename T>
     void addConstraintForDouble(const char* col_name,
                                 const SetConstraints constraint,
@@ -171,11 +171,11 @@ public:
         addConstraintForDouble(col_name, constraint, std::vector<T>{targets.begin(), targets.end()}, fuzzy);
     }
 
-    //! Add a constraint to this query specific to floating-point types
-    //! and multiple target values.
-    //!
-    //! Pass in fuzzy=TRUE to tell SQLite to look for matches that are
-    //! within EPS of the target values.
+    /// Add a constraint to this query specific to floating-point types
+    /// and multiple target values.
+    ///
+    /// Pass in fuzzy=TRUE to tell SQLite to look for matches that are
+    /// within EPS of the target values.
     template <typename T>
     void addConstraintForDouble(const char* col_name,
                                 const SetConstraints constraint,
@@ -214,7 +214,7 @@ public:
 
             oss << ")";
         } else {
-            oss << col_name << constraint << " (";
+            oss << col_name << stringify(constraint) << " (";
             for (size_t idx = 0; idx < targets.size(); ++idx) {
                 oss << std::setprecision(std::numeric_limits<T>::max_digits10) << targets[idx];
                 if (idx != targets.size() - 1) {
@@ -227,8 +227,8 @@ public:
         constraint_clauses_.emplace_back(oss.str());
     }
 
-    //! Add a constraint to this query specific to string types and
-    //! multiple target values.
+    /// Add a constraint to this query specific to string types and
+    /// multiple target values.
     void addConstraintForString(const char* col_name,
                                 const SetConstraints constraint,
                                 const std::initializer_list<const char*>& targets)
@@ -236,14 +236,14 @@ public:
         addConstraintForString(col_name, constraint, std::vector<std::string>{targets.begin(), targets.end()});
     }
 
-    //! Add a constraint to this query specific to string types and
-    //! multiple target values.
+    /// Add a constraint to this query specific to string types and
+    /// multiple target values.
     void addConstraintForString(const char* col_name,
                                 const SetConstraints constraint,
                                 const std::vector<std::string>& targets)
     {
         std::ostringstream oss;
-        oss << col_name << constraint << "(";
+        oss << col_name << stringify(constraint) << "(";
 
         for (size_t idx = 0; idx < targets.size(); ++idx) {
             oss << "'" << targets[idx] << "'";
@@ -256,84 +256,84 @@ public:
         constraint_clauses_.emplace_back(oss.str());
     }
 
-    //! Reset the query constraints.
+    /// Reset the query constraints.
     void resetConstraints()
     {
         constraint_clauses_.clear();
     }
 
-    //! SELECT column values and write to the local variable on each iteration (int32).
-    //!
-    //!     int32_t val;
-    //!     query->select("ColA", &val);
+    /// SELECT column values and write to the local variable on each iteration (int32).
+    ///
+    ///     int32_t val;
+    ///     query->select("ColA", &val);
     void select(const char* col_name, int32_t& user_var)
     {
         result_writers_.emplace_back(new ResultWriterInt32(col_name, &user_var));
     }
 
-    //! SELECT column values and write to the local variable on each iteration (int64).
-    //!
-    //!     int64_t val;
-    //!     query->select("ColB", &val);
+    /// SELECT column values and write to the local variable on each iteration (int64).
+    ///
+    ///     int64_t val;
+    ///     query->select("ColB", &val);
     void select(const char* col_name, int64_t& user_var)
     {
         result_writers_.emplace_back(new ResultWriterInt64(col_name, &user_var));
     }
 
-    //! SELECT column values and write to the local variable on each iteration (uint32).
-    //!
-    //!     uint32_t val;
-    //!     query->select("ColC", &val);
+    /// SELECT column values and write to the local variable on each iteration (uint32).
+    ///
+    ///     uint32_t val;
+    ///     query->select("ColC", &val);
     void select(const char* col_name, uint32_t& user_var)
     {
         result_writers_.emplace_back(new ResultWriterUInt32(col_name, &user_var));
     }
 
-    //! SELECT column values and write to the local variable on each iteration (uint64).
-    //!
-    //!     uint64_t val;
-    //!     query->select("ColD", &val);
+    /// SELECT column values and write to the local variable on each iteration (uint64).
+    ///
+    ///     uint64_t val;
+    ///     query->select("ColD", &val);
     void select(const char* col_name, uint64_t& user_var)
     {
         result_writers_.emplace_back(new ResultWriterUInt64(col_name, &user_var));
     }
 
-    //! SELECT column values and write to the local variable on each iteration (double).
-    //!
-    //!     double val;
-    //!     query->select("ColE", &val);
+    /// SELECT column values and write to the local variable on each iteration (double).
+    ///
+    ///     double val;
+    ///     query->select("ColE", &val);
     void select(const char* col_name, double& user_var)
     {
         result_writers_.emplace_back(new ResultWriterDouble(col_name, &user_var));
     }
 
-    //! SELECT column values and write to the local variable on each iteration (string).
-    //!
-    //!     std::string val;
-    //!     query->select("ColF", &val);
+    /// SELECT column values and write to the local variable on each iteration (string).
+    ///
+    ///     std::string val;
+    ///     query->select("ColF", &val);
     void select(const char* col_name, std::string& user_var)
     {
         result_writers_.emplace_back(new ResultWriterString(col_name, &user_var));
     }
 
-    //! SELECT column values and write to the local variable on each iteration (blob).
-    //!
-    //!     std::vector<int> val;
-    //!     query->select("ColG", &val);
+    /// SELECT column values and write to the local variable on each iteration (blob).
+    ///
+    ///     std::vector<int> val;
+    ///     query->select("ColG", &val);
     template <typename T>
     void select(const char* col_name, std::vector<T>& user_var)
     {
         result_writers_.emplace_back(new ResultWriterBlob<T>(col_name, &user_var));
     }
 
-    //! Deselect all record property values.
+    /// Deselect all record property values.
     void resetSelections()
     {
         result_writers_.clear();
     }
 
-    //! Count the number of records matching this query's constraints (WHERE)
-    //! and limit (LIMIT).
+    /// Count the number of records matching this query's constraints (WHERE)
+    /// and limit (LIMIT).
     uint64_t count(bool verbose = false)
     {
         std::ostringstream oss;
@@ -368,7 +368,7 @@ public:
         throw DBException(sqlite3_errmsg(db_conn_));
     }
 
-    //! Execute the query.
+    /// Execute the query.
     SqlResultIterator getResultSet(bool verbose = false)
     {
         std::ostringstream oss;
@@ -405,7 +405,7 @@ public:
     }
 
 private:
-    //! Append WHERE clause(s).
+    /// Append WHERE clause(s).
     void appendConstraintClauses_(std::ostringstream& oss) const
     {
         if (!constraint_clauses_.empty()) {
@@ -420,7 +420,7 @@ private:
         }
     }
 
-    //! Append ORDER BY clause(s).
+    /// Append ORDER BY clause(s).
     void appendOrderByClauses_(std::ostringstream& oss) const
     {
         if (!order_clauses_.empty()) {
@@ -435,7 +435,7 @@ private:
         }
     }
 
-    //! Append LIMIT clause.
+    /// Append LIMIT clause.
     void appendLimitClause_(std::ostringstream& oss) const
     {
         if (limit_) {

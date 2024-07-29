@@ -5,4 +5,3 @@ debug/**
 cmake/sqlite3.h
 build.log
 .editorconfig
-.clang-format

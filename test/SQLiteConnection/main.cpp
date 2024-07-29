@@ -756,7 +756,15 @@ int main()
     // Ensure that we can connect a new DatabaseManager to a .db that was
     // created by another DatabaseManager.
     simdb::DatabaseManager db_mgr2;
-    EXPECT_TRUE(db_mgr2.connectToExistingDatabase(db_mgr.getDatabaseFullFilename()));
+    EXPECT_TRUE(db_mgr2.connectToExistingDatabase(db_mgr.getDatabaseFilePath()));
+
+    // Verify that we cannot alter the schema.
+    simdb::Schema schema2;
+
+    schema2.addTable("SomeTable")
+        .addColumn("SomeColumn", dt::string_t);
+
+    EXPECT_THROW(db_mgr2.appendSchema(schema2));
 
     int id;
     query7->select("Id", id);
@@ -775,11 +783,11 @@ int main()
     EXPECT_EQUAL(record12->getPropertyString("SomeString"), str);
 
     // Ensure that we can append tables to an existing database schema.
-    simdb::Schema schema2;
+    simdb::Schema schema3;
 
-    schema2.addTable("AppendedTable").addColumn("SomeInt32", dt::int32_t);
+    schema3.addTable("AppendedTable").addColumn("SomeInt32", dt::int32_t);
 
-    db_mgr.appendSchema(schema2);
+    db_mgr.appendSchema(schema3);
 
     db_mgr.INSERT(SQL_TABLE("AppendedTable"), SQL_COLUMNS("SomeInt32"), SQL_VALUES(101));
 
@@ -794,11 +802,11 @@ int main()
     // Ensure that we can send a bunch of data to the database on the
     // worker thread. This is a common approach for high-volume data
     // from simulations.
-    simdb::Schema schema3;
+    simdb::Schema schema4;
 
-    schema3.addTable("HighVolumeData").addColumn("RawData", dt::blob_t);
+    schema4.addTable("HighVolumeData").addColumn("RawData", dt::blob_t);
 
-    db_mgr.appendSchema(schema3);
+    db_mgr.appendSchema(schema4);
 
     class AsyncWriter : public simdb::WorkerTask
     {

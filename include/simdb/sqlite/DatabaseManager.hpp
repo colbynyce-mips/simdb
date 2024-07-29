@@ -7,133 +7,126 @@
 #include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/sqlite/SQLiteTable.hpp"
 #include "simdb/utils/uuids.hpp"
-#include "simdb_fwd.hpp"
-
-#include <fstream>
-#include <functional>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <thread>
-#include <unordered_set>
 
 namespace simdb
 {
 
 /*!
- * \brief Database manager class. Used in order to create
- * databases with a user-specified schema, and connect to
- * existing databases that were previously created with
- * another DatabaseManager.
+ * \class DatabaseManager
+ *
+ * \brief This class is the primary "entry point" into SimDB connections,
+ *        including instantiating schemas, creating records, querying
+ *        records, and accessing the underlying SQLiteConnection.
  */
 class DatabaseManager
 {
 public:
-    //! Construct an DatabaseManager. This does not open any
-    //! database connection or create any database just yet.
-    //! The database path that you pass in is wherever you
-    //! want the database to ultimately live.
+    /// Construct a DatabaseManager with a database directory.
     DatabaseManager(const std::string& db_dir = ".")
         : db_dir_(db_dir)
     {
     }
 
-    //! Using a Schema object for your database, construct
-    //! the physical database file and open the connection.
-    //!
-    //! Returns true if successful, false otherwise.
-    bool createDatabaseFromSchema(Schema& schema)
+    /// Open database connections will be implicitly closed when the
+    /// destructor is called.
+    ~DatabaseManager() = default;
+
+    /// \brief Using a Schema object for your database, construct
+    ///        the physical database file and open the connection.
+    ///
+    /// \return Returns true if successful, false otherwise.
+    bool createDatabaseFromSchema(const Schema& schema)
     {
         db_conn_.reset(new SQLiteConnection(this));
         schema_ = schema;
 
-        openDatabaseWithoutSchema_();
-        db_conn_->realizeSchema(schema_, *this);
+        assertNoDatabaseConnectionOpen_();
+        auto db_file = generateUUID() + ".db";
+        createDatabaseFile_(db_file);
+
+        db_conn_->realizeSchema(schema_);
         return db_conn_->isValid();
     }
 
-    //! After calling createDatabaseFromSchema(), you may
-    //! add additional tables with this method. If a table
-    //! has the same name as an existing table in this database,
-    //! all of the table columns need to match exactly as
-    //! well, or this method will throw. If the columns
-    //! match however, the table will be ignored as it
-    //! already exists in the schema.
-    //!
-    //! Returns true if the provided schema's tables were
-    //! successfuly added to this DatabaseManager's schema,
-    //! otherwise returns false.
-    bool appendSchema(Schema& schema)
+    /// \brief   After calling createDatabaseFromSchema(), you may
+    ///          add additional tables with this method.
+    ///
+    /// \throws  This will throw an exception for DatabaseManager's
+    ///          whose connection was initialized with a call to
+    ///          connectToExistingDatabase().
+    ///
+    /// \return  Returns true if successful, false otherwise.
+    bool appendSchema(const Schema& schema)
     {
         if (!db_conn_) {
             return false;
         } else if (!db_conn_->isValid()) {
-            throw DBException("Attempt to append schema tables to ") << "an DatabaseManager that does not have a valid "
-                                                                     << "database connection";
+            throw DBException(
+                "Attempt to append schema tables to a DatabaseManager that does not have a valid database connection");
         }
 
-        db_conn_->realizeSchema(schema, *this);
-        schema_ += schema;
+        if (!append_schema_allowed_) {
+            throw DBException("Cannot call appendSchema() after you have initialized the DatabaseManager with "
+                              "connectToExistingDatabase()");
+        }
+
+        db_conn_->realizeSchema(schema);
+        schema_.appendSchema(schema);
         return true;
     }
 
-    //! Open a database connection to an existing database
-    //! file. The 'db_file' that you pass in should be the
-    //! full database path, including the file name and
-    //! extension. For example, "/path/to/my/dir/statistics.db"
-    //!
-    //! This 'db_file' is typically one that was given to you
-    //! from a previous call to getDatabaseFullFilename()
-    //!
-    //! Returns true if successful, false otherwise.
-    bool connectToExistingDatabase(const std::string& db_file)
+    /// \brief  Open a database connection to an existing database file.
+    ///
+    /// \param db_fpath Full path to the database including the ".db"
+    ///                 extension, e.g. "/path/to/my/dir/statistics.db"
+    ///
+    /// \note   The 'db_fpath' is typically one that was given to you
+    ///         from a previous call to getDatabaseFilePath()
+    ///
+    /// \return Returns true if successful, false otherwise.
+    bool connectToExistingDatabase(const std::string& db_fpath)
     {
         assertNoDatabaseConnectionOpen_();
         db_conn_.reset(new SQLiteConnection(this));
 
-        if (!db_conn_->connectToExistingDatabase(db_file)) {
+        if (!db_conn_->connectToExistingDatabase(db_fpath)) {
             db_conn_.reset();
-            db_full_filename_.clear();
+            db_filepath_.clear();
             return false;
         }
 
-        db_full_filename_ = db_conn_->getDatabaseFullFilename();
+        db_filepath_ = db_conn_->getDatabaseFilePath();
+        append_schema_allowed_ = false;
         return true;
     }
 
-    //! Get the full database file name, including its path and
-    //! file extension. If the database has not been opened or
-    //! created yet, this will just return the database path.
-    const std::string& getDatabaseFullFilename() const
+    /// Get the full database file path.
+    const std::string& getDatabaseFilePath() const
     {
-        return db_full_filename_;
+        return db_filepath_;
     }
 
-    //! Get the internal database proxy. Will return nullptr
-    //! if no database connection has been made yet.
-    SQLiteConnection* getConnection() const
+    /// Get the SQLiteTransaction for safeTransaction() as well
+    /// as access to the async task queue (worker thread task manager).
+    SQLiteTransaction* getConnection() const
     {
         return db_conn_.get();
     }
 
-    //! Open database connections will be closed when the
-    //! destructor is called.
-    ~DatabaseManager() = default;
-
-    //! Execute the functor inside BEGIN/COMMIT TRANSACTION.
+    /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
     void safeTransaction(const TransactionFunc& func) const
     {
         db_conn_->safeTransaction(func);
     }
 
-    //! Perform INSERT operation on this database. The way to
-    //! call this method is:
-    //!
-    //! db_mgr.INSERT(SQL_TABLE("TableName"),
-    //!               SQL_COLUMNS("ColA", "ColB"),
-    //!               SQL_VALUES(3.14, "foo"));
-    //!
-    //! The returned value is the database ID of the created record.
+    /// \brief  Perform INSERT operation on this database.
+    ///
+    /// \note   The way to call this method is:
+    ///         db_mgr.INSERT(SQL_TABLE("TableName"),
+    ///                       SQL_COLUMNS("ColA", "ColB"),
+    ///                       SQL_VALUES(3.14, "foo"));
+    ///
+    /// \return SqlRecord which wraps the table and the ID of its record.
     std::unique_ptr<SqlRecord> INSERT(SqlTable&& table, SqlColumns&& cols, SqlValues&& vals)
     {
         std::ostringstream oss;
@@ -147,17 +140,15 @@ public:
 
         auto rc = sqlite3_step(stmt);
         if (rc != SQLITE_DONE) {
-            throw DBException("Could not perform INSERT. Error code: ") << rc;
+            throw DBException("Could not perform INSERT. Error: ") << sqlite3_errmsg(db_conn_->getDatabase());
         }
 
         auto db_id = db_conn_->getLastInsertRowId();
         return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase()));
     }
 
-    //! This is similar to the above INSERT() method, and will result in a
-    //! record created with default values. These values are either explicitly
-    //! set with setDefaultValue() during schema creation, or they are uninitialized
-    //! and may be garbage and unsafe to read.
+    /// This INSERT() overload is to be used for tables that were defined with
+    /// at least one default value for its column(s).
     std::unique_ptr<SqlRecord> INSERT(SqlTable&& table)
     {
         const std::string cmd = "INSERT INTO " + table.getName() + " DEFAULT VALUES";
@@ -165,28 +156,32 @@ public:
 
         auto rc = sqlite3_step(stmt);
         if (rc != SQLITE_DONE) {
-            throw DBException("Could not perform INSERT. Error code: ") << rc;
+            throw DBException("Could not perform INSERT. Error: ") << sqlite3_errmsg(db_conn_->getDatabase());
         }
 
         auto db_id = db_conn_->getLastInsertRowId();
         return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase()));
     }
 
-    //! Get a SqlRecord from a database ID for the given table. Returns null if not found.
+    /// \brief  Get a SqlRecord from a database ID for the given table.
+    ///
+    /// \return Returns the record wrapper if found, or nullptr if not.
     std::unique_ptr<SqlRecord> findRecord(const char* table_name, const int db_id) const
     {
         return findRecord_(table_name, db_id, false);
     }
 
-    //! Get a SqlRecord from a database ID for the given table. Throws if not found.
+    /// \brief  Get a SqlRecord from a database ID for the given table.
+    ///
+    /// \throws Throws an exception if this database ID is not found in the given table.
     std::unique_ptr<SqlRecord> getRecord(const char* table_name, const int db_id) const
     {
         return findRecord_(table_name, db_id, true);
     }
 
-    //! Delete one record from the given table with the given ID.
-    //! Returns TRUE if successful, FALSE otherwise. Should return
-    //! FALSE on subsequent identical calls to this method.
+    /// \brief  Delete one record from the given table with the given ID.
+    ///
+    /// \return Returns true if successful, false otherwise.
     bool removeRecordFromTable(const char* table_name, const int db_id)
     {
         std::ostringstream oss;
@@ -200,8 +195,9 @@ public:
         return sqlite3_changes(db_conn_->getDatabase()) == 1;
     }
 
-    //! Delete every record from the given table. Returns the total
-    //! number of deleted records.
+    /// \brief  Delete every record from the given table.
+    ///
+    /// \return Returns the total number of deleted records.
     uint32_t removeAllRecordsFromTable(const char* table_name)
     {
         std::ostringstream oss;
@@ -215,8 +211,9 @@ public:
         return sqlite3_changes(db_conn_->getDatabase());
     }
 
-    //! Issue "DELETE FROM TableName" to clear out the given table.
-    //! Returns the total number of deleted records across all tables.
+    /// \brief  Issue "DELETE FROM TableName" to clear out the given table.
+    ///
+    /// \return Returns the total number of deleted records across all tables.
     uint32_t removeAllRecordsFromAllTables()
     {
         sqlite3_stmt* stmt = nullptr;
@@ -234,43 +231,38 @@ public:
         return count;
     }
 
-    //! Get a query object to issue SELECT statements with constraints.
+    /// Get a query object to issue SELECT statements with constraints.
     std::unique_ptr<SqlQuery> createQuery(const char* table_name)
     {
         return std::unique_ptr<SqlQuery>(new SqlQuery(table_name, db_conn_->getDatabase()));
     }
 
 private:
-    //! Open the given database file. If the connection is
-    //! successful, this file will be the DatabaseManager's
-    //! "db_full_filename_" value.
-    bool openDbFile_(const std::string& db_file, const bool create_file)
+    /// Open the given database file.
+    bool createDatabaseFile_(const std::string& db_file)
     {
         if (!db_conn_) {
             return false;
         }
 
-        auto db_filename = db_conn_->openDbFile_(db_dir_, db_file, create_file);
+        auto db_filename = db_conn_->openDbFile_(db_dir_, db_file);
         if (!db_filename.empty()) {
             //File opened without issues. Store the full DB filename.
-            db_full_filename_ = db_filename;
+            db_filepath_ = db_filename;
             return true;
         }
 
         return false;
     }
 
-    //! Try to just open an empty database file. This is
-    //! similar to fopen().
+    /// Try to just open an empty database file. This is
+    /// similar to fopen().
     void openDatabaseWithoutSchema_()
     {
-        assertNoDatabaseConnectionOpen_();
-        auto db_file = generateUUID() + ".db";
-        openDbFile_(db_file, true);
     }
 
-    //! This class does not currently allow one DatabaseManager
-    //! to be simultaneously connected to multiple databases.
+    /// This class does not currently allow one DatabaseManager
+    /// to be simultaneously connected to multiple databases.
     void assertNoDatabaseConnectionOpen_() const
     {
         if (!db_conn_) {
@@ -283,7 +275,7 @@ private:
         }
     }
 
-    //! Get a SqlRecord from a database ID for the given table.
+    /// Get a SqlRecord from a database ID for the given table.
     std::unique_ptr<SqlRecord> findRecord_(const char* table_name, const int db_id, const bool must_exist) const
     {
         std::ostringstream oss;
@@ -309,21 +301,27 @@ private:
         }
     }
 
-    //! Physical database proxy. Commands (INSERT, UPDATE, etc.)
-    //! are executed against this proxy, not against the lower-
-    //! level database APIs directly.
+    /// Physical database proxy. Commands (INSERT, UPDATE, etc.)
+    /// are executed against this proxy, not against the lower-
+    /// level database APIs directly.
     std::shared_ptr<SQLiteConnection> db_conn_;
 
-    //! Copy of the schema that was given to the DatabaseManager's
-    //! createDatabaseFromSchema() method.
+    /// Schema for this database as given to createDatabaseFromSchema()
+    /// and optionally appendSchema().
     Schema schema_;
 
-    //! Location where this database lives, e.g. the tempdir
+    /// Location where this database lives.
     const std::string db_dir_;
 
-    //! Full database file name, including the database path
-    //! and file extension
-    std::string db_full_filename_;
+    /// Full database file name, including the database path
+    /// and file extension
+    std::string db_filepath_;
+
+    /// Flag saying whether or not appendSchema() can be called.
+    /// We do not allow schemas to be altered for DatabaseManager's
+    /// that were initialized with connectToExistingDatabase(),
+    /// only createDatabaseFromSchema().
+    bool append_schema_allowed_ = true;
 };
 
 } // namespace simdb

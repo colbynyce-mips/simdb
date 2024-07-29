@@ -11,11 +11,11 @@
 #include <type_traits>
 #include <vector>
 
-//! Define some color code values that are used as the defaults
-//! in the global default ColorScheme instance. These should never
-//! actually be used manually. You should use the accessor methods of a
-//! ColorScheme instance so you get support for easily disabling/enabling
-//! the output of colors.
+/// Define some color code values that are used as the defaults
+/// in the global default ColorScheme instance. These should never
+/// actually be used manually. You should use the accessor methods of a
+/// ColorScheme instance so you get support for easily disabling/enabling
+/// the output of colors.
 #define SIMDB_UNMANAGED_COLOR_NORMAL "\033[0;0m"
 #define SIMDB_UNMANAGED_COLOR_BOLD "\033[0;1m"
 #define SIMDB_UNMANAGED_COLOR_RED "\033[0;31m"
@@ -37,7 +37,7 @@
 #define SIMDB_UNMANAGED_COLOR_BG_MAGENTA "\033[0;45m"
 #define SIMDB_UNMANAGED_COLOR_BG_CYAN "\033[0;46m"
 
-//! Macros for accessing the colors through the default scheme.
+/// Macros for accessing the colors through the default scheme.
 #define SIMDB_CURRENT_COLOR_NORMAL simdb::color::ColorScheme::getDefaultScheme().color(Color::Normal)
 #define SIMDB_CURRENT_COLOR_BRIGHT_NORMAL simdb::color::ColorScheme::getDefaultScheme().color(Color::BrightNormal)
 #define SIMDB_CURRENT_COLOR_BG_NORMAL simdb::color::ColorScheme::getDefaultScheme().color(Color::BgNormal)
@@ -72,7 +72,7 @@ static constexpr const char* ALL_COLORS[] = {
     SIMDB_UNMANAGED_COLOR_BG_GREEN,       SIMDB_UNMANAGED_COLOR_BG_YELLOW,     SIMDB_UNMANAGED_COLOR_BG_BLUE,
     SIMDB_UNMANAGED_COLOR_BG_MAGENTA,     SIMDB_UNMANAGED_COLOR_BG_CYAN};
 
-//! Define enums for accessing the different colors via a ColorScheme.
+/// Define enums for accessing the different colors via a ColorScheme.
 enum class Color {
     Normal,
     Bold,
@@ -133,7 +133,7 @@ public:
         enabled_ = enabled;
     }
 
-    //! The accessors that should always be used for colors.
+    /// The accessors that should always be used for colors.
     const char* color(const Color c) const
     {
         if (enabled_) {
@@ -154,10 +154,10 @@ private:
         }
     }
 
-    //! Whether or not we are returning real colors.
+    /// Whether or not we are returning real colors.
     bool enabled_ = true;
 
-    //! A list of colors in order.
+    /// A list of colors in order.
     std::vector<std::string> all_colors_;
 };
 

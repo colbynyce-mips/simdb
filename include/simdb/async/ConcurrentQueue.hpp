@@ -9,33 +9,38 @@ namespace simdb
 {
 
 /*! 
- * \brief Thread-safe wrapper around std::queue (FIFO)
+ * \class ConcurrentQueue<T>
+ *
+ * \brief Thread-safe wrapper around std::queue
  */
-template <class DataT>
+template <typename T>
 class ConcurrentQueue
 {
 public:
-    ConcurrentQueue() = default;
-
-    //! Push an item to the back of the queue.
-    void push(const DataT& item)
+    /// Push an item to the back of the queue.
+    void push(const T& item)
     {
         std::lock_guard<std::mutex> guard(mutex_);
         queue_.emplace(std::move(item));
     }
 
-    //! Emplace an item to the back of the queue.
-    template <class... Args>
+    /// \brief Construct an item on the back of the queue.
+    ///
+    /// \param args Forwarding arguments for the <T> constructor.
+    template <typename... Args>
     void emplace(Args&&... args)
     {
         std::lock_guard<std::mutex> guard(mutex_);
         queue_.emplace(std::forward<Args>(args)...);
     }
 
-    //! Get the item at the front of the queue. This
-    //! returns true if successful, or false if there
-    //! was no data in the queue.
-    bool try_pop(DataT& item)
+    /// \brief Get the item at the front of the queue.
+    ///
+    /// \param item Output argument for the popped item.
+    ///
+    /// \return Returns true if successful, or false if there
+    ///         was no data in the queue.
+    bool try_pop(T& item)
     {
         std::lock_guard<std::mutex> guard(mutex_);
         if (queue_.empty()) {
@@ -46,7 +51,7 @@ public:
         return true;
     }
 
-    //! How many data points are in the queue?
+    /// Get the number of items in this queue.
     size_t size() const
     {
         std::lock_guard<std::mutex> guard(mutex_);
@@ -54,8 +59,11 @@ public:
     }
 
 private:
+    /// Mutex for thread safety.
     mutable std::mutex mutex_;
-    std::queue<DataT> queue_;
+
+    /// FIFO queue.
+    std::queue<T> queue_;
 };
 
 } // namespace simdb

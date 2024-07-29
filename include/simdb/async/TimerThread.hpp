@@ -10,11 +10,10 @@ namespace simdb
 {
 
 /*!
- * \brief Interruption class. We put one of these into the
- * AsyncTaskQueue's work queue. This throws an exception
- * when the worker thread gets to this item in the queue,
- * and this exception type is caught in order to break
- * out of the infinite consumer loop.
+ * \class InterruptException
+ *
+ * \brief This exception is used in order to break out of
+ *        the worker thread's infinite consumer loop.
  */
 class InterruptException : public std::exception
 {
@@ -25,70 +24,37 @@ public:
     }
 
 private:
-    //Not to be created by anyone but the WorkerInterrupt
+    /// Private constructor. Not to be created by anyone but the WorkerInterrupt.
     InterruptException() = default;
     friend class WorkerInterrupt;
 };
 
 /*!
- * \brief Thread utility used for fixed-interval execution
- * of asynchronous tasks.
+ * \class TimerThread
+ *
+ * \brief Thread utility used for periodic execution
+ *        of asynchronous tasks.
  */
 class TimerThread
 {
 public:
-    //! Types of timer intervals. Currently, this utility
-    //! only supports fixed-rate execution.
-    enum class Interval : int8_t { FIXED_RATE };
-
-    //! Give the timer the fixed wall clock interval in
-    //! seconds. Your execute_() method will be called
-    //! every 'n' seconds like so:
-    //!
-    //! \code
-    //!   class HelloWorld : public TimerThread {
-    //!   public:
-    //!     HelloWorld() : TimerThread(2.5)
-    //!     {}
-    //!   private:
-    //!     void execute_() override {
-    //!       std::cout << "Hello, world!" << std::endl;
-    //!     }
-    //!   };
-    //!
-    //!   HelloWorld obj;
-    //!   obj.start();
-    //!     // "Hello, world!" printed after 2.5 seconds
-    //!     // "Hello, world!" printed after 5.0 seconds
-    //!     // "Hello, world!" printed after 7.5 seconds
-    //! \endcode
-    //!
-    //! Notes:
-    //!   - The execute_() method is called for the very first
-    //!     time after the interval has elapsed. It is not called
-    //!     immediately from the TimerThread constructor.
-    //!   - The timer interval is not guaranteed and may vary
-    //!     at runtime and show different intervals from one
-    //!     program execution to another.
-    //!   - If your execute_() callback takes more than the
-    //!     interval specified, your callback will be called
-    //!     again immediately. It will not sleep before calling
-    //!     your method.
-    TimerThread(const Interval interval, const double seconds)
-        : interval_seconds_(seconds)
+    /// \brief Construction.
+    ///
+    /// \param interval_seconds Fixed wall clock interval in seconds.
+    TimerThread(const double interval_seconds)
+        : interval_seconds_(interval_seconds)
     {
-        (void)interval;
     }
 
-    //! When the timer goes out of scope, the execute_() callbacks
-    //! will be stopped.
+    /// Destructor. When the timer goes out of scope,
+    /// the execute_() callbacks will be stopped.
     virtual ~TimerThread()
     {
         stop();
     }
 
-    //! Call this method from the main thread to start
-    //! timed execution of your execute_() method.
+    /// Call this method from the main thread to start
+    /// timed execution of your execute_() method.
     void start()
     {
         if (thread_ == nullptr) {
@@ -97,11 +63,12 @@ public:
         }
     }
 
-    //! Call this method from the main thread to stop
-    //! timed execution of your execute_() method.
-    //! You may NOT call this method from inside your
-    //! execute_() callback, or the timer thread will
-    //! not be able to be torn down.
+    /// \brief   Call this method from the main thread to stop
+    ///          timed execution of your execute_() method.
+    ///
+    /// \warning You may NOT call this method from inside your
+    ///          execute_() callback, or the timer thread will
+    ///          not be able to be torn down (the join will hang).
     void stop()
     {
         is_running_ = false;
@@ -111,31 +78,27 @@ public:
         }
     }
 
-    //! Ask if this timer is currently executing at
-    //! regular intervals on the background thread.
-    //! This does not mean that it is in the middle
-    //! of calling the client background thread code,
-    //! just that the thread itself is still alive.
+    /// Ask if this timer is currently executing on the background thread.
     bool isRunning() const
     {
         return thread_ != nullptr;
     }
 
 private:
-    //! The timer's delayed start callback
+    /// The timer's delayed start callback.
     void start_()
     {
         sleepUntilIntervalEnd_();
         intervalFcn_();
     }
 
-    //! The timer's own interval callback which includes
-    //! your execute_() implementation and sleep duration
-    //! calculation.
+    /// The timer's own interval callback which includes
+    /// your execute_() implementation and sleep duration
+    /// calculation.
     void intervalFcn_()
     {
         while (is_running_ || !first_execute_occurred_) {
-            //Get the time before calling the user's code
+            // Get the time before calling the user's code.
             const Time interval_start = getCurrentTime_();
 
             try {
@@ -146,10 +109,10 @@ private:
                 continue;
             }
 
-            //Take the amount of time it took to execute the user's
-            //code, and use that info to sleep for the amount of time
-            //that puts the next call to execute_() close to the fixed
-            //interval.
+            // Take the amount of time it took to execute the user's
+            // code, and use that info to sleep for the amount of time
+            // that puts the next call to execute_() close to the fixed
+            // interval.
             auto interval_end = getCurrentTime_();
             std::chrono::duration<double> user_code_execution_time = interval_end - interval_start;
 
@@ -158,15 +121,15 @@ private:
         }
     }
 
-    //! Go to sleep until the current time interval has expired.
-    //!
-    //!     |----------------|----------------|----------------|
-    //!     ^
-    //! (sleeps until........^)
-    //!
-    //!     |----------------|----------------|----------------|
-    //!                           ^
-    //!                       (sleeps until...^)
+    /// Go to sleep until the current time interval has expired.
+    ///
+    ///     |----------------|----------------|----------------|
+    ///     ^
+    /// (sleeps until........^)
+    ///
+    ///     |----------------|----------------|----------------|
+    ///                           ^
+    ///                       (sleeps until...^)
     void sleepUntilIntervalEnd_(const double offset_seconds = 0)
     {
         const double sleep_seconds = interval_seconds_ - offset_seconds;
@@ -178,19 +141,31 @@ private:
 
     typedef std::chrono::time_point<std::chrono::high_resolution_clock> Time;
 
-    //! Get the current time. Used in sleep_for calculation.
+    /// Get the current time to be used in the sleep_for calculation.
     Time getCurrentTime_() const
     {
         return std::chrono::high_resolution_clock::now();
     }
 
-    //! User-supplied method which will be called at regular
-    //! intervals on a worker thread.
+    /// This method will be called at regular intervals on the worker thread.
     virtual void execute_() = 0;
 
+    /// Number of seconds between consecutive calls to execute_()
     const double interval_seconds_;
+
+    /// Worker thread.
     std::unique_ptr<std::thread> thread_;
+
+    /// Flag used for the logic around starting/stopping the thread
+    /// and breaking out of the infinite consumer loop.
     bool is_running_ = false;
+
+    /// Flag used to protect against the scenario where the thread
+    /// is started, tasks get added to the queue immediately, and
+    /// then stop() is called before the consumer loop even has
+    /// a chance to begin running on the worker thread. This is
+    /// not common in practice, but could happen perhaps in very
+    /// short unit tests.
     bool first_execute_occurred_ = false;
 };
 

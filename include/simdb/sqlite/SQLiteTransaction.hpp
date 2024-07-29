@@ -10,6 +10,8 @@
 namespace simdb
 {
 
+class AsyncTaskQueue;
+
 typedef std::function<void()> TransactionFunc;
 
 class SQLiteTransaction
@@ -17,12 +19,12 @@ class SQLiteTransaction
 public:
     virtual ~SQLiteTransaction() = default;
 
-    virtual void beginTransaction() const = 0;
+    virtual void beginTransaction() = 0;
 
-    virtual void endTransaction() const = 0;
+    virtual void endTransaction() = 0;
 
-    //! Execute the functor inside BEGIN/COMMIT TRANSACTION.
-    void safeTransaction(const TransactionFunc& transaction) const
+    /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
+    void safeTransaction(const TransactionFunc& transaction)
     {
         //There are "normal" or "acceptable" SQLite errors that
         //we trap: SQLITE_BUSY (the database file is locked), and
@@ -60,9 +62,8 @@ public:
                 break;
 
                 //Retry transaction due to database access errors
-            } catch (const DBAccessException& ex) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(25));
-                continue;
+            } catch (...) {
+                //TODO
             }
 
             //Note that other std::exceptions are still being thrown,
@@ -70,36 +71,42 @@ public:
         }
     }
 
+    /// Get this database connection's task queue. This
+    /// object can be used to schedule database work to
+    /// be executed on a background thread. This never
+    /// returns null.
+    virtual AsyncTaskQueue* getTaskQueue() const = 0;
+
 private:
-    //! Flag used in RAII safeTransaction() calls. This is
-    //! needed to we know whether to tell SQL to "BEGIN
-    //! TRANSACTION" or not (i.e. if we're already in the
-    //! middle of another safeTransaction).
-    //!
-    //! This allows users to freely do something like this:
-    //!
-    //!     obj_mgr_.safeTransaction([&]() {
-    //!         writeReportHeader_(report);
-    //!     });
-    //!
-    //! Even if their writeReportHeader_() code does the
-    //! same thing:
-    //!
-    //!     void CSV::writeReportHeader_(sparta::Report * r) {
-    //!         obj_mgr_.safeTransaction([&]() {
-    //!             writeReportName_(r);
-    //!             writeSimulationMetadata_(sim_);
-    //!         });
-    //!     }
+    /// Flag used in RAII safeTransaction() calls. This is
+    /// needed to we know whether to tell SQL to "BEGIN
+    /// TRANSACTION" or not (i.e. if we're already in the
+    /// middle of another safeTransaction).
+    ///
+    /// This allows users to freely do something like this:
+    ///
+    ///     obj_mgr_.safeTransaction([&]() {
+    ///         writeReportHeader_(report);
+    ///     });
+    ///
+    /// Even if their writeReportHeader_() code does the
+    /// same thing:
+    ///
+    ///     void CSV::writeReportHeader_(sparta::Report * r) {
+    ///         obj_mgr_.safeTransaction([&]() {
+    ///             writeReportName_(r);
+    ///             writeSimulationMetadata_(sim_);
+    ///         });
+    ///     }
     mutable bool is_in_transaction_ = false;
 
-    //! Mutex for thread-safe reentrant safeTransaction's.
+    /// Mutex for thread-safe reentrant safeTransaction's.
     mutable std::recursive_mutex mutex_;
 
-    //! RAII used for BEGIN/COMMIT TRANSACTION calls to make safeTransaction
-    //! more performant.
+    /// RAII used for BEGIN/COMMIT TRANSACTION calls to make safeTransaction
+    /// more performant.
     struct ScopedTransaction {
-        ScopedTransaction(const SQLiteTransaction* db_conn,
+        ScopedTransaction(SQLiteTransaction* db_conn,
                           const TransactionFunc& transaction,
                           bool& in_transaction_flag)
             : db_conn_(db_conn)
@@ -118,17 +125,17 @@ private:
         }
 
     private:
-        //! Open database connection
-        const SQLiteTransaction* db_conn_ = nullptr;
+        /// Open database connection
+        SQLiteTransaction* db_conn_ = nullptr;
 
-        //! The caller's function they want inside BEGIN/COMMIT TRANSACTION
+        /// The caller's function they want inside BEGIN/COMMIT TRANSACTION
         const TransactionFunc& transaction_;
 
-        //! The caller's "in transaction flag" - in case they
-        //! need to know whether *their code* is already in
-        //! an ongoing transaction. This protects against
-        //! recursive calls to BEGIN TRANSACTION, which is
-        //! disallowed.
+        /// The caller's "in transaction flag" - in case they
+        /// need to know whether *their code* is already in
+        /// an ongoing transaction. This protects against
+        /// recursive calls to BEGIN TRANSACTION, which is
+        /// disallowed.
         bool& in_transaction_flag_;
     };
 };

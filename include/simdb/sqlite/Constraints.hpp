@@ -2,56 +2,71 @@
 
 #pragma once
 
-#include "simdb/Errors.hpp"
-
-#include <cstdint>
 #include <iostream>
 
 namespace simdb
 {
 
-enum class Constraints { EQUAL = 1, NOT_EQUAL = 2, LESS = 3, LESS_EQUAL = 4, GREATER = 5, GREATER_EQUAL = 6 };
+/// This enum holds all the comparators for WHERE clauses in queries (scalar target values).
+enum class Constraints {
+    // WHERE val =  5
+    EQUAL,
+    // WHERE val != 5
+    NOT_EQUAL,
+    // WHERE val <  5
+    LESS,
+    // WHERE val <= 5
+    LESS_EQUAL,
+    // WHERE val >  5
+    GREATER,
+    // WHERE val >= 5
+    GREATER_EQUAL,
+    // For internal use only
+    __NUM_CONSTRAINTS__
+};
 
-enum class SetConstraints { IN_SET = 7, NOT_IN_SET = 8 };
+/// This enum holds all the comparators for WHERE clauses in queries (multiple target values).
+enum class SetConstraints {
+    // WHERE val IN (4,5,6)
+    IN_SET = (int)simdb::Constraints::__NUM_CONSTRAINTS__,
+    // WHERE val NOT IN (4,5,6)
+    NOT_IN_SET,
+    // For internal use only
+    __NUM_CONSTRAINTS__
+};
 
-inline std::ostream& operator<<(std::ostream& os, const Constraints constraint)
+/// Stringifier for the Constraints enum
+inline std::string stringify(const simdb::Constraints constraint)
 {
     switch (constraint) {
-    case Constraints::EQUAL:
-        os << " = ";
-        break;
-    case Constraints::NOT_EQUAL:
-        os << " != ";
-        break;
-    case Constraints::LESS:
-        os << " < ";
-        break;
-    case Constraints::LESS_EQUAL:
-        os << " <= ";
-        break;
-    case Constraints::GREATER:
-        os << " > ";
-        break;
-    case Constraints::GREATER_EQUAL:
-        os << " >= ";
-        break;
+        case simdb::Constraints::EQUAL:
+            return " =  ";
+        case simdb::Constraints::NOT_EQUAL:
+            return " != ";
+        case simdb::Constraints::LESS:
+            return " <  ";
+        case simdb::Constraints::LESS_EQUAL:
+            return " <= ";
+        case simdb::Constraints::GREATER:
+            return " >  ";
+        case simdb::Constraints::GREATER_EQUAL:
+            return " >= ";
+        default:
+            return "INVALID";
     }
-
-    return os;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const SetConstraints constraint)
+/// Stringifier for the SetConstraints enum
+inline std::string stringify(const simdb::SetConstraints constraint)
 {
     switch (constraint) {
-    case SetConstraints::IN_SET:
-        os << " IN ";
-        break;
-    case SetConstraints::NOT_IN_SET:
-        os << " NOT IN ";
-        break;
+        case simdb::SetConstraints::IN_SET:
+            return " IN ";
+        case simdb::SetConstraints::NOT_IN_SET:
+            return " NOT IN ";
+        default:
+            return "INVALID";
     }
-
-    return os;
 }
 
 } // namespace simdb

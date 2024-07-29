@@ -10,19 +10,19 @@
 namespace simdb
 {
 
-//! Used to construct and throw a standard C++ exception
+/// Used to construct and throw a standard C++ exception
 class DBException : public std::exception
 {
 public:
     DBException() = default;
 
-    //! Construct a DBException object
+    /// Construct a DBException object
     DBException(const std::string& reason)
     {
         reason_ << reason;
     }
 
-    //! Copy construct a DBException object
+    /// Copy construct a DBException object
     DBException(const DBException& rhs)
     {
         reason_ << rhs.reason_.str();
@@ -44,7 +44,7 @@ public:
     /**
      * \brief Append additional information to the message.
      */
-    template <class T>
+    template <typename T>
     DBException& operator<<(const T& msg)
     {
         reason_ << msg;
@@ -60,7 +60,7 @@ private:
     mutable std::string reason_str_;
 };
 
-//! General-purpose database exception used for interrupts
+/// General-purpose database exception used for interrupts
 class DatabaseInterrupt : public DBException
 {
 public:
@@ -82,40 +82,6 @@ private:
 
     mutable std::ostringstream exception_message_;
     mutable std::string reason_str_;
-};
-
-//! Exception class for database access errors. This
-//! is made into a separate class without providing
-//! a different implementation for any of the base
-//! class methods so that DatabaseManager can catch
-//! these access exceptions and keep retrying the
-//! transactions. This supports atomic begin/commit
-//! transactions for the databases that support
-//! atomic transactions.
-class DBAccessException : public DBException
-{
-};
-
-//! \brief This exception is thrown when a SQL statement
-//! returns SQLITE_BUSY.
-class SqlFileLockedException : public DBAccessException
-{
-public:
-    const char* what() const noexcept override
-    {
-        return "The database file is locked";
-    }
-};
-
-//! \brief This exception is thrown when a SQL statement
-//! returns SQLITE_LOCKED.
-class SqlTableLockedException : public DBAccessException
-{
-public:
-    const char* what() const noexcept override
-    {
-        return "A table in the database is locked";
-    }
 };
 
 } // namespace simdb

@@ -4,7 +4,6 @@
 
 #include "simdb/schema/ColumnTypedefs.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
-#include "simdb_fwd.hpp"
 
 #include <algorithm>
 #include <list>
@@ -13,9 +12,9 @@
 namespace simdb
 {
 
-//! Helper class that is used under the hood for:
-//!   db_mgr.INSERT(SQL_TABLE("MyTable"), SQL_COLUMNS("ColA", "ColB"), SQL_VALUES(3.14, "foo"));
-//!                 *********
+/// Helper class that is used under the hood for:
+///   db_mgr.INSERT(SQL_TABLE("MyTable"), SQL_COLUMNS("ColA", "ColB"), SQL_VALUES(3.14, "foo"));
+///                 *********
 class SqlTable
 {
 public:
@@ -24,7 +23,7 @@ public:
     {
     }
 
-    //! Get this table's name.
+    /// Get this table's name.
     const std::string& getName() const
     {
         return table_name_;
@@ -34,9 +33,9 @@ private:
     std::string table_name_;
 };
 
-//! Helper class that is used under the hood for:
-//!   db_mgr.INSERT(SQL_TABLE("MyTable"), SQL_COLUMNS("ColA", "ColB"), SQL_VALUES(3.14, "foo"));
-//!                                       ***********
+/// Helper class that is used under the hood for:
+///   db_mgr.INSERT(SQL_TABLE("MyTable"), SQL_COLUMNS("ColA", "ColB"), SQL_VALUES(3.14, "foo"));
+///                                       ***********
 class SqlColumns
 {
 public:
@@ -77,9 +76,9 @@ private:
     std::list<std::string> col_names_;
 };
 
-//! Helper class that is used under the hood for:
-//!   db_mgr.INSERT(SQL_TABLE("MyTable"), SQL_COLUMNS("ColA", "ColB"), SQL_VALUES(3.14, "foo"));
-//!                                                                    **********
+/// Helper class that is used under the hood for:
+///   db_mgr.INSERT(SQL_TABLE("MyTable"), SQL_COLUMNS("ColA", "ColB"), SQL_VALUES(3.14, "foo"));
+///                                                                    **********
 class SqlValues
 {
 public:
@@ -286,7 +285,7 @@ private:
     std::list<std::unique_ptr<ValueContainerBase>> col_vals_;
 };
 
-//! Helper class that wraps one table record.
+/// Helper class that wraps one table record.
 class SqlRecord
 {
 public:
@@ -297,55 +296,55 @@ public:
     {
     }
 
-    //! Get the database ID (primary key) for this record.
+    /// Get the database ID (primary key) for this record.
     int32_t getId() const
     {
         return db_id_;
     }
 
-    //! SELECT the given column value (int32)
+    /// SELECT the given column value (int32)
     int32_t getPropertyInt32(const char* col_name) const;
 
-    //! SELECT the given column value (int64)
+    /// SELECT the given column value (int64)
     int64_t getPropertyInt64(const char* col_name) const;
 
-    //! SELECT the given column value (double)
+    /// SELECT the given column value (double)
     double getPropertyDouble(const char* col_name) const;
 
-    //! SELECT the given column value (string)
+    /// SELECT the given column value (string)
     std::string getPropertyString(const char* col_name) const;
 
-    //! SELECT the given column value (blob)
+    /// SELECT the given column value (blob)
     template <typename T>
     std::vector<T> getPropertyBlob(const char* col_name) const;
 
-    //! UPDATE the given column value (int32)
+    /// UPDATE the given column value (int32)
     void setPropertyInt32(const char* col_name, const int32_t val) const;
 
-    //! UPDATE the given column value (int32)
+    /// UPDATE the given column value (int32)
     void setPropertyInt64(const char* col_name, const int64_t val) const;
 
-    //! UPDATE the given column value (int32)
+    /// UPDATE the given column value (int32)
     void setPropertyUInt32(const char* col_name, const uint32_t val) const;
 
-    //! UPDATE the given column value (int32)
+    /// UPDATE the given column value (int32)
     void setPropertyUInt64(const char* col_name, const uint64_t val) const;
 
-    //! UPDATE the given column value (double)
+    /// UPDATE the given column value (double)
     void setPropertyDouble(const char* col_name, const double val) const;
 
-    //! UPDATE the given column value (string)
+    /// UPDATE the given column value (string)
     void setPropertyString(const char* col_name, const std::string& val) const;
 
-    //! UPDATE the given column value (blob)
+    /// UPDATE the given column value (blob)
     template <typename T>
     void setPropertyBlob(const char* col_name, const std::vector<T>& val) const;
 
-    //! UPDATE the given column value (blob)
+    /// UPDATE the given column value (blob)
     void setPropertyBlob(const char* col_name, const void* data, const size_t bytes) const;
 
-    //! DELETE this record from its table. Returns TRUE if successful,
-    //! FALSE otherwise. Should return FALSE on subsequent calls to this method.
+    /// DELETE this record from its table. Returns TRUE if successful,
+    /// FALSE otherwise. Should return FALSE on subsequent calls to this method.
     bool removeFromTable();
 
 private:
