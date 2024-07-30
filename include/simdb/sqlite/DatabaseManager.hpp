@@ -325,9 +325,7 @@ private:
         }
     }
 
-    /// Physical database proxy. Commands (INSERT, UPDATE, etc.)
-    /// are executed against this proxy, not against the lower-
-    /// level database APIs directly.
+    /// Database connection.
     std::shared_ptr<SQLiteConnection> db_conn_;
 
     /// Schema for this database as given to createDatabaseFromSchema()
