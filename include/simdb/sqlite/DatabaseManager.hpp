@@ -139,7 +139,7 @@ public:
         sqlite3_stmt* stmt = db_conn_->prepareStatement(cmd);
         vals.bindValsForINSERT(stmt);
 
-        auto rc = sqlite3_step(stmt);
+        auto rc = SQLiteReturnCode(sqlite3_step(stmt));
         if (rc != SQLITE_DONE) {
             throw DBException("Could not perform INSERT. Error: ") << sqlite3_errmsg(db_conn_->getDatabase());
         }
@@ -155,7 +155,7 @@ public:
         const std::string cmd = "INSERT INTO " + table.getName() + " DEFAULT VALUES";
         sqlite3_stmt* stmt = db_conn_->prepareStatement(cmd);
 
-        auto rc = sqlite3_step(stmt);
+        auto rc = SQLiteReturnCode(sqlite3_step(stmt));
         if (rc != SQLITE_DONE) {
             throw DBException("Could not perform INSERT. Error: ") << sqlite3_errmsg(db_conn_->getDatabase());
         }
@@ -189,7 +189,8 @@ public:
         oss << "DELETE FROM " << table_name << " WHERE Id=" << db_id;
         const auto cmd = oss.str();
 
-        if (sqlite3_exec(db_conn_->getDatabase(), cmd.c_str(), nullptr, nullptr, nullptr)) {
+        auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_->getDatabase(), cmd.c_str(), nullptr, nullptr, nullptr));
+        if (rc) {
             throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
         }
 
@@ -205,7 +206,8 @@ public:
         oss << "DELETE FROM " << table_name;
         const auto cmd = oss.str();
 
-        if (sqlite3_exec(db_conn_->getDatabase(), cmd.c_str(), nullptr, nullptr, nullptr)) {
+        auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_->getDatabase(), cmd.c_str(), nullptr, nullptr, nullptr));
+        if (rc) {
             throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
         }
 
@@ -219,12 +221,19 @@ public:
     {
         sqlite3_stmt* stmt = nullptr;
         const char* cmd = "SELECT name FROM sqlite_master WHERE type='table'";
-        if (sqlite3_prepare_v2(db_conn_->getDatabase(), cmd, -1, &stmt, 0)) {
+
+        auto rc = SQLiteReturnCode(sqlite3_prepare_v2(db_conn_->getDatabase(), cmd, -1, &stmt, 0));
+        if (rc) {
             throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
         }
 
         uint32_t count = 0;
-        while (sqlite3_step(stmt) == SQLITE_ROW) {
+        while (true) {
+            auto rc = SQLiteReturnCode(sqlite3_step(stmt));
+            if (rc != SQLITE_ROW) {
+                break;
+            }
+
             auto table_name = sqlite3_column_text(stmt, 0);
             count += removeAllRecordsFromTable((const char*)table_name);
         }
@@ -307,11 +316,11 @@ private:
         const auto cmd = oss.str();
 
         sqlite3_stmt* stmt = nullptr;
-        if (sqlite3_prepare_v2(db_conn_->getDatabase(), cmd.c_str(), -1, &stmt, 0)) {
+        if (SQLiteReturnCode(sqlite3_prepare_v2(db_conn_->getDatabase(), cmd.c_str(), -1, &stmt, 0))) {
             throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
         }
 
-        auto rc = sqlite3_step(stmt);
+        auto rc = SQLiteReturnCode(sqlite3_step(stmt));
         sqlite3_finalize(stmt);
 
         if (must_exist && rc == SQLITE_DONE) {

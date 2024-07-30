@@ -60,4 +60,16 @@ private:
     mutable std::string reason_str_;
 };
 
+/// Used in order to signal to safeTransaction() that the transaction
+/// must be retried. Since SimDB is multi-threaded, we expect the database
+/// to encounter locked tables etc. which should not be thrown out of
+/// calls to safeTransaction().
+class SafeTransactionSilentException : public std::exception
+{
+public:
+    const char * what() const noexcept override {
+        return "The database is locked";
+    }
+};
+
 } // namespace simdb

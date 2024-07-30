@@ -328,11 +328,11 @@ public:
 
         const auto cmd = oss.str();
         sqlite3_stmt* stmt = nullptr;
-        if (sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0)) {
+        if (SQLiteReturnCode(sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0))) {
             throw DBException(sqlite3_errmsg(db_conn_));
         }
 
-        auto rc = sqlite3_step(stmt);
+        auto rc = SQLiteReturnCode(sqlite3_step(stmt));
 
         if (rc == SQLITE_ROW) {
             auto ret = sqlite3_column_int64(stmt, 0);
@@ -369,7 +369,8 @@ public:
 
         const auto cmd = oss.str();
         sqlite3_stmt* stmt = nullptr;
-        if (sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0)) {
+        auto rc = SQLiteReturnCode(sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0));
+        if (rc) {
             throw DBException(sqlite3_errmsg(db_conn_));
         }
 

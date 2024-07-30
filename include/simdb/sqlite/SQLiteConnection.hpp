@@ -142,7 +142,8 @@ public:
     /// if this command is disallowed.
     void executeCommand(const std::string& command)
     {
-        if (sqlite3_exec(db_conn_, command.c_str(), nullptr, nullptr, nullptr)) {
+        auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_, command.c_str(), nullptr, nullptr, nullptr));
+        if (rc) {
             throw DBException(sqlite3_errmsg(db_conn_));
         }
     }
@@ -151,7 +152,8 @@ public:
     sqlite3_stmt* prepareStatement(const std::string& command)
     {
         sqlite3_stmt* stmt = nullptr;
-        if (sqlite3_prepare_v2(db_conn_, command.c_str(), -1, &stmt, 0)) {
+        auto rc = SQLiteReturnCode(sqlite3_prepare_v2(db_conn_, command.c_str(), -1, &stmt, 0));
+        if (rc) {
             throw DBException("Malformed SQL command: ") << command;
         }
         return stmt;
@@ -263,7 +265,8 @@ private:
     bool validateConnectionIsSQLite_(sqlite3* db_conn)
     {
         const auto command = "SELECT name FROM sqlite_master WHERE type='table'";
-        return sqlite3_exec(db_conn, command, nullptr, nullptr, nullptr) == SQLITE_OK;
+        auto rc = SQLiteReturnCode(sqlite3_exec(db_conn, command, nullptr, nullptr, nullptr));
+        return rc == SQLITE_OK;
     }
 
     /// Underlying database connection

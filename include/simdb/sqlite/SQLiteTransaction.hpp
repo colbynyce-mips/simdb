@@ -4,6 +4,7 @@
 
 #include "simdb/Errors.hpp"
 
+#include <sqlite3.h>
 #include <chrono>
 #include <functional>
 #include <mutex>
@@ -15,6 +16,47 @@ namespace simdb
 class AsyncTaskQueue;
 
 typedef std::function<void()> TransactionFunc;
+
+class SQLiteReturnCode
+{
+public:
+    explicit SQLiteReturnCode(const int rc)
+        : rc_(rc)
+    {
+        if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED) {
+            throw SafeTransactionSilentException();
+        }
+    }
+
+    operator int() const
+    {
+        return rc_;
+    }
+
+    operator bool() const
+    {
+        return rc_ != SQLITE_OK;
+    }
+
+    bool operator==(const int rc)
+    {
+        return rc_ == rc;
+    }
+
+    bool operator!=(const int rc)
+    {
+        return rc_ != rc;
+    }
+
+private:
+    const int rc_;
+};
+
+inline std::ostream& operator<<(std::ostream& os, const SQLiteReturnCode& rc)
+{
+    os << (int)rc;
+    return os;
+}
 
 class SQLiteTransaction
 {
@@ -45,8 +87,8 @@ public:
                 // We got this far without an exception, which means
                 // that the transaction is committed.
                 break;
-            } catch (...) {
-                // TODO: Retry transaction due to database access errors
+            } catch (const SafeTransactionSilentException&) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
             }
         }
     }

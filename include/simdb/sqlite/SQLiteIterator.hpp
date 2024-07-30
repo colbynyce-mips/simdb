@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "simdb/Errors.hpp"
+#include "simdb/sqlite/SQLiteTransaction.hpp"
 
 #include <memory>
 #include <sqlite3.h>
@@ -259,7 +259,7 @@ public:
     /// when the entire result set has been iterated over.
     bool getNextRecord()
     {
-        auto rc = sqlite3_step(stmt_);
+        auto rc = SQLiteReturnCode(sqlite3_step(stmt_));
         if (rc == SQLITE_ROW) {
             for (size_t idx = 0; idx < result_writers_.size(); ++idx) {
                 result_writers_[idx]->writeToUserVar(stmt_, (int)idx);
@@ -276,7 +276,7 @@ public:
     /// to iterate over it again.
     void reset()
     {
-        if (sqlite3_reset(stmt_)) {
+        if (SQLiteReturnCode(sqlite3_reset(stmt_))) {
             throw DBException(sqlite3_errmsg(sqlite3_db_handle(stmt_)));
         }
     }
