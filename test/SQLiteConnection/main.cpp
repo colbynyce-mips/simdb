@@ -26,6 +26,7 @@ simdb::PerfTimer timer;
 
 int main()
 {
+    DB_INIT;
     using dt = simdb::ColumnDataType;
 
     simdb::Schema schema;
@@ -78,7 +79,7 @@ int main()
         .addColumn("SomeDouble", dt::double_t)
         .addColumn("SomeString", dt::string_t);
 
-    simdb::DatabaseManager db_mgr;
+    simdb::DatabaseManager db_mgr("test.db");
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     // Verify set/get APIs for integer types
@@ -755,8 +756,7 @@ int main()
 
     // Ensure that we can connect a new DatabaseManager to a .db that was
     // created by another DatabaseManager.
-    simdb::DatabaseManager db_mgr2;
-    EXPECT_TRUE(db_mgr2.connectToExistingDatabase(db_mgr.getDatabaseFilePath()));
+    simdb::DatabaseManager db_mgr2(db_mgr.getDatabaseFilePath());
 
     // Verify that we cannot alter the schema.
     simdb::Schema schema2;
@@ -858,4 +858,7 @@ int main()
 
         EXPECT_FALSE(result_set.getNextRecord());
     }
+
+    // Verify that we cannot open a database connection for an invalid file
+    EXPECT_THROW(simdb::DatabaseManager db_mgr3(__FILE__));
 }

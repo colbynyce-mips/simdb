@@ -1,4 +1,4 @@
-// <SQLiteTable.hpp> -*- C++ -*-
+// <SQLiteTable> -*- C++ -*-
 
 #pragma once
 
@@ -12,9 +12,11 @@
 namespace simdb
 {
 
-/// Helper class that is used under the hood for:
-///   db_mgr.INSERT(SQL_TABLE("MyTable"), SQL_COLUMNS("ColA", "ColB"), SQL_VALUES(3.14, "foo"));
-///                 *********
+/*!
+ * \class SqlTable
+ *
+ * \brief Helper class that is used under the hood for db_mgr.INSERT(SQL_TABLE("MyTable"), ...)
+ */
 class SqlTable
 {
 public:
@@ -23,7 +25,6 @@ public:
     {
     }
 
-    /// Get this table's name.
     const std::string& getName() const
     {
         return table_name_;
@@ -33,9 +34,11 @@ private:
     std::string table_name_;
 };
 
-/// Helper class that is used under the hood for:
-///   db_mgr.INSERT(SQL_TABLE("MyTable"), SQL_COLUMNS("ColA", "ColB"), SQL_VALUES(3.14, "foo"));
-///                                       ***********
+/*!
+ * \class SqlTable
+ *
+ * \brief Helper class that is used under the hood for db_mgr.INSERT(..., SQL_COLUMNS("ColA", "ColB"), ...)
+ */
 class SqlColumns
 {
 public:
@@ -76,9 +79,11 @@ private:
     std::list<std::string> col_names_;
 };
 
-/// Helper class that is used under the hood for:
-///   db_mgr.INSERT(SQL_TABLE("MyTable"), SQL_COLUMNS("ColA", "ColB"), SQL_VALUES(3.14, "foo"));
-///                                                                    **********
+/*!
+ * \class SqlTable
+ *
+ * \brief Helper class that is used under the hood for db_mgr.INSERT(..., ..., SQL_VALUES(3.14, "foo"));
+ */
 class SqlValues
 {
 public:
@@ -285,7 +290,11 @@ private:
     std::list<std::unique_ptr<ValueContainerBase>> col_vals_;
 };
 
-/// Helper class that wraps one table record.
+/*!
+ * \class SqlRecord
+ *
+ * \brief This class wraps one table record by its table name and database ID.
+ */
 class SqlRecord
 {
 public:
@@ -348,6 +357,7 @@ public:
     bool removeFromTable();
 
 private:
+    /// Create a prepared statement: SELECT ColA FROM <table_name_> WHERE Id=<db_id_> 
     sqlite3_stmt* createGetPropertyStmt_(const char* col_name) const
     {
         std::string cmd = "SELECT ";
@@ -363,6 +373,7 @@ private:
         return stmt;
     }
 
+    /// Create a prepared statement: UPDATE <table_name_> SET <col_name>=? WHERE Id=<db_id_> 
     sqlite3_stmt* createSetPropertyStmt_(const char* col_name) const
     {
         std::string cmd = "UPDATE " + table_name_;
@@ -378,6 +389,10 @@ private:
         return stmt;
     }
 
+    /// \brief Step a prepared statement forward
+    /// \param stmt Prepared statement
+    /// \param ret_codes List of expected return codes from sqlite3_step()
+    /// \throws Throws an exception if sqlite3_step() returned a code that was not in <ret_codes>
     void stepStatement_(sqlite3_stmt* stmt, const std::initializer_list<int>& ret_codes) const
     {
         auto stringifyRetCodes = [&]() {
@@ -401,11 +416,18 @@ private:
         }
     }
 
+    // SELECT ColA FROM <table_name_> WHERE Id=<db_id_> 
     const std::string table_name_;
+
+    // SELECT ColA FROM <table_name_> WHERE Id=<db_id_> 
     const int32_t db_id_;
+
+    // Underlying sqlite3 database
     sqlite3* const db_conn_;
 };
 
+/// Run a query on the given table, column, and database ID, and return the property value.
+/// SELECT <col_name> FROM <table_name> WHERE Id=<db_id>
 template <typename T>
 inline T queryPropertyValue(const char* table_name, const char* col_name, const int db_id, sqlite3* db_conn)
 {

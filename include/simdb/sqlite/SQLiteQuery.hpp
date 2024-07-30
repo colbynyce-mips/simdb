@@ -1,3 +1,5 @@
+// <SQLiteQuery> -*- C++ -*-
+
 #pragma once
 
 #include "simdb/sqlite/Constraints.hpp"
@@ -9,8 +11,13 @@
 namespace simdb
 {
 
-enum class QueryOrder { ASC, DESC };
+/// Used in query->orderBy("ColA", ASC|DESC)
+enum class QueryOrder {
+    ASC,
+    DESC
+};
 
+/// Stringify QueryOrder enums for SELECT commands
 inline std::ostream& operator<<(std::ostream& os, const QueryOrder order)
 {
     switch (order) {
@@ -25,9 +32,13 @@ inline std::ostream& operator<<(std::ostream& os, const QueryOrder order)
     return os;
 }
 
-/// This class issues SELECT statements with Constraints, with
-/// an iterable getResultSet() method that writes record values in
-/// local variables for each selected column.
+/*!
+ * \class SqlQuery
+ *
+ * \brief This class issues SELECT statements with Constraints, and is used
+ *        in order to iterate over the result set and automatically write
+ *        record values into users' local variables.
+ */
 class SqlQuery
 {
 public:
@@ -91,8 +102,7 @@ public:
     /// Pass in fuzzy=TRUE to tell SQLite to look for matches that are
     /// within EPS of the target value.
     template <typename T>
-    void
-    addConstraintForDouble(const char* col_name, const Constraints constraint, const T target, const bool fuzzy = false)
+    void addConstraintForDouble(const char* col_name, const Constraints constraint, const T target, const bool fuzzy = false)
     {
         static_assert((std::is_floating_point<T>::value || std::is_integral<T>::value) && std::is_scalar<T>::value,
                       "Wrong addConstraint*() API");
@@ -130,8 +140,7 @@ public:
     /// Add a constraint to this query specific to integer types and
     /// multiple target values.
     template <typename T>
-    void
-    addConstraintForInt(const char* col_name, const SetConstraints constraint, const std::initializer_list<T>& targets)
+    void addConstraintForInt(const char* col_name, const SetConstraints constraint, const std::initializer_list<T>& targets)
     {
         addConstraintForInt(col_name, constraint, std::vector<T>{targets.begin(), targets.end()});
     }
@@ -177,10 +186,8 @@ public:
     /// Pass in fuzzy=TRUE to tell SQLite to look for matches that are
     /// within EPS of the target values.
     template <typename T>
-    void addConstraintForDouble(const char* col_name,
-                                const SetConstraints constraint,
-                                const std::vector<T>& targets,
-                                const bool fuzzy = false)
+    void
+    addConstraintForDouble(const char* col_name, const SetConstraints constraint, const std::vector<T>& targets, const bool fuzzy = false)
     {
         static_assert(std::is_floating_point<T>::value && std::is_scalar<T>::value, "Wrong addConstraint*() API");
 
@@ -229,18 +236,14 @@ public:
 
     /// Add a constraint to this query specific to string types and
     /// multiple target values.
-    void addConstraintForString(const char* col_name,
-                                const SetConstraints constraint,
-                                const std::initializer_list<const char*>& targets)
+    void addConstraintForString(const char* col_name, const SetConstraints constraint, const std::initializer_list<const char*>& targets)
     {
         addConstraintForString(col_name, constraint, std::vector<std::string>{targets.begin(), targets.end()});
     }
 
     /// Add a constraint to this query specific to string types and
     /// multiple target values.
-    void addConstraintForString(const char* col_name,
-                                const SetConstraints constraint,
-                                const std::vector<std::string>& targets)
+    void addConstraintForString(const char* col_name, const SetConstraints constraint, const std::vector<std::string>& targets)
     {
         std::ostringstream oss;
         oss << col_name << stringify(constraint) << "(";
@@ -265,7 +268,7 @@ public:
     /// SELECT column values and write to the local variable on each iteration (int32).
     ///
     ///     int32_t val;
-    ///     query->select("ColA", &val);
+    ///     query->select("ColA", val);
     void select(const char* col_name, int32_t& user_var)
     {
         result_writers_.emplace_back(new ResultWriterInt32(col_name, &user_var));
@@ -274,34 +277,16 @@ public:
     /// SELECT column values and write to the local variable on each iteration (int64).
     ///
     ///     int64_t val;
-    ///     query->select("ColB", &val);
+    ///     query->select("ColB", val);
     void select(const char* col_name, int64_t& user_var)
     {
         result_writers_.emplace_back(new ResultWriterInt64(col_name, &user_var));
     }
 
-    /// SELECT column values and write to the local variable on each iteration (uint32).
-    ///
-    ///     uint32_t val;
-    ///     query->select("ColC", &val);
-    void select(const char* col_name, uint32_t& user_var)
-    {
-        result_writers_.emplace_back(new ResultWriterUInt32(col_name, &user_var));
-    }
-
-    /// SELECT column values and write to the local variable on each iteration (uint64).
-    ///
-    ///     uint64_t val;
-    ///     query->select("ColD", &val);
-    void select(const char* col_name, uint64_t& user_var)
-    {
-        result_writers_.emplace_back(new ResultWriterUInt64(col_name, &user_var));
-    }
-
     /// SELECT column values and write to the local variable on each iteration (double).
     ///
     ///     double val;
-    ///     query->select("ColE", &val);
+    ///     query->select("ColE", val);
     void select(const char* col_name, double& user_var)
     {
         result_writers_.emplace_back(new ResultWriterDouble(col_name, &user_var));
@@ -310,7 +295,7 @@ public:
     /// SELECT column values and write to the local variable on each iteration (string).
     ///
     ///     std::string val;
-    ///     query->select("ColF", &val);
+    ///     query->select("ColF", val);
     void select(const char* col_name, std::string& user_var)
     {
         result_writers_.emplace_back(new ResultWriterString(col_name, &user_var));
@@ -319,7 +304,7 @@ public:
     /// SELECT column values and write to the local variable on each iteration (blob).
     ///
     ///     std::vector<int> val;
-    ///     query->select("ColG", &val);
+    ///     query->select("ColG", val);
     template <typename T>
     void select(const char* col_name, std::vector<T>& user_var)
     {
@@ -334,7 +319,7 @@ public:
 
     /// Count the number of records matching this query's constraints (WHERE)
     /// and limit (LIMIT).
-    uint64_t count(bool verbose = false)
+    uint64_t count()
     {
         std::ostringstream oss;
         oss << "SELECT COUNT(Id) FROM " << table_name_ << " ";
@@ -342,10 +327,6 @@ public:
         appendLimitClause_(oss);
 
         const auto cmd = oss.str();
-        if (verbose) {
-            std::cout << "Query cmd: " << cmd << std::endl;
-        }
-
         sqlite3_stmt* stmt = nullptr;
         if (sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0)) {
             throw DBException(sqlite3_errmsg(db_conn_));
@@ -369,7 +350,7 @@ public:
     }
 
     /// Execute the query.
-    SqlResultIterator getResultSet(bool verbose = false)
+    SqlResultIterator getResultSet()
     {
         std::ostringstream oss;
         oss << "SELECT ";
@@ -387,10 +368,6 @@ public:
         appendLimitClause_(oss);
 
         const auto cmd = oss.str();
-        if (verbose) {
-            std::cout << "Query cmd: " << cmd << std::endl;
-        }
-
         sqlite3_stmt* stmt = nullptr;
         if (sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0)) {
             throw DBException(sqlite3_errmsg(db_conn_));
@@ -443,10 +420,8 @@ private:
         }
     }
 
-    const std::string table_name_;
-    sqlite3* const db_conn_;
-    uint32_t limit_ = 0;
-
+    /// \struct QueryOrderClause
+    /// \brief  Used to build clauses like "ORDER BY ColA ASC, ColB DESC"
     struct QueryOrderClause {
         std::string col_name;
         QueryOrder order;
@@ -458,27 +433,23 @@ private:
         }
     };
 
+    /// SELECT ColA,ColB FROM <table_name_> WHERE ...
+    const std::string table_name_;
+
+    /// Underlying sqlite3 database
+    sqlite3* const db_conn_;
+
+    /// SELECT ColA,ColB FROM Table WHERE ... LIMIT <limit_>
+    uint32_t limit_ = 0;
+
+    /// SELECT ColA,ColB FROM Table WHERE ... ORDER BY <order_clauses_>
     std::vector<QueryOrderClause> order_clauses_;
+
+    /// SELECT ColA,ColB FROM Table WHERE <constraint_clauses_>
     std::vector<std::string> constraint_clauses_;
+
+    /// SELECT <result_writers_> FROM Table WHERE ...
     std::vector<std::shared_ptr<ResultWriterBase>> result_writers_;
 };
-
-// std::unique_ptr<SqlQuery> query = db_mgr.createQuery("Table");
-//
-// query->setLimit(4);
-// query->orderBy("ColA", QueryOrder::DESC);
-// query->addConstraint("ColA", Constraints::EQUAL, 3.14, EPS);
-// std::cout << "We have " << query->count() << " records!" << std::endl;
-//
-// double colA;
-// query->select("ColA", &colA);
-//
-// std::string colB;
-// query->select("ColB", &colB);
-//
-// for (auto iter : query->getResultSet()) {
-//     std::cout << "ColA: " << colA << std::endl;
-//     std::cout << "ColB: " << colB << std::endl;
-// }
 
 } // namespace simdb

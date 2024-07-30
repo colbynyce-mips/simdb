@@ -285,8 +285,7 @@ public:
     {
         for (auto& lhs : tables_) {
             if (lhs.getName() == table_name) {
-                throw DBException("Cannot add table '" + table_name +
-                                  "' to schema. A table with that name already exists.");
+                throw DBException("Cannot add table '" + table_name + "' to schema. A table with that name already exists.");
             }
         }
 

@@ -1,3 +1,5 @@
+// <SQLiteConnection> -*- C++ -*-
+
 #pragma once
 
 #include "simdb/async/AsyncTaskQueue.hpp"
@@ -123,14 +125,6 @@ public:
         });
     }
 
-    /// \brief  Try to open a connection to an existing database file.
-    ///
-    /// \return Returns true if the database is valid and the connection is now open.
-    bool connectToExistingDatabase(const std::string& db_fpath)
-    {
-        return (!openDbFile_(".", db_fpath).empty());
-    }
-
     /// Get the full database filename being used.
     const std::string& getDatabaseFilePath() const
     {
@@ -205,39 +199,34 @@ private:
     }
 
     /// First-time database file open.
-    std::string openDbFile_(const std::string& db_dir, const std::string& db_file)
+    std::string openDbFile_(const std::string& db_file)
     {
-        db_filepath_ = resolveDbFilename_(db_dir, db_file);
+        db_filepath_ = resolveDbFilename_(db_file);
         if (db_filepath_.empty()) {
-            db_filepath_ = db_dir + "/" + db_file;
+            db_filepath_ = db_file;
         }
 
         const int db_open_flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE;
         sqlite3* sqlite_conn = nullptr;
         auto err_code = sqlite3_open_v2(db_filepath_.c_str(), &sqlite_conn, db_open_flags, 0);
 
-        //Inability to even open the database file may mean that
-        //we don't have write permissions in this directory or
-        //something like that. We should throw until we understand
-        //better how else we can get bad file opens.
         if (err_code != SQLITE_OK) {
             throw DBException("Unable to connect to the database file: ") << db_file;
         }
 
-        //SQLite isn't the only implementation that SimDB supports.
-        //The sqlite3_open_v2() function can still return a non-null
-        //handle for a file that is NOT even SQLite. Let's try to make
-        //a simple database query to verify the file is actually SQLite.
         if (!validateConnectionIsSQLite_(sqlite_conn)) {
             sqlite3_close(sqlite_conn);
             sqlite_conn = nullptr;
         }
 
-        db_conn_ = sqlite_conn;
-        if (db_conn_) {
+        if (sqlite_conn) {
+            db_conn_ = sqlite_conn;
             sqlite3_create_function(db_conn_, "fuzzyMatch", 3, SQLITE_UTF8, nullptr, &fuzzyMatch, nullptr, nullptr);
+            return db_filepath_;
+        } else {
+            db_conn_ = nullptr;
+            return "";
         }
-        return (db_conn_ != nullptr ? db_filepath_ : "");
     }
 
     /// Return a string that is used as part of the CREATE TABLE command:
@@ -245,7 +234,8 @@ private:
     std::string getColumnsSqlCommand_(const Table& table) const
     {
         std::ostringstream oss;
-        const auto &columns = table.getColumns();
+        const auto& columns = table.getColumns();
+
         for (size_t idx = 0; idx < columns.size(); ++idx) {
             auto column = columns[idx];
             oss << column->getName() << " " << column->getDataType();
@@ -263,24 +253,13 @@ private:
     // See if there is an existing file by the name <dir/file>
     // and return it. If not, return just <file> if it exists.
     // Return "" if neither could be found.
-    std::string resolveDbFilename_(const std::string& db_dir, const std::string& db_file) const
+    std::string resolveDbFilename_(const std::string& db_file) const
     {
-        std::ifstream fin(db_dir + "/" + db_file);
-        if (fin.good()) {
-            return db_dir + "/" + db_file;
-        }
-
-        fin.open(db_file);
-        if (fin.good()) {
-            return db_file;
-        }
-
-        return "";
+        std::ifstream fin(db_file);
+        return fin.good() ? db_file : "";
     }
 
     /// Attempt to run an SQL command against our open connection.
-    /// A file may have been given to us that was a different format,
-    /// such as HDF5.
     bool validateConnectionIsSQLite_(sqlite3* db_conn)
     {
         const auto command = "SELECT name FROM sqlite_master WHERE type='table'";
@@ -303,8 +282,6 @@ private:
     /// DatabaseManager associated with this database connection.
     DatabaseManager* db_mgr_ = nullptr;
 
-    /// This proxy is intended to be used directly with
-    /// the core SimDB classes.
     friend class DatabaseManager;
 };
 

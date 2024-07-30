@@ -1,3 +1,5 @@
+// <SQLiteTransaction> -*- C++ -*-
+
 #pragma once
 
 #include "simdb/Errors.hpp"
@@ -26,89 +28,74 @@ public:
     /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
     void safeTransaction(const TransactionFunc& transaction)
     {
-        //There are "normal" or "acceptable" SQLite errors that
-        //we trap: SQLITE_BUSY (the database file is locked), and
-        //SQLITE_LOCKED (a table in the database is locked). These
-        //can occur when SQLite is used in concurrent systems, and
-        //are not necessarily "real" errors.
-        //
-        //If these *specific* types of errors occur, we will catch
-        //them and keep retrying the transaction until successful.
-        //This is part of what is meant by a "safe" transaction.
-        //Database transactions will not fail due to concurrent
-        //access errors that are not always obvious from a SPARTA
-        //user/developer's perspective.
-
         while (true) {
             try {
-                //More thought needs to go into thread safety of the
-                //database writes/reads. Let's be super lazy and grab
-                //a mutex right here for the time being.
                 std::lock_guard<std::recursive_mutex> lock(mutex_);
 
-                //Check to see if we are already in a transaction, in which
-                //case we simply call the transaction function. We cannot
-                //call "BEGIN TRANSACTION" recursively.
-                if (is_in_transaction_) {
+                // Check to see if we are already in a transaction, in which
+                // case we simply call the transaction function. We cannot
+                // call "BEGIN TRANSACTION" recursively.
+                if (in_transaction_flag_) {
                     transaction();
                 } else {
-                    ScopedTransaction scoped_transaction(this, transaction, is_in_transaction_);
+                    ScopedTransaction scoped_transaction(this, transaction, in_transaction_flag_);
                     (void)scoped_transaction;
                 }
 
-                //We got this far without an exception, which means
-                //that the proxy's commitAtomicTransaction() method
-                //has been called (if it supports atomic transactions).
+                // We got this far without an exception, which means
+                // that the transaction is committed.
                 break;
-
-                //Retry transaction due to database access errors
             } catch (...) {
-                //TODO
+                // TODO: Retry transaction due to database access errors
             }
-
-            //Note that other std::exceptions are still being thrown,
-            //and may abort the simulation
         }
     }
 
     /// Get this database connection's task queue. This
     /// object can be used to schedule database work to
-    /// be executed on a background thread. This never
-    /// returns null.
+    /// be executed on a background thread.
     virtual AsyncTaskQueue* getTaskQueue() const = 0;
 
 private:
-    /// Flag used in RAII safeTransaction() calls. This is
-    /// needed to we know whether to tell SQL to "BEGIN
-    /// TRANSACTION" or not (i.e. if we're already in the
-    /// middle of another safeTransaction).
+    /// \brief Flag used in RAII safeTransaction() calls. This is
+    ///        needed to we know whether to tell SQL to "BEGIN
+    ///        TRANSACTION" or not (i.e. if we're already in the
+    ///        middle of another safeTransaction).
     ///
     /// This allows users to freely do something like this:
     ///
-    ///     obj_mgr_.safeTransaction([&]() {
-    ///         writeReportHeader_(report);
+    /// \code
+    ///     db_mgr_->safeTransaction([&]() {
+    ///         doFoo();
+    ///         doBar();
     ///     });
+    /// \endcode
     ///
-    /// Even if their writeReportHeader_() code does the
-    /// same thing:
+    /// Even if doFoo() and doBar() do the same thing:
     ///
-    ///     void CSV::writeReportHeader_(sparta::Report * r) {
-    ///         obj_mgr_.safeTransaction([&]() {
-    ///             writeReportName_(r);
-    ///             writeSimulationMetadata_(sim_);
+    /// \code
+    ///     void MyClass::doFoo() {
+    ///         db_mgr_->safeTransaction([&](){
+    ///             ...
     ///         });
     ///     }
-    mutable bool is_in_transaction_ = false;
+    ///
+    ///     void MyClass::doBar() {
+    ///         db_mgr_->safeTransaction([&](){
+    ///             ...
+    ///         });
+    ///     }
+    /// \endcode
+    bool in_transaction_flag_ = false;
 
     /// Mutex for thread-safe reentrant safeTransaction's.
-    mutable std::recursive_mutex mutex_;
+    std::recursive_mutex mutex_;
 
-    /// RAII used for BEGIN/COMMIT TRANSACTION calls to make safeTransaction
-    /// more performant.
+    /// RAII used for BEGIN/COMMIT TRANSACTION calls. Ensures that
+    /// these calls always occur in pairs.
     struct ScopedTransaction {
-        ScopedTransaction(SQLiteTransaction* db_conn,
-                          const TransactionFunc& transaction,
-                          bool& in_transaction_flag)
+        /// Issues BEGIN TRANSACTION
+        ScopedTransaction(SQLiteTransaction* db_conn, const TransactionFunc& transaction, bool& in_transaction_flag)
             : db_conn_(db_conn)
             , transaction_(transaction)
             , in_transaction_flag_(in_transaction_flag)
@@ -118,6 +105,7 @@ private:
             transaction_();
         }
 
+        /// Issues COMMIT TRANSACTION
         ~ScopedTransaction()
         {
             db_conn_->endTransaction();
@@ -131,11 +119,7 @@ private:
         /// The caller's function they want inside BEGIN/COMMIT TRANSACTION
         const TransactionFunc& transaction_;
 
-        /// The caller's "in transaction flag" - in case they
-        /// need to know whether *their code* is already in
-        /// an ongoing transaction. This protects against
-        /// recursive calls to BEGIN TRANSACTION, which is
-        /// disallowed.
+        /// Reference to SQLiteTransaction::in_transaction_flag_
         bool& in_transaction_flag_;
     };
 };

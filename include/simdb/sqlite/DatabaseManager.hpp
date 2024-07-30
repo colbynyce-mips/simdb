@@ -6,7 +6,6 @@
 #include "simdb/sqlite/SQLiteConnection.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/sqlite/SQLiteTable.hpp"
-#include "simdb/utils/uuids.hpp"
 
 namespace simdb
 {
@@ -21,28 +20,54 @@ namespace simdb
 class DatabaseManager
 {
 public:
-    /// Construct a DatabaseManager with a database directory.
-    DatabaseManager(const std::string& db_dir = ".")
-        : db_dir_(db_dir)
+    /// \brief Construct a DatabaseManager with a database directory and a filename.
+    /// \param db_file Name of the database file, typically with .db extension
+    /// \param force_new_file Force the <db_file> to be overwritten if it exists.
+    ///                       If the file already existed and this flag is false, 
+    ///                       then you will not be able to call createDatabaseFromSchema()
+    ///                       or appendSchema(). The schema is considered read-only for
+    ///                       previously existing database files.
+    DatabaseManager(const std::string& db_file = "sim.db", const bool force_new_file = false)
+        : db_file_(db_file)
     {
+        std::ifstream fin(db_file);
+        if (fin.good()) {
+            if (force_new_file) {
+                fin.close();
+                const auto cmd = "rm -f " + db_file;
+                system(cmd.c_str());
+            } else {
+                if (!connectToExistingDatabase_(db_file)) {
+                    throw DBException("Unable to connect to database file: ") << db_file;
+                }
+                append_schema_allowed_ = false;
+            }
+        }
     }
 
     /// Open database connections will be implicitly closed when the
     /// destructor is called.
     ~DatabaseManager() = default;
 
-    /// \brief Using a Schema object for your database, construct
-    ///        the physical database file and open the connection.
+    /// \brief  Using a Schema object for your database, construct
+    ///         the physical database file and open the connection.
+    ///
+    /// \throws This will throw an exception for DatabaseManager's
+    ///         whose connection was initialized with a previously
+    ///         existing file.
     ///
     /// \return Returns true if successful, false otherwise.
     bool createDatabaseFromSchema(const Schema& schema)
     {
+        if (!append_schema_allowed_) {
+            throw DBException("Cannot alter schema if you created a DatabaseManager with an existing file.");
+        }
+
         db_conn_.reset(new SQLiteConnection(this));
         schema_ = schema;
 
         assertNoDatabaseConnectionOpen_();
-        auto db_file = generateUUID() + ".db";
-        createDatabaseFile_(db_file);
+        createDatabaseFile_();
 
         db_conn_->realizeSchema(schema_);
         return db_conn_->isValid();
@@ -51,9 +76,12 @@ public:
     /// \brief   After calling createDatabaseFromSchema(), you may
     ///          add additional tables with this method.
     ///
+    /// \throws  This will throw an exception if the schema was invalid
+    ///          for any reason.
+    ///
     /// \throws  This will throw an exception for DatabaseManager's
-    ///          whose connection was initialized with a call to
-    ///          connectToExistingDatabase().
+    ///          whose connection was initialized with a previously
+    ///          existing file.
     ///
     /// \return  Returns true if successful, false otherwise.
     bool appendSchema(const Schema& schema)
@@ -61,42 +89,15 @@ public:
         if (!db_conn_) {
             return false;
         } else if (!db_conn_->isValid()) {
-            throw DBException(
-                "Attempt to append schema tables to a DatabaseManager that does not have a valid database connection");
+            throw DBException("Attempt to append schema tables to a DatabaseManager that does not have a valid database connection");
         }
 
         if (!append_schema_allowed_) {
-            throw DBException("Cannot call appendSchema() after you have initialized the DatabaseManager with "
-                              "connectToExistingDatabase()");
+            throw DBException("Cannot alter schema if you created a DatabaseManager with an existing file.");
         }
 
         db_conn_->realizeSchema(schema);
         schema_.appendSchema(schema);
-        return true;
-    }
-
-    /// \brief  Open a database connection to an existing database file.
-    ///
-    /// \param db_fpath Full path to the database including the ".db"
-    ///                 extension, e.g. "/path/to/my/dir/statistics.db"
-    ///
-    /// \note   The 'db_fpath' is typically one that was given to you
-    ///         from a previous call to getDatabaseFilePath()
-    ///
-    /// \return Returns true if successful, false otherwise.
-    bool connectToExistingDatabase(const std::string& db_fpath)
-    {
-        assertNoDatabaseConnectionOpen_();
-        db_conn_.reset(new SQLiteConnection(this));
-
-        if (!db_conn_->connectToExistingDatabase(db_fpath)) {
-            db_conn_.reset();
-            db_filepath_.clear();
-            return false;
-        }
-
-        db_filepath_ = db_conn_->getDatabaseFilePath();
-        append_schema_allowed_ = false;
         return true;
     }
 
@@ -238,14 +239,39 @@ public:
     }
 
 private:
+    /// \brief  Open a database connection to an existing database file.
+    ///
+    /// \param db_fpath Full path to the database including the ".db"
+    ///                 extension, e.g. "/path/to/my/dir/statistics.db"
+    ///
+    /// \note   The 'db_fpath' is typically one that was given to us
+    ///         from a previous call to getDatabaseFilePath()
+    ///
+    /// \return Returns true if successful, false otherwise.
+    bool connectToExistingDatabase_(const std::string& db_fpath)
+    {
+        assertNoDatabaseConnectionOpen_();
+        db_conn_.reset(new SQLiteConnection(this));
+
+        if (db_conn_->openDbFile_(db_fpath).empty()) {
+            db_conn_.reset();
+            db_filepath_.clear();
+            return false;
+        }
+
+        db_filepath_ = db_conn_->getDatabaseFilePath();
+        append_schema_allowed_ = false;
+        return true;
+    }
+
     /// Open the given database file.
-    bool createDatabaseFile_(const std::string& db_file)
+    bool createDatabaseFile_()
     {
         if (!db_conn_) {
             return false;
         }
 
-        auto db_filename = db_conn_->openDbFile_(db_dir_, db_file);
+        auto db_filename = db_conn_->openDbFile_(db_file_);
         if (!db_filename.empty()) {
             //File opened without issues. Store the full DB filename.
             db_filepath_ = db_filename;
@@ -257,9 +283,7 @@ private:
 
     /// Try to just open an empty database file. This is
     /// similar to fopen().
-    void openDatabaseWithoutSchema_()
-    {
-    }
+    void openDatabaseWithoutSchema_() {}
 
     /// This class does not currently allow one DatabaseManager
     /// to be simultaneously connected to multiple databases.
@@ -310,17 +334,16 @@ private:
     /// and optionally appendSchema().
     Schema schema_;
 
-    /// Location where this database lives.
-    const std::string db_dir_;
+    /// Name of the database file.
+    const std::string db_file_;
 
     /// Full database file name, including the database path
     /// and file extension
     std::string db_filepath_;
 
-    /// Flag saying whether or not appendSchema() can be called.
+    /// Flag saying whether or not the schema can be altered.
     /// We do not allow schemas to be altered for DatabaseManager's
-    /// that were initialized with connectToExistingDatabase(),
-    /// only createDatabaseFromSchema().
+    /// that were initialized with a previously existing file.
     bool append_schema_allowed_ = true;
 };
 
