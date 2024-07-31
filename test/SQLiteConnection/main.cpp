@@ -237,9 +237,9 @@ int main()
 
     // DefaultDoubles
     // ------------------------------------------------------------------------------------------------------
-    // DefaultEPS       DefaultMIN       DefaultMAX       DefaultPI       DefaultEXACT       DefaultINEXACT
-    // TEST_EPSILON     TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EXACT  TEST_DOUBLE_INEXACT
-    // TEST_EPSILON     TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EXACT  TEST_DOUBLE_INEXACT
+    // DefaultEPS    DefaultMIN       DefaultMAX       DefaultPI       DefaultEXACT       DefaultINEXACT
+    // TEST_EPSILON  TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EXACT  TEST_DOUBLE_INEXACT
+    // TEST_EPSILON  TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EXACT  TEST_DOUBLE_INEXACT
     db_mgr.INSERT(
         SQL_TABLE("DefaultDoubles"),
         SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEXACT", "DefaultINEXACT"),
@@ -480,11 +480,10 @@ int main()
 
     // Test SQL queries for floating-point types. This use case is special since it requires
     // a custom comparator to deal with machine precision issues.
-    double dbl;
-
     auto query2 = db_mgr.createQuery("FloatingPointTypes");
 
     // Each successful call to result_set.getNextRecord() populates these variables.
+    double dbl;
     query2->select("SomeDouble", dbl);
 
     // SELECT COUNT(Id) should return 12 records.
@@ -631,11 +630,10 @@ int main()
     EXPECT_EQUAL(query3->count(), 2);
 
     // Test SQL queries for string types.
-    std::string str;
-
     auto query4 = db_mgr.createQuery("StringTypes");
 
     // Each successful call to result_set.getNextRecord() populates these variables.
+    std::string str;
     query4->select("SomeString", str);
 
     // SELECT COUNT(Id) should return 4 records.
@@ -696,10 +694,10 @@ int main()
 
     // Test queries that include multiple kinds of data type constraints,
     // and which includes a blob column.
-    std::vector<int> ivec;
     auto query5 = db_mgr.createQuery("MixAndMatch");
 
     // Each successful call to result_set.getNextRecord() populates these variables.
+    std::vector<int> ivec;
     query5->select("SomeInt32", i32);
     query5->select("SomeString", str);
     query5->select("SomeBlob", ivec);
@@ -721,10 +719,6 @@ int main()
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
-    // IndexedColumns
-    // ------------------------------------------------------------------------------------------------------
-    // SomeInt32    SomeDouble    SomeString
-
     // Ensure that indexing works by running the same queries against tables
     // that are indexed and not (with the same number of records / schema)
     // and verifying that the indexed queries are faster.
@@ -733,12 +727,17 @@ int main()
     // of a large discrepancy in the query times (full table walk for the
     // non-indexed query).
     auto query6 = db_mgr.createQuery("IndexedColumns");
+    auto query7 = db_mgr.createQuery("NonIndexedColumns");
+
+    // Make sure the tables have the same number of records first.
+    int IndexedColumns_id, NonIndexedColumns_id;
+    query6->select("Id", IndexedColumns_id);
+    query7->select("Id", NonIndexedColumns_id);
+    EXPECT_EQUAL(query6->count(), query7->count());
 
     query6->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 100000);
     query6->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, 100000.1);
     query6->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "100000");
-
-    auto query7 = db_mgr.createQuery("NonIndexedColumns");
 
     query7->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 100000);
     query7->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, 100000.1);
@@ -758,7 +757,8 @@ int main()
     // created by another DatabaseManager.
     simdb::DatabaseManager db_mgr2(db_mgr.getDatabaseFilePath());
 
-    // Verify that we cannot alter the schema.
+    // Verify that we cannot alter the schema since this second DatabaseManager
+    // did not instantiate the schema in the first place.
     simdb::Schema schema2;
 
     schema2.addTable("SomeTable")
@@ -837,7 +837,7 @@ int main()
         task_queue->addTask(std::move(task));
     }
 
-    // Note that stopping the working thread implicitly flushes the queue first.
+    // Note that stopping the worker thread implicitly flushes the queue first.
     task_queue->stopThread();
 
     auto query9 = db_mgr.createQuery("HighVolumeData");
