@@ -315,13 +315,8 @@ private:
         oss << "SELECT * FROM " << table_name << " WHERE Id=" << db_id;
         const auto cmd = oss.str();
 
-        sqlite3_stmt* stmt = nullptr;
-        if (SQLiteReturnCode(sqlite3_prepare_v2(db_conn_->getDatabase(), cmd.c_str(), -1, &stmt, 0))) {
-            throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
-        }
-
+        auto stmt = SQLitePreparedStatement(db_conn_->getDatabase(), cmd);
         auto rc = SQLiteReturnCode(sqlite3_step(stmt));
-        sqlite3_finalize(stmt);
 
         if (must_exist && rc == SQLITE_DONE) {
             throw DBException("Record not found with ID ") << db_id << " in table " << table_name;

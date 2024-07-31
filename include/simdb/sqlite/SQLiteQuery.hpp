@@ -327,25 +327,17 @@ public:
         appendLimitClause_(oss);
 
         const auto cmd = oss.str();
-        sqlite3_stmt* stmt = nullptr;
-        if (SQLiteReturnCode(sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0))) {
-            throw DBException(sqlite3_errmsg(db_conn_));
-        }
-
+        auto stmt = SQLitePreparedStatement(db_conn_, cmd);
         auto rc = SQLiteReturnCode(sqlite3_step(stmt));
 
         if (rc == SQLITE_ROW) {
-            auto ret = sqlite3_column_int64(stmt, 0);
-            sqlite3_finalize(stmt);
-            return ret;
+            return sqlite3_column_int64(stmt, 0);
         }
 
         if (rc == SQLITE_DONE) {
-            sqlite3_finalize(stmt);
             return 0;
         }
 
-        sqlite3_finalize(stmt);
         throw DBException(sqlite3_errmsg(db_conn_));
     }
 

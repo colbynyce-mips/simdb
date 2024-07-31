@@ -188,18 +188,6 @@ private:
     {
     }
 
-    /// Issue BEGIN TRANSACTION
-    void beginTransaction() override
-    {
-        executeCommand("BEGIN TRANSACTION");
-    }
-
-    /// Issue COMMIT TRANSACTION
-    void endTransaction() override
-    {
-        executeCommand("COMMIT TRANSACTION");
-    }
-
     /// First-time database file open.
     std::string openDbFile_(const std::string& db_file)
     {
@@ -268,9 +256,6 @@ private:
         auto rc = SQLiteReturnCode(sqlite3_exec(db_conn, command, nullptr, nullptr, nullptr));
         return rc == SQLITE_OK;
     }
-
-    /// Underlying database connection
-    sqlite3* db_conn_ = nullptr;
 
     /// Filename of the database in use
     std::string db_filepath_;

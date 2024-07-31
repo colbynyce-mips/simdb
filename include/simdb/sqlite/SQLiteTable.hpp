@@ -374,19 +374,14 @@ private:
     }
 
     /// Create a prepared statement: UPDATE <table_name_> SET <col_name>=? WHERE Id=<db_id_> 
-    sqlite3_stmt* createSetPropertyStmt_(const char* col_name) const
+    SQLitePreparedStatement createSetPropertyStmt_(const char* col_name) const
     {
         std::string cmd = "UPDATE " + table_name_;
         cmd += " SET ";
         cmd += col_name;
         cmd += "=? WHERE Id=" + std::to_string(db_id_);
 
-        sqlite3_stmt* stmt = nullptr;
-        if (sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0)) {
-            throw DBException(sqlite3_errmsg(db_conn_));
-        }
-
-        return stmt;
+        return SQLitePreparedStatement(db_conn_, cmd);
     }
 
     /// \brief Step a prepared statement forward
@@ -474,83 +469,75 @@ inline std::vector<T> SqlRecord::getPropertyBlob(const char* col_name) const
 
 inline void SqlRecord::setPropertyInt32(const char* col_name, const int32_t val) const
 {
-    sqlite3_stmt* stmt = createSetPropertyStmt_(col_name);
+    auto stmt = createSetPropertyStmt_(col_name);
     if (SQLiteReturnCode(sqlite3_bind_int(stmt, 1, val))) {
         throw DBException(sqlite3_errmsg(db_conn_));
     }
     stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
 }
 
 inline void SqlRecord::setPropertyInt64(const char* col_name, const int64_t val) const
 {
-    sqlite3_stmt* stmt = createSetPropertyStmt_(col_name);
+    auto stmt = createSetPropertyStmt_(col_name);
     if (SQLiteReturnCode(sqlite3_bind_int64(stmt, 1, val))) {
         throw DBException(sqlite3_errmsg(db_conn_));
     }
     stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
 }
 
 inline void SqlRecord::setPropertyUInt32(const char* col_name, const uint32_t val) const
 {
-    sqlite3_stmt* stmt = createSetPropertyStmt_(col_name);
+    auto stmt = createSetPropertyStmt_(col_name);
     if (SQLiteReturnCode(sqlite3_bind_int(stmt, 1, val))) {
         throw DBException(sqlite3_errmsg(db_conn_));
     }
     stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
 }
 
 inline void SqlRecord::setPropertyUInt64(const char* col_name, const uint64_t val) const
 {
-    sqlite3_stmt* stmt = createSetPropertyStmt_(col_name);
+    auto stmt = createSetPropertyStmt_(col_name);
     if (SQLiteReturnCode(sqlite3_bind_int64(stmt, 1, val))) {
         throw DBException(sqlite3_errmsg(db_conn_));
     }
     stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
 }
 
 inline void SqlRecord::setPropertyDouble(const char* col_name, const double val) const
 {
-    sqlite3_stmt* stmt = createSetPropertyStmt_(col_name);
+    auto stmt = createSetPropertyStmt_(col_name);
     if (SQLiteReturnCode(sqlite3_bind_double(stmt, 1, val))) {
         throw DBException(sqlite3_errmsg(db_conn_));
     }
     stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
 }
 
 inline void SqlRecord::setPropertyString(const char* col_name, const std::string& val) const
 {
-    sqlite3_stmt* stmt = createSetPropertyStmt_(col_name);
+    auto stmt = createSetPropertyStmt_(col_name);
     if (SQLiteReturnCode(sqlite3_bind_text(stmt, 1, val.c_str(), -1, 0))) {
         throw DBException(sqlite3_errmsg(db_conn_));
     }
     stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
 }
 
 template <typename T>
 inline void SqlRecord::setPropertyBlob(const char* col_name, const std::vector<T>& val) const
 {
-    sqlite3_stmt* stmt = createSetPropertyStmt_(col_name);
+    auto stmt = createSetPropertyStmt_(col_name);
     if (SQLiteReturnCode(sqlite3_bind_blob(stmt, 1, val.data(), val.size() * sizeof(T), 0))) {
         throw DBException(sqlite3_errmsg(db_conn_));
     }
     stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
 }
 
 inline void SqlRecord::setPropertyBlob(const char* col_name, const void* data, const size_t bytes) const
 {
-    sqlite3_stmt* stmt = createSetPropertyStmt_(col_name);
+    auto stmt = createSetPropertyStmt_(col_name);
     if (SQLiteReturnCode(sqlite3_bind_blob(stmt, 1, data, bytes, 0))) {
         throw DBException(sqlite3_errmsg(db_conn_));
     }
     stepStatement_(stmt, {SQLITE_DONE});
-    sqlite3_finalize(stmt);
 }
 
 inline bool SqlRecord::removeFromTable()

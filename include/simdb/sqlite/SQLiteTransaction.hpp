@@ -4,10 +4,10 @@
 
 #include "simdb/Errors.hpp"
 
-#include <sqlite3.h>
 #include <chrono>
 #include <functional>
 #include <mutex>
+#include <sqlite3.h>
 #include <thread>
 
 namespace simdb
@@ -17,6 +17,11 @@ class AsyncTaskQueue;
 
 typedef std::function<void()> TransactionFunc;
 
+/*!
+ * \class SQLiteReturnCode
+ * \brief This class wraps a return code and throws a SafeTransactionSilentException
+ *        when it encounters a "SQL locked" return code.
+ */
 class SQLiteReturnCode
 {
 public:
@@ -58,15 +63,45 @@ inline std::ostream& operator<<(std::ostream& os, const SQLiteReturnCode& rc)
     return os;
 }
 
+/*!
+ * \class SQLitePreparedStatement
+ * \brief This class wraps a sqlite3_stmt* and uses RAII to ensure that
+ *        sqlite3_finalize() is called so we don't leak resources.
+ */
+class SQLitePreparedStatement
+{
+public:
+    SQLitePreparedStatement(sqlite3* db_conn, const std::string& cmd)
+    {
+        sqlite3_stmt* stmt = nullptr;
+        auto rc = sqlite3_prepare_v2(db_conn, cmd.c_str(), -1, &stmt, 0);
+        if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED) {
+            sqlite3_finalize(stmt);
+            throw SafeTransactionSilentException();
+        }
+
+        stmt_ = stmt;
+    }
+
+    ~SQLitePreparedStatement()
+    {
+        if (stmt_) {
+            sqlite3_finalize(stmt_);
+        }
+    }
+
+    operator sqlite3_stmt*() const
+    {
+        return stmt_;
+    }
+
+private:
+    sqlite3_stmt* stmt_ = nullptr;
+};
+
 class SQLiteTransaction
 {
 public:
-    virtual ~SQLiteTransaction() = default;
-
-    virtual void beginTransaction() = 0;
-
-    virtual void endTransaction() = 0;
-
     /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
     void safeTransaction(const TransactionFunc& transaction)
     {
@@ -80,7 +115,7 @@ public:
                 if (in_transaction_flag_) {
                     transaction();
                 } else {
-                    ScopedTransaction scoped_transaction(this, transaction, in_transaction_flag_);
+                    ScopedTransaction scoped_transaction(db_conn_, transaction, in_transaction_flag_);
                     (void)scoped_transaction;
                 }
 
@@ -97,6 +132,10 @@ public:
     /// object can be used to schedule database work to
     /// be executed on a background thread.
     virtual AsyncTaskQueue* getTaskQueue() const = 0;
+
+protected:
+    /// Underlying database connection
+    sqlite3* db_conn_ = nullptr;
 
 private:
     /// \brief Flag used in RAII safeTransaction() calls. This is
@@ -137,29 +176,36 @@ private:
     /// these calls always occur in pairs.
     struct ScopedTransaction {
         /// Issues BEGIN TRANSACTION
-        ScopedTransaction(SQLiteTransaction* db_conn, const TransactionFunc& transaction, bool& in_transaction_flag)
+        ScopedTransaction(sqlite3* db_conn, const TransactionFunc& transaction, bool& in_transaction_flag)
             : db_conn_(db_conn)
-            , transaction_(transaction)
             , in_transaction_flag_(in_transaction_flag)
         {
             in_transaction_flag_ = true;
-            db_conn_->beginTransaction();
-            transaction_();
+            executeCommand_("BEGIN TRANSACTION");
+            transaction();
         }
 
         /// Issues COMMIT TRANSACTION
         ~ScopedTransaction()
         {
-            db_conn_->endTransaction();
+            executeCommand_("COMMIT TRANSACTION");
             in_transaction_flag_ = false;
         }
 
     private:
-        /// Open database connection
-        SQLiteTransaction* db_conn_ = nullptr;
+        /// Execute the provided statement against the database
+        /// connection. This will validate the command, and throw
+        /// if this command is disallowed.
+        void executeCommand_(const char* cmd)
+        {
+            auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_, cmd, nullptr, nullptr, nullptr));
+            if (rc) {
+                throw DBException(sqlite3_errmsg(db_conn_));
+            }
+        }
 
-        /// The caller's function they want inside BEGIN/COMMIT TRANSACTION
-        const TransactionFunc& transaction_;
+        /// Open database connection
+        sqlite3* db_conn_ = nullptr;
 
         /// Reference to SQLiteTransaction::in_transaction_flag_
         bool& in_transaction_flag_;
