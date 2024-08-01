@@ -83,8 +83,7 @@ int main()
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     // Verify set/get APIs for integer types
-    auto record1 = db_mgr.INSERT(
-        SQL_TABLE("IntegerTypes"), SQL_COLUMNS("SomeInt32", "SomeInt64"), SQL_VALUES(TEST_INT32, TEST_INT64));
+    auto record1 = db_mgr.INSERT(SQL_TABLE("IntegerTypes"), SQL_COLUMNS("SomeInt32", "SomeInt64"), SQL_VALUES(TEST_INT32, TEST_INT64));
 
     EXPECT_EQUAL(record1->getPropertyInt32("SomeInt32"), TEST_INT32);
     EXPECT_EQUAL(record1->getPropertyInt64("SomeInt64"), TEST_INT64);
@@ -194,8 +193,7 @@ int main()
     // 1.0
     // 0.3
     // 0.3
-    for (auto val :
-         {TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT}) {
+    for (auto val : {TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT}) {
         db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(val));
         db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(val));
     }
@@ -219,38 +217,26 @@ int main()
     // 10           bar           TEST_VECTOR
     // 20           foo           TEST_VECTOR2
     // 20           bar           TEST_VECTOR2
-    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
-                  SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
-                  SQL_VALUES(10, "foo", TEST_VECTOR));
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"), SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"), SQL_VALUES(10, "foo", TEST_VECTOR));
 
-    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
-                  SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
-                  SQL_VALUES(10, "bar", TEST_VECTOR));
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"), SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"), SQL_VALUES(10, "bar", TEST_VECTOR));
 
-    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
-                  SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
-                  SQL_VALUES(20, "foo", TEST_VECTOR2));
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"), SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"), SQL_VALUES(20, "foo", TEST_VECTOR2));
 
-    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
-                  SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
-                  SQL_VALUES(20, "bar", TEST_VECTOR2));
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"), SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"), SQL_VALUES(20, "bar", TEST_VECTOR2));
 
     // DefaultDoubles
     // ------------------------------------------------------------------------------------------------------
     // DefaultEPS    DefaultMIN       DefaultMAX       DefaultPI       DefaultEXACT       DefaultINEXACT
     // TEST_EPSILON  TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EXACT  TEST_DOUBLE_INEXACT
     // TEST_EPSILON  TEST_DOUBLE_MIN  TEST_DOUBLE_MAX  TEST_DOUBLE_PI  TEST_DOUBLE_EXACT  TEST_DOUBLE_INEXACT
-    db_mgr.INSERT(
-        SQL_TABLE("DefaultDoubles"),
-        SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEXACT", "DefaultINEXACT"),
-        SQL_VALUES(
-            TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT));
+    db_mgr.INSERT(SQL_TABLE("DefaultDoubles"),
+                  SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEXACT", "DefaultINEXACT"),
+                  SQL_VALUES(TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT));
 
-    db_mgr.INSERT(
-        SQL_TABLE("DefaultDoubles"),
-        SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEXACT", "DefaultINEXACT"),
-        SQL_VALUES(
-            TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT));
+    db_mgr.INSERT(SQL_TABLE("DefaultDoubles"),
+                  SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEXACT", "DefaultINEXACT"),
+                  SQL_VALUES(TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT));
 
     db_mgr.safeTransaction([&]() {
         // IndexedColumns
@@ -265,9 +251,8 @@ int main()
             auto val_dbl = idx + 0.1;
             auto val_str = std::to_string(val_int);
 
-            db_mgr.INSERT(SQL_TABLE("IndexedColumns"),
-                          SQL_COLUMNS("SomeInt32", "SomeDouble", "SomeString"),
-                          SQL_VALUES(val_int, val_dbl, val_str));
+            db_mgr.INSERT(
+                SQL_TABLE("IndexedColumns"), SQL_COLUMNS("SomeInt32", "SomeDouble", "SomeString"), SQL_VALUES(val_int, val_dbl, val_str));
         }
 
         // NonIndexedColumns
@@ -522,8 +507,7 @@ int main()
     }
 
     // Check WHERE clauses for doubles.
-    for (auto target :
-         {TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT}) {
+    for (auto target : {TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT}) {
         // Not using fuzzyMatch() - test for equality.
         query2->resetConstraints();
         query2->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, target, false);
@@ -761,8 +745,7 @@ int main()
     // did not instantiate the schema in the first place.
     simdb::Schema schema2;
 
-    schema2.addTable("SomeTable")
-        .addColumn("SomeColumn", dt::string_t);
+    schema2.addTable("SomeTable").addColumn("SomeColumn", dt::string_t);
 
     EXPECT_THROW(db_mgr2.appendSchema(schema2));
 
