@@ -4,7 +4,7 @@ set (CMAKE_CXX_STANDARD_REQUIRED ON)
 project(simdb CXX)
 
 set(SIMDB_BASE ${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(${SIMDB_BASE}/inc)
+include_directories(${SIMDB_BASE}/include)
 include(${SIMDB_BASE}/cmake/simdb-config.cmake)
 
 add_subdirectory(test EXCLUDE_FROM_ALL)

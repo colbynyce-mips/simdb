@@ -2,6 +2,5 @@ compile_commands.json
 release/**
 debug/**
 .vscode
-cmake/sqlite3.h
 build.log
 .editorconfig

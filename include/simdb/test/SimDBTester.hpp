@@ -490,7 +490,7 @@ private:
  * \def DB_INIT
  * \brief Clears all *.db files from previous test runs.
  */
-#define DB_INIT system("rm -f *.db");
+#define DB_INIT { auto __rc = system("rm -f *.db"); (void)__rc; }
 
 /**
  * \def EXPECT_REACHED()

@@ -35,7 +35,8 @@ public:
             if (force_new_file) {
                 fin.close();
                 const auto cmd = "rm -f " + db_file;
-                system(cmd.c_str());
+                auto rc = system(cmd.c_str());
+                (void)rc;
             } else {
                 if (!connectToExistingDatabase_(db_file)) {
                     throw DBException("Unable to connect to database file: ") << db_file;
