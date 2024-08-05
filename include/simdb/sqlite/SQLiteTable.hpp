@@ -357,22 +357,6 @@ public:
     bool removeFromTable();
 
 private:
-    /// Create a prepared statement: SELECT ColA FROM <table_name_> WHERE Id=<db_id_> 
-    sqlite3_stmt* createGetPropertyStmt_(const char* col_name) const
-    {
-        std::string cmd = "SELECT ";
-        cmd += col_name;
-        cmd += " FROM " + table_name_;
-        cmd += " WHERE Id=" + std::to_string(db_id_);
-
-        sqlite3_stmt* stmt = nullptr;
-        if (sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0)) {
-            throw DBException(sqlite3_errmsg(db_conn_));
-        }
-
-        return stmt;
-    }
-
     /// Create a prepared statement: UPDATE <table_name_> SET <col_name>=? WHERE Id=<db_id_> 
     SQLitePreparedStatement createSetPropertyStmt_(const char* col_name) const
     {
