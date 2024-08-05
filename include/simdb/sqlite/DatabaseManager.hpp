@@ -137,7 +137,7 @@ public:
         vals.writeValsForINSERT(oss);
 
         std::string cmd = oss.str();
-        sqlite3_stmt* stmt = db_conn_->prepareStatement(cmd);
+        auto stmt = db_conn_->prepareStatement(cmd);
         vals.bindValsForINSERT(stmt);
 
         auto rc = SQLiteReturnCode(sqlite3_step(stmt));
@@ -154,7 +154,7 @@ public:
     std::unique_ptr<SqlRecord> INSERT(SqlTable&& table)
     {
         const std::string cmd = "INSERT INTO " + table.getName() + " DEFAULT VALUES";
-        sqlite3_stmt* stmt = db_conn_->prepareStatement(cmd);
+        auto stmt = db_conn_->prepareStatement(cmd);
 
         auto rc = SQLiteReturnCode(sqlite3_step(stmt));
         if (rc != SQLITE_DONE) {

@@ -149,14 +149,9 @@ public:
     }
 
     /// Turn the given command into an SQL prepared statement.
-    sqlite3_stmt* prepareStatement(const std::string& command)
+    SQLitePreparedStatement prepareStatement(const std::string& command)
     {
-        sqlite3_stmt* stmt = nullptr;
-        auto rc = SQLiteReturnCode(sqlite3_prepare_v2(db_conn_, command.c_str(), -1, &stmt, 0));
-        if (rc) {
-            throw DBException("Malformed SQL command: ") << command;
-        }
-        return stmt;
+        return SQLitePreparedStatement(db_conn_, command);
     }
 
     /// Get the database ID of the last INSERT statement.
