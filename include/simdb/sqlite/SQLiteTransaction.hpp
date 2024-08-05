@@ -111,9 +111,19 @@ private:
     sqlite3_stmt* stmt_ = nullptr;
 };
 
+/*!
+ * \class SQLiteTransaction
+ *
+ * \brief Base class for SQLiteConnection. Made into a base class
+ *        to make it easier for SimDB to be a header-only library
+ *        that avoids cyclic header includes.
+ */
 class SQLiteTransaction
 {
 public:
+    /// Destructor
+    virtual ~SQLiteTransaction() = default;
+
     /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
     void safeTransaction(const TransactionFunc& transaction)
     {
@@ -143,7 +153,10 @@ public:
     /// Get this database connection's task queue. This
     /// object can be used to schedule database work to
     /// be executed on a background thread.
-    virtual AsyncTaskQueue* getTaskQueue() const = 0;
+    virtual AsyncTaskQueue* getTaskQueue() const
+    {
+        return nullptr;
+    }
 
 protected:
     /// Underlying database connection
