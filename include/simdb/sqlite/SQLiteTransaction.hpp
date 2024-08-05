@@ -83,6 +83,11 @@ public:
         stmt_ = stmt;
     }
 
+    SQLitePreparedStatement(sqlite3_stmt* stmt)
+        : stmt_(stmt)
+    {
+    }
+
     ~SQLitePreparedStatement()
     {
         if (stmt_) {
@@ -93,6 +98,13 @@ public:
     operator sqlite3_stmt*() const
     {
         return stmt_;
+    }
+
+    sqlite3_stmt* release()
+    {
+        auto stmt = stmt_;
+        stmt_ = nullptr;
+        return stmt;
     }
 
 private:

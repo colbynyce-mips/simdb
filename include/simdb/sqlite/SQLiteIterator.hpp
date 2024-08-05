@@ -251,7 +251,9 @@ public:
     /// Finalize the prepared statement on destruction.
     ~SqlResultIterator()
     {
-        sqlite3_finalize(stmt_);
+        if (stmt_) {
+            sqlite3_finalize(stmt_);
+        }
     }
 
     /// Get the next record, populate the user's local variables,

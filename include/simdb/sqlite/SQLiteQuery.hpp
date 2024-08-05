@@ -360,18 +360,14 @@ public:
         appendLimitClause_(oss);
 
         const auto cmd = oss.str();
-        sqlite3_stmt* stmt = nullptr;
-        auto rc = SQLiteReturnCode(sqlite3_prepare_v2(db_conn_, cmd.c_str(), -1, &stmt, 0));
-        if (rc) {
-            throw DBException(sqlite3_errmsg(db_conn_));
-        }
+        auto stmt = SQLitePreparedStatement(db_conn_, cmd);
 
         std::vector<std::shared_ptr<ResultWriterBase>> result_writers;
         for (const auto& writer : result_writers_) {
             result_writers.emplace_back(writer->clone());
         }
 
-        return SqlResultIterator(stmt, std::move(result_writers));
+        return SqlResultIterator(stmt.release(), std::move(result_writers));
     }
 
 private:

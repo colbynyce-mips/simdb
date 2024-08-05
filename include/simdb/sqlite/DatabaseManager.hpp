@@ -220,13 +220,8 @@ public:
     /// \return Returns the total number of deleted records across all tables.
     uint32_t removeAllRecordsFromAllTables()
     {
-        sqlite3_stmt* stmt = nullptr;
         const char* cmd = "SELECT name FROM sqlite_master WHERE type='table'";
-
-        auto rc = SQLiteReturnCode(sqlite3_prepare_v2(db_conn_->getDatabase(), cmd, -1, &stmt, 0));
-        if (rc) {
-            throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
-        }
+        auto stmt = db_conn_->prepareStatement(cmd);
 
         uint32_t count = 0;
         while (true) {
