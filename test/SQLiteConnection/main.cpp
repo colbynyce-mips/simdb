@@ -24,6 +24,13 @@ static const simdb::Blob TEST_BLOB2 = TEST_VECTOR2;
 
 simdb::PerfTimer timer;
 
+// Helper for negative test of rerouteNewTasksTo().
+class TaskRerouter
+{
+public:
+    void addTask(std::unique_ptr<simdb::WorkerTask>) {}
+};
+
 int main()
 {
     DB_INIT;
@@ -812,12 +819,21 @@ int main()
 
     auto task_queue = db_mgr.getConnection()->getTaskQueue();
 
-    for (size_t idx = 10; idx < 1000; ++idx) {
-        const size_t num_vals = idx;
-        const int val = 500 - idx;
+    // Open scope for simdb::AllOrNothing
+    {
+        simdb::AllOrNothing all_or_nothing(task_queue);
+        TaskRerouter rerouter;
 
-        std::unique_ptr<simdb::WorkerTask> task(new AsyncWriter(&db_mgr, num_vals, val));
-        task_queue->addTask(std::move(task));
+        for (size_t idx = 10; idx < 1000; ++idx) {
+            const size_t num_vals = idx;
+            const int val = 500 - idx;
+
+            std::unique_ptr<simdb::WorkerTask> task(new AsyncWriter(&db_mgr, num_vals, val));
+            task_queue->addTask(std::move(task));
+
+            // Ensure exception is thrown if we try to call rerouteNewTasksTo() again.
+            EXPECT_THROW(task_queue->rerouteNewTasksTo(rerouter));
+        }
     }
 
     // Note that stopping the worker thread implicitly flushes the queue first.

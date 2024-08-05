@@ -71,6 +71,11 @@ public:
     /// Add a task you wish to evaluate on the worker thread.
     void addTask(std::unique_ptr<WorkerTask> task)
     {
+        if (new_task_destination_) {
+            new_task_destination_(std::move(task));
+            return;
+        }
+
         concurrent_queue_.emplace(task.release());
 
         if (!timed_eval_.isRunning()) {
@@ -95,6 +100,26 @@ public:
                 }
             }
         });
+    }
+
+    /// \brief   Reroute all future tasks from calls to addTask() to the provided
+    ///          object's addTask() method. The signature of that method must be
+    ///          "void addTask(std::unique_ptr<simdb::WorkerTask> task)".
+    template <typename T>
+    void rerouteNewTasksTo(T& destination)
+    {
+        if (new_task_destination_) {
+            throw DBException("Cannot call rerouteNewTasksTo() since we are already rerouting tasks! ")
+                << "You must call rerouteNewTasksTo(nullptr) first.";
+        }
+        new_task_destination_ = std::bind(&T::addTask, &destination, std::placeholders::_1);
+    }
+
+    /// \brief   Overload for rerouteNewTasksTo() so users can stop rerouting tasks
+    ///          and go back to the usual execution.
+    void rerouteNewTasksTo(std::nullptr_t)
+    {
+        new_task_destination_ = nullptr;
     }
 
     /// \brief   Wait for the worker queue to be flushed / consumed,
@@ -176,9 +201,116 @@ private:
     /// Background thread for fixed-rate periodic queue flushes.
     TimedEval timed_eval_;
 
+    /// Destination for rerouted tasks.
+    std::function<void(std::unique_ptr<WorkerTask>)> new_task_destination_;
+
     /// Creating one of these directly is only for SQLiteConnection.
     /// Access via SQLiteConnection::getTaskQueue().
     friend class SQLiteConnection;
+};
+
+/*!
+ * \class AllOrNothing
+ * \brief This is intended to be used in an RAII fashion where you need ALL
+ *        tasks that are added to the AsyncTaskQueue while the AllOrNothing 
+ *        is in scope to be guaranteed to get inside the same safeTransaction(),
+ *        or NONE of them do.
+ * 
+ * This protects against the following scenario in asynchronous SimDB:
+ * 
+ *    void sendDataToDatabase()
+ *    {
+ *        std::unique_ptr<simdb::WorkerTask> task1(...);
+ *        task_queue_->addTask(std::move(task1));
+ * 
+ *        // Imagine the safeTransaction() now runs on the worker thread
+ *        // and successfully completes.
+ * 
+ *        std::unique_ptr<simdb::WorkerTask> task2(...);
+ *        task_queue_->addTask(std::move(task2));
+ * 
+ *        // Now imagine that the second task is pending in the queue,
+ *        // but safeTransaction() hasn't run again just yet. Now we hit
+ *        // a segfault.
+ *        int *ptr = new int[5];
+ *        std::vector<int> data = {1,2,3,4,5};
+ *        memcpy(ptr, data.data(), sizeof(int) * 50);
+ * 
+ *        // Buffer overrun!! Say the above code crashes the program. SQLite
+ *        // can make gaurantees about everything inside a safeTransaction()
+ *        // getting into the database or not at all. But from a user's point
+ *        // of view, there can be use cases where task1 getting into the DB
+ *        // but NOT task2 is effectively an invalid database.
+ *    }
+ * 
+ *    // Rewritten to make task1 and task2 BOTH get into the DB or NONE of them do.
+ *    void sendDataToDatabase()
+ *    {
+ *        // Use RAII.
+ *        simdb::AllOrNothing all_or_nothing(task_queue_);
+ * 
+ *        std::unique_ptr<simdb::WorkerTask> task1(...);
+ *        task_queue_->addTask(std::move(task1));
+ * 
+ *        std::unique_ptr<simdb::WorkerTask> task2(...);
+ *        task_queue_->addTask(std::move(task2));
+ * 
+ *        // ... whatever else ...
+ *    }
+ */
+class AllOrNothing
+{
+public:
+    AllOrNothing(simdb::AsyncTaskQueue* task_queue)
+        : task_queue_(task_queue)
+    {
+        task_queue_->rerouteNewTasksTo(*this);
+    }
+
+    /// Commit every pending WorkerTask to the physical database, or commit
+    /// none of them at all. They will all be evaluated in the same call to
+    /// safeTransaction().
+    ~AllOrNothing()
+    {
+        if (!pending_tasks_.empty()) {
+            std::unique_ptr<simdb::WorkerTask> commit_task(new Committer(std::move(pending_tasks_)));
+            task_queue_->rerouteNewTasksTo(nullptr);
+            task_queue_->addTask(std::move(commit_task));
+        }
+    }
+
+private:
+    /// Called by AsyncTaskQueue to do the rerouting. This is private to ensure
+    /// that nobody else calls this but the friend class AsyncTaskQueue, or else
+    /// tasks could get added to both and the required FIFO nature of the WorkerTask
+    /// completeTask() calls could become out of order.
+    void addTask(std::unique_ptr<simdb::WorkerTask> task)
+    {
+        pending_tasks_.emplace_back(task.release());
+    }
+
+    class Committer : public simdb::WorkerTask
+    {
+    public:
+        Committer(std::vector<std::unique_ptr<simdb::WorkerTask>>&& tasks)
+            : tasks_(std::move(tasks))
+        {
+        }
+
+        void completeTask() override
+        {
+            for (auto &task : tasks_) {
+                task->completeTask();
+            }
+        }
+
+    private:
+        std::vector<std::unique_ptr<simdb::WorkerTask>> tasks_;
+    };
+
+    simdb::AsyncTaskQueue* task_queue_;
+    std::vector<std::unique_ptr<simdb::WorkerTask>> pending_tasks_;
+    friend class AsyncTaskQueue;
 };
 
 } // namespace simdb
