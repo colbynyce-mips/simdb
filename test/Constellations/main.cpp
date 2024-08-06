@@ -126,6 +126,9 @@ public:
             std::string time_type;
             query->select("TimeType", time_type);
 
+            std::string data_type;
+            query->select("DataType", data_type);
+
             int compressed;
             query->select("Compressed", compressed);
 
@@ -134,11 +137,13 @@ public:
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "InstCounts");
             EXPECT_EQUAL(time_type, "INT");
+            EXPECT_EQUAL(data_type, "INT");
             EXPECT_EQUAL(compressed, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandStats");
             EXPECT_EQUAL(time_type, "INT");
+            EXPECT_EQUAL(data_type, "REAL");
             EXPECT_EQUAL(compressed, 1);
 
             EXPECT_FALSE(result_set.getNextRecord());

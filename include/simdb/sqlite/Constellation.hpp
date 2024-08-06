@@ -133,11 +133,18 @@ public:
             time_type = "REAL";
         }
 
+        std::string data_type;
+        if (std::is_integral<DataT>::value) {
+            data_type = "INT";
+        } else if (std::is_floating_point<DataT>::value) {
+            data_type = "REAL";
+        }
+
         int compressed = (cmode == CompressionModes::COMPRESSED) ? 1 : 0;
 
         auto record = db_mgr->INSERT(SQL_TABLE("Constellations"),
-                                     SQL_COLUMNS("Name", "TimeType", "Compressed"),
-                                     SQL_VALUES(name_, time_type, compressed));
+                                     SQL_COLUMNS("Name", "TimeType", "DataType", "Compressed"),
+                                     SQL_VALUES(name_, time_type, data_type, compressed));
 
         constellation_pkey_ = record->getId();
 

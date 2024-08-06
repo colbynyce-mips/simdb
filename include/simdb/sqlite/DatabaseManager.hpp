@@ -312,6 +312,7 @@ private:
         schema.addTable("Constellations")
             .addColumn("Name", dt::string_t)
             .addColumn("TimeType", dt::string_t)
+            .addColumn("DataType", dt::string_t)
             .addColumn("Compressed", dt::int32_t);
 
         schema.addTable("ConstellationPaths")
