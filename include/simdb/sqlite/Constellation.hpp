@@ -306,7 +306,7 @@ private:
     /// All the stats in this constellation.
     std::vector<Stat<DataT>> stats_;
 
-    /// Quick lookup to ensure that stat ids are all unique.
+    /// Quick lookup to ensure that stat paths are all unique.
     std::unordered_set<std::string> stat_paths_;
 
     /// All the stats' values in one vector. Held in a member variable

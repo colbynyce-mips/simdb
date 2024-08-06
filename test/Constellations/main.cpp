@@ -111,6 +111,93 @@ public:
         step_(false, true);
         step_(false, true);
         step_(false, true);
+
+        db_mgr_->getConnection()->getTaskQueue()->stopThread();
+    }
+
+    void verifyDataWithSqlQuery()
+    {
+        {
+            auto query = db_mgr_->createQuery("Constellations");
+
+            std::string name;
+            query->select("Name", name);
+
+            std::string time_type;
+            query->select("TimeType", time_type);
+
+            int compressed;
+            query->select("Compressed", compressed);
+
+            auto result_set = query->getResultSet();
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(name, "InstCounts");
+            EXPECT_EQUAL(time_type, "INT");
+            EXPECT_EQUAL(compressed, 0);
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(name, "RandStats");
+            EXPECT_EQUAL(time_type, "INT");
+            EXPECT_EQUAL(compressed, 1);
+
+            EXPECT_FALSE(result_set.getNextRecord());
+        }
+
+        {
+            auto query = db_mgr_->createQuery("ConstellationPaths");
+
+            int constellation_id;
+            query->select("ConstellationID", constellation_id);
+
+            std::string stat_path;
+            query->select("StatPath", stat_path);
+
+            auto result_set = query->getResultSet();
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(constellation_id, 1);
+            EXPECT_EQUAL(stat_path, "stats.num_insts_issued");
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(constellation_id, 1);
+            EXPECT_EQUAL(stat_path, "stats.num_insts_retired");
+
+            for (size_t idx = 0; idx < rand_stats_.size(); ++idx) {
+                EXPECT_TRUE(result_set.getNextRecord());
+                EXPECT_EQUAL(constellation_id, 2);
+                EXPECT_EQUAL(stat_path, "stats.rand" + std::to_string(idx));
+            }
+
+            EXPECT_FALSE(result_set.getNextRecord());
+        }
+
+        {
+            auto query = db_mgr_->createQuery("ConstellationData");
+
+            double time_val;
+            query->select("TimeVal", time_val);
+
+            // TODO: Verify the data after automatic compress/decompress
+            // feature is added.
+
+            for (auto id : {1,2}) {
+                double expected_time_val = 1;
+                query->resetConstraints();
+                query->addConstraintForInt("ConstellationID", simdb::Constraints::EQUAL, id);
+                {
+                    auto result_set = query->getResultSet();
+
+                    for (size_t idx = 0; idx < 15; ++idx) {
+                        EXPECT_TRUE(result_set.getNextRecord());
+                        EXPECT_EQUAL(time_val, expected_time_val);
+                        ++expected_time_val;
+                    }
+
+                    EXPECT_FALSE(result_set.getNextRecord());
+                }
+            }
+        }
     }
 
 private:
@@ -226,8 +313,7 @@ int main()
 
     Sim sim(&db_mgr);
     sim.runSimulation();
-
-    db_mgr.getConnection()->getTaskQueue()->stopThread();
+    sim.verifyDataWithSqlQuery();
 
     // This MUST be put at the end of unit test files' main() function.
     ENSURE_ALL_REACHED(0);
