@@ -201,7 +201,7 @@ private:
     ///   stats.counters.foo       VALID
     ///   5_counter_foo            INVALID
     ///   stats.counters?.foo      INVALID 
-    void validateStatPath_(const std::string& stat_path)
+    void validateStatPath_(std::string stat_path)
     {
         auto validate_python_var = [&](const std::string& varname) {
             if (varname.empty() || !isalpha(varname[0]) && varname[0] != '_') {
