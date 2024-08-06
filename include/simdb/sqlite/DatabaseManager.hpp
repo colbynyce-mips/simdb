@@ -286,10 +286,6 @@ private:
         return false;
     }
 
-    /// Try to just open an empty database file. This is
-    /// similar to fopen().
-    void openDatabaseWithoutSchema_() {}
-
     /// This class does not currently allow one DatabaseManager
     /// to be simultaneously connected to multiple databases.
     void assertNoDatabaseConnectionOpen_() const
