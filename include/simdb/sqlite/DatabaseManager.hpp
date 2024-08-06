@@ -3,6 +3,7 @@
 #pragma once
 
 #include "simdb/schema/Schema.hpp"
+#include "simdb/sqlite/ConstellationBase.hpp"
 #include "simdb/sqlite/SQLiteConnection.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/sqlite/SQLiteTable.hpp"
@@ -69,6 +70,7 @@ public:
 
         assertNoDatabaseConnectionOpen_();
         createDatabaseFile_();
+        appendConstellationTables_(schema_);
 
         db_conn_->realizeSchema(schema_);
         return db_conn_->isValid();
@@ -113,6 +115,20 @@ public:
     SQLiteTransaction* getConnection() const
     {
         return db_conn_.get();
+    }
+
+    /// Get access to the Constellations for this database.
+    Constellations* getConstellationMgr()
+    {
+        if (!db_conn_) {
+            return nullptr;
+        }
+
+        if (!constellations_) {
+            constellations_.reset(new Constellations(this, db_conn_.get()));
+        }
+
+        return constellations_.get();
     }
 
     /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
@@ -286,6 +302,29 @@ private:
         return false;
     }
 
+    /// One-time table creation for the constellation feature.
+    /// Does not get called for DatabaseManagers that were
+    /// configured with connectToExistingDatabase().
+    void appendConstellationTables_(Schema& schema)
+    {
+        using dt = ColumnDataType;
+
+        schema.addTable("Constellations")
+            .addColumn("Name", dt::string_t)
+            .addColumn("TimeType", dt::string_t)
+            .addColumn("Compressed", dt::int32_t);
+
+        schema.addTable("ConstellationPaths")
+            .addColumn("ConstellationID", dt::int32_t)
+            .addColumn("StatPath", dt::string_t);
+
+        schema.addTable("ConstellationData")
+            .addColumn("ConstellationID", dt::int32_t)
+            .addColumn("TimeVal", dt::double_t)
+            .addColumn("DataVals", dt::blob_t)
+            .createCompoundIndexOn({"ConstellationID", "TimeVal"});
+    }
+
     /// This class does not currently allow one DatabaseManager
     /// to be simultaneously connected to multiple databases.
     void assertNoDatabaseConnectionOpen_() const
@@ -339,6 +378,9 @@ private:
     /// We do not allow schemas to be altered for DatabaseManager's
     /// that were initialized with a previously existing file.
     bool append_schema_allowed_ = true;
+
+    /// Hold onto all the user-configured constellations.
+    std::unique_ptr<Constellations> constellations_;
 };
 
 } // namespace simdb

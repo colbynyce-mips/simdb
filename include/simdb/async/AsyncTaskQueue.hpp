@@ -15,6 +15,14 @@ namespace simdb
 
 class DatabaseManager;
 
+/// \enum  AsyncModes
+/// \brief Asynchronous or synchronous modes of operation.
+enum class AsyncModes
+{
+    ASYNC,
+    SYNC
+};
+
 /*!
  * \class WorkerTask
  *
