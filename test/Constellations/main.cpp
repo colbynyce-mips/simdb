@@ -320,7 +320,3 @@ int main()
     REPORT_ERROR;
     return ERROR_CODE;
 }
-
-// validate with SqlQuery
-// python module
-// validate with python module
