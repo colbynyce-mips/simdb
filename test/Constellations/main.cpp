@@ -86,7 +86,7 @@ public:
     {
     }
 
-    void run()
+    void runSimulation()
     {
         configConstellations_();
 
@@ -163,6 +163,53 @@ private:
     uint32_t time_ = 0;
 };
 
+void runNegativeTests()
+{
+    simdb::Schema schema;
+
+    simdb::DatabaseManager db_mgr("negative.db");
+    EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
+
+    // Pretend we have some member variables for collection.
+    uint32_t dummy_time = 0;
+    uint32_t dummy_data = 0;
+
+    auto constellation_mgr = db_mgr.getConstellationMgr();
+
+    std::unique_ptr<CounterConstellationT> constellation1(new CounterConstellationT("InstCounts", &dummy_time));
+    std::unique_ptr<CounterConstellationT> constellation2(new CounterConstellationT("InstCounts", &dummy_time));
+
+    // Hang onto the constellation raw pointer so we can attempt bogus API calls on it after move().
+    auto constellation1_ptr = constellation1.get();
+
+    // Should throw due to the stat path not being usable from python.
+    EXPECT_THROW(constellation1->addStat("123_invalid_python", &dummy_data));
+
+    // Should not throw. Normal use.
+    EXPECT_NOTHROW(constellation1->addStat("valid_python", &dummy_data));
+
+    // Should throw since "valid_python" is already a stat in this constellation.
+    EXPECT_THROW(constellation1->addStat("valid_python", &dummy_data));
+
+    // Should not throw. Normal use.
+    EXPECT_NOTHROW(constellation_mgr->addConstellation(std::move(constellation1)));
+
+    // Should throw since we can't collect before finalizing the constellations.
+    EXPECT_THROW(constellation_mgr->collectConstellations());
+
+    // Should not throw. Normal use.
+    EXPECT_NOTHROW(constellation_mgr->finalizeConstellations());
+
+    // Should throw since we already finalized the constellations.
+    EXPECT_THROW(constellation_mgr->finalizeConstellations());
+
+    // Should throw even with a valid stat path, since we already finalized the constellations.
+    EXPECT_THROW(constellation1_ptr->addStat("another_valid_python", &dummy_data));
+
+    // Should throw since we already added a constellation with the same name as this one.
+    EXPECT_THROW(constellation_mgr->addConstellation(std::move(constellation2)));
+}
+
 int main()
 {
     DB_INIT;
@@ -175,8 +222,10 @@ int main()
     simdb::DatabaseManager db_mgr("test.db");
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
+    runNegativeTests();
+
     Sim sim(&db_mgr);
-    sim.run();
+    sim.runSimulation();
 
     db_mgr.getConnection()->getTaskQueue()->stopThread();
 
@@ -186,6 +235,6 @@ int main()
     return ERROR_CODE;
 }
 
-// validate incoming stat names
-// validate with Query
+// validate with SqlQuery
 // python module
+// validate with python module
