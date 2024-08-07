@@ -70,7 +70,6 @@ public:
 
         assertNoDatabaseConnectionOpen_();
         createDatabaseFile_();
-        appendConstellationTables_(schema_);
 
         db_conn_->realizeSchema(schema_);
         return db_conn_->isValid();
@@ -131,6 +130,29 @@ public:
         return constellations_.get();
     }
 
+    /// Call this one time after all constellations have been configured.
+    void finalizeConstellations()
+    {
+        if (!constellations_) {
+            return;
+        }
+
+        Schema schema;
+        constellations_->defineSchema(schema);
+        appendSchema(schema);
+
+        constellations_->finalizeConstellations_();
+
+        std::string time_type;
+        if (constellations_->timestamp_->getDataType() == ColumnDataType::double_t) {
+            time_type = "REAL";
+        } else {
+            time_type = "INT";
+        }
+
+        INSERT(SQL_TABLE("ConstellationGlobals"), SQL_COLUMNS("TimeType"), SQL_VALUES(time_type));
+    }
+
     /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
     void safeTransaction(const TransactionFunc& func) const
     {
@@ -143,6 +165,8 @@ public:
     ///         db_mgr.INSERT(SQL_TABLE("TableName"),
     ///                       SQL_COLUMNS("ColA", "ColB"),
     ///                       SQL_VALUES(3.14, "foo"));
+    ///
+    /// \note   You may also provide ValueContainerBase subclasses in the SQL_VALUES.
     ///
     /// \return SqlRecord which wraps the table and the ID of its record.
     std::unique_ptr<SqlRecord> INSERT(SqlTable&& table, SqlColumns&& cols, SqlValues&& vals)
@@ -300,30 +324,6 @@ private:
         }
 
         return false;
-    }
-
-    /// One-time table creation for the constellation feature.
-    /// Does not get called for DatabaseManagers that were
-    /// configured with connectToExistingDatabase().
-    void appendConstellationTables_(Schema& schema)
-    {
-        using dt = ColumnDataType;
-
-        schema.addTable("Constellations")
-            .addColumn("Name", dt::string_t)
-            .addColumn("TimeType", dt::string_t)
-            .addColumn("DataType", dt::string_t)
-            .addColumn("Compressed", dt::int32_t);
-
-        schema.addTable("ConstellationPaths")
-            .addColumn("ConstellationID", dt::int32_t)
-            .addColumn("StatPath", dt::string_t);
-
-        schema.addTable("ConstellationData")
-            .addColumn("ConstellationID", dt::int32_t)
-            .addColumn("TimeVal", dt::double_t)
-            .addColumn("DataVals", dt::blob_t)
-            .createCompoundIndexOn({"ConstellationID", "TimeVal"});
     }
 
     /// This class does not currently allow one DatabaseManager

@@ -131,163 +131,59 @@ public:
     }
 
 private:
-    class ValueContainerBase
-    {
-    public:
-        virtual ~ValueContainerBase() = default;
-        virtual int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const = 0;
-    };
-
-    class Integral32ValueContainer : public ValueContainerBase
-    {
-    public:
-        Integral32ValueContainer(int32_t val)
-            : val_(val)
-        {
-        }
-
-        int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override
-        {
-            return sqlite3_bind_int(stmt, col_idx, val_);
-        }
-
-    private:
-        int32_t val_;
-    };
-
-    class Integral64ValueContainer : public ValueContainerBase
-    {
-    public:
-        Integral64ValueContainer(int64_t val)
-            : val_(val)
-        {
-        }
-
-        int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override
-        {
-            return sqlite3_bind_int64(stmt, col_idx, val_);
-        }
-
-    private:
-        int64_t val_;
-    };
-
-    class FloatingPointValueContainer : public ValueContainerBase
-    {
-    public:
-        FloatingPointValueContainer(double val)
-            : val_(val)
-        {
-        }
-
-        int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override
-        {
-            return sqlite3_bind_double(stmt, col_idx, val_);
-        }
-
-    private:
-        double val_;
-    };
-
-    class StringValueContainer : public ValueContainerBase
-    {
-    public:
-        StringValueContainer(const std::string& val)
-            : val_(val)
-        {
-        }
-
-        int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override
-        {
-            return sqlite3_bind_text(stmt, col_idx, val_.c_str(), -1, 0);
-        }
-
-    private:
-        std::string val_;
-    };
-
-    class BlobValueContainer : public ValueContainerBase
-    {
-    public:
-        BlobValueContainer(const Blob& val)
-            : val_(val)
-        {
-        }
-
-        int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override
-        {
-            return sqlite3_bind_blob(stmt, col_idx, val_.data_ptr, (int)val_.num_bytes, 0);
-        }
-
-    private:
-        Blob val_;
-    };
-
     template <typename T>
-    class VectorValueContainer : public ValueContainerBase
-    {
-    public:
-        VectorValueContainer(const std::vector<T>& val)
-            : val_(val)
-        {
-        }
-
-        int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override
-        {
-            return sqlite3_bind_blob(stmt, col_idx, val_.data(), (int)val_.size() * sizeof(T), 0);
-        }
-
-    private:
-        std::vector<T> val_;
-    };
-
-    template <typename T>
-    typename std::enable_if<std::is_integral<T>::value && sizeof(T) <= sizeof(int32_t), ValueContainerBase*>::type
+    typename std::enable_if<std::is_integral<T>::value && sizeof(T) <= sizeof(int32_t), ValueContainerBasePtr>::type
     createValueContainer_(T val)
     {
-        return new Integral32ValueContainer(val);
+        return ValueContainerBasePtr(new Integral32ValueContainer(val));
     }
 
     template <typename T>
-    typename std::enable_if<std::is_integral<T>::value && sizeof(T) == sizeof(int64_t), ValueContainerBase*>::type
+    typename std::enable_if<std::is_integral<T>::value && sizeof(T) == sizeof(int64_t), ValueContainerBasePtr>::type
     createValueContainer_(T val)
     {
-        return new Integral64ValueContainer(val);
+        return ValueContainerBasePtr(new Integral64ValueContainer(val));
     }
 
     template <typename T>
-    typename std::enable_if<std::is_floating_point<T>::value, ValueContainerBase*>::type createValueContainer_(T val)
+    typename std::enable_if<std::is_floating_point<T>::value, ValueContainerBasePtr>::type createValueContainer_(T val)
     {
-        return new FloatingPointValueContainer(val);
+        return ValueContainerBasePtr(new FloatingPointValueContainer(val));
     }
 
     template <typename T>
-    typename std::enable_if<std::is_same<typename std::decay<T>::type, const char*>::value, ValueContainerBase*>::type
+    typename std::enable_if<std::is_same<typename std::decay<T>::type, const char*>::value, ValueContainerBasePtr>::type
     createValueContainer_(T val)
     {
-        return new StringValueContainer(val);
+        return ValueContainerBasePtr(new StringValueContainer(val));
     }
 
     template <typename T>
-    typename std::enable_if<std::is_same<T, std::string>::value, ValueContainerBase*>::type
-    createValueContainer_(const T& val)
+    typename std::enable_if<std::is_same<T, std::string>::value, ValueContainerBasePtr>::type createValueContainer_(const T& val)
     {
-        return new StringValueContainer(val);
+        return ValueContainerBasePtr(new StringValueContainer(val));
     }
 
     template <typename T>
-    typename std::enable_if<std::is_same<T, Blob>::value, ValueContainerBase*>::type createValueContainer_(const T& val)
+    typename std::enable_if<std::is_same<T, Blob>::value, ValueContainerBasePtr>::type createValueContainer_(const T& val)
     {
-        return new BlobValueContainer(val);
+        return ValueContainerBasePtr(new BlobValueContainer(val));
     }
 
     template <typename T>
-    ValueContainerBase* createValueContainer_(const std::vector<T>& val)
+    ValueContainerBasePtr createValueContainer_(const std::vector<T>& val)
     {
-        return new VectorValueContainer<T>(val);
+        return ValueContainerBasePtr(new VectorValueContainer<T>(val));
     }
 
-    std::list<std::unique_ptr<ValueContainerBase>> col_vals_;
+    template <typename T>
+    typename std::enable_if<std::is_same<T, ValueContainerBasePtr>::value, ValueContainerBasePtr>::type
+    createValueContainer_(T val)
+    {
+        return val;
+    }
+
+    std::list<std::shared_ptr<ValueContainerBase>> col_vals_;
 };
 
 /*!
@@ -357,7 +253,7 @@ public:
     bool removeFromTable();
 
 private:
-    /// Create a prepared statement: UPDATE <table_name_> SET <col_name>=? WHERE Id=<db_id_> 
+    /// Create a prepared statement: UPDATE <table_name_> SET <col_name>=? WHERE Id=<db_id_>
     SQLitePreparedStatement createSetPropertyStmt_(const char* col_name) const
     {
         std::string cmd = "UPDATE " + table_name_;
@@ -390,16 +286,14 @@ private:
         auto rc = SQLiteReturnCode(sqlite3_step(stmt));
         if (std::find(ret_codes.begin(), ret_codes.end(), rc) == ret_codes.end()) {
             throw DBException("Unexpected sqlite3_step() return code:\n")
-                << "\tActual: " << rc
-                << "\tExpected: " << stringifyRetCodes()
-                << "\tError: " << sqlite3_errmsg(db_conn_);
+                << "\tActual: " << rc << "\tExpected: " << stringifyRetCodes() << "\tError: " << sqlite3_errmsg(db_conn_);
         }
     }
 
-    // SELECT ColA FROM <table_name_> WHERE Id=<db_id_> 
+    // SELECT ColA FROM <table_name_> WHERE Id=<db_id_>
     const std::string table_name_;
 
-    // SELECT ColA FROM <table_name_> WHERE Id=<db_id_> 
+    // SELECT ColA FROM <table_name_> WHERE Id=<db_id_>
     const int32_t db_id_;
 
     // Underlying sqlite3 database

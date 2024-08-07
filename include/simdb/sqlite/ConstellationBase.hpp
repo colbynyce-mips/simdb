@@ -3,6 +3,8 @@
 #pragma once
 
 #include "simdb/sqlite/SQLiteTransaction.hpp"
+#include "simdb/sqlite/Timestamps.hpp"
+#include "simdb/schema/Schema.hpp"
 
 #include <functional>
 #include <memory>
@@ -15,66 +17,10 @@ namespace simdb
 
 class DatabaseManager;
 
-enum class ValueReaderTypes {
-    BACKPOINTER,
-    FUNCPOINTER
-};
-
-/*!
- * \class ScalarValueReader
- *
- * \brief Helper class to store either backpointers or function pointers
- *        in the same vector / data structure. Used for reading values
- *        from objects' member variables or getter functions.
- */
-template <typename T>
-class ScalarValueReader
-{
-public:
-    typedef struct {
-        ValueReaderTypes getter_type;
-        const T* backpointer;
-        std::function<T()> funcpointer;
-    } ValueReader;
-
-    /// Construct with a backpointer to the data value.
-    ScalarValueReader(const T* data_ptr)
-    {
-        reader_.backpointer = data_ptr;
-        reader_.getter_type = ValueReaderTypes::BACKPOINTER;
-
-        static_assert(std::is_integral<T>::value || std::is_floating_point<T>::value,
-                      "ScalarValueReader only work for integral and floating-point types!");
-    }
-
-    /// Construct with a function pointer to get the data.
-    ScalarValueReader(std::function<T()> func_ptr)
-    {
-        reader_.funcpointer = func_ptr;
-        reader_.getter_type = ValueReaderTypes::FUNCPOINTER;
-
-        static_assert(std::is_integral<T>::value || std::is_floating_point<T>::value,
-                      "ScalarValueReader only work for integral and floating-point types!");
-    }
-
-    /// Read the data value.
-    T getValue() const
-    {
-        if (reader_.getter_type == ValueReaderTypes::BACKPOINTER) {
-            return *reader_.backpointer;
-        } else {
-            return reader_.funcpointer();
-        }
-    }
-
-private:
-    ValueReader reader_;
-};
-
 /*!
  * \class ConstellationBase
  *
- * \brief Base class for the ConstellationWithTime class.
+ * \brief Base class for the Constellation class.
  */
 class ConstellationBase
 {
@@ -93,39 +39,7 @@ public:
 
     /// Collect all values in this constellation into one data vector
     /// and write the values to the database.
-    virtual void collect(DatabaseManager* db_mgr) = 0;
-};
-
-/*!
- * \class ConstellationWithTime<TimeT>
- *
- * \brief Extend the ConstellationBase class with the ability to collect
- *        timestamps as e.g. uint64_t or double values.
- */
-template <typename TimeT>
-class ConstellationWithTime : public ConstellationBase
-{
-public:
-    /// Construct with a backpointer to the time value.
-    ConstellationWithTime(const TimeT* time_ptr)
-        : time_(time_ptr)
-    {
-    }
-
-    /// Construct with a function pointer to get the time value.
-    ConstellationWithTime(std::function<TimeT()> func_ptr)
-        : time_(func_ptr)
-    {
-    }
-
-    /// Read the current time value.
-    TimeT getCurrentTime() const
-    {
-        return time_.getValue();
-    }
-
-private:
-    ScalarValueReader<TimeT> time_;
+    virtual void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) = 0;
 };
 
 /*!
@@ -144,6 +58,67 @@ public:
     {
     }
 
+    /// \brief  Use the given backpointer to an integral/double time value
+    ///         when adding timestamps to collected constellations.
+    ///
+    /// \throws Throws an exception if called a second time with a different
+    ///         timestamp type (call 1st time with uint64_t, call 2nd time
+    ///         with double, THROWS).
+    template <typename TimeT>
+    void useTimestampsFrom(const TimeT* back_ptr)
+    {
+        auto new_timestamp = createTimestamp_<TimeT>(back_ptr);
+        if (timestamp_ && timestamp_->getDataType() != new_timestamp->getDataType()) {
+            throw DBException("Cannot change the timestamp data type!");
+        }
+        timestamp_ = new_timestamp;
+    }
+
+    /// \brief  Use the given function pointer to an integral/double time value
+    ///         when adding timestamps to collected constellations.
+    ///
+    /// \throws Throws an exception if called a second time with a different
+    ///         timestamp type (call 1st time with uint64_t, call 2nd time
+    ///         with double, THROWS).
+    template <typename TimeT>
+    void useTimestampsFrom(TimeT(*func_ptr)())
+    {
+        auto new_timestamp = createTimestamp_<TimeT>(func_ptr);
+        if (timestamp_ && timestamp_->getDataType() != new_timestamp->getDataType()) {
+            throw DBException("Cannot change the timestamp data type!");
+        }
+        timestamp_ = new_timestamp;
+    }
+
+    /// Populate the schema with the appropriate tables for all the
+    /// constellations. Must be called after useTimestampsFrom().
+    void defineSchema(Schema& schema) const
+    {
+        if (!timestamp_) {
+            throw DBException("Must be called after useTimestampsFrom()");
+        }
+
+        using dt = ColumnDataType;
+
+        schema.addTable("ConstellationGlobals")
+            .addColumn("TimeType", dt::string_t);
+
+        schema.addTable("Constellations")
+            .addColumn("Name", dt::string_t)
+            .addColumn("DataType", dt::string_t)
+            .addColumn("Compressed", dt::int32_t);
+
+        schema.addTable("ConstellationPaths")
+            .addColumn("ConstellationID", dt::int32_t)
+            .addColumn("StatPath", dt::string_t);
+
+        schema.addTable("ConstellationData")
+            .addColumn("ConstellationID", dt::int32_t)
+            .addColumn("TimeVal", timestamp_->getDataType())
+            .addColumn("DataVals", dt::blob_t)
+            .createCompoundIndexOn({"ConstellationID", "TimeVal"});
+    }
+
     /// \brief  Add a user-configured constellation.
     ///
     /// \throws Throws an exception if a constellation with the same name as
@@ -160,8 +135,68 @@ public:
         constellations_.emplace_back(constellation.release());
     }
 
-    /// One-time finalization of all constellations.
-    void finalizeConstellations()
+    /// Called manually during simulation to trigger automatic collection
+    /// of all constellations.
+    void collectConstellations()
+    {
+        auto collect = [&]() {
+            for (auto& constellation : constellations_) {
+                constellation->collect(db_mgr_, timestamp_.get());
+            }
+        };
+
+        if (use_safe_transaction_) {
+            db_conn_->safeTransaction(collect);
+        } else {
+            collect();
+        }
+    }
+
+private:
+    template <typename TimeT>
+    typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint32_t), TimestampPtr>::type
+    createTimestamp_(const TimeT* back_ptr) const
+    {
+        return std::make_shared<TimestampInt32<TimeT>>(back_ptr);
+    }
+
+    template <typename TimeT>
+    typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint32_t), TimestampPtr>::type
+    createTimestamp_(TimeT(*func_ptr)()) const
+    {
+        return std::make_shared<TimestampInt32<TimeT>>(func_ptr);
+    }
+
+    template <typename TimeT>
+    typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint64_t), TimestampPtr>::type
+    createTimestamp_(const TimeT* back_ptr) const
+    {
+        return std::make_shared<TimestampInt64<TimeT>>(back_ptr);
+    }
+
+    template <typename TimeT>
+    typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint64_t), TimestampPtr>::type
+    createTimestamp_(TimeT(*func_ptr)()) const
+    {
+        return std::make_shared<TimestampInt64<TimeT>>(func_ptr);
+    }
+
+    template <typename TimeT>
+    typename std::enable_if<std::is_floating_point<TimeT>::value, TimestampPtr>::type
+    createTimestamp_(const TimeT* back_ptr) const
+    {
+        return std::make_shared<TimestampDouble<TimeT>>(back_ptr);
+    }
+
+    template <typename TimeT>
+    typename std::enable_if<std::is_floating_point<TimeT>::value, TimestampPtr>::type
+    createTimestamp_(TimeT(*func_ptr)()) const
+    {
+        return std::make_shared<TimestampDouble<TimeT>>(func_ptr);
+    }
+
+    /// One-time finalization of all constellations. Called by friend class DatabaseManager.
+    void finalizeConstellations_()
     {
         auto finalize = [&]() {
             for (auto& constellation : constellations_) {
@@ -176,24 +211,6 @@ public:
         }
     }
 
-    /// Called manually during simulation to trigger automatic collection
-    /// of all constellations.
-    void collectConstellations()
-    {
-        auto collect = [&]() {
-            for (auto& constellation : constellations_) {
-                constellation->collect(db_mgr_);
-            }
-        };
-
-        if (use_safe_transaction_) {
-            db_conn_->safeTransaction(collect);
-        } else {
-            collect();
-        }
-    }
-
-private:
     /// DatabaseManager. Needed so we can call finalize() and collect() on the
     /// ConstellationBase objects.
     DatabaseManager* db_mgr_;
@@ -208,6 +225,13 @@ private:
 
     /// All user-configured constellations.
     std::vector<std::unique_ptr<ConstellationBase>> constellations_;
+
+    /// This is used to dynamically get the timestamp for each INSERT from either
+    /// a user-provided backpointer or a function pointer that can get a timestamp
+    /// in either 32/64-bit integers or as floating-point values.
+    TimestampPtr timestamp_;
+
+    friend class DatabaseManager;
 };
 
 } // namespace simdb

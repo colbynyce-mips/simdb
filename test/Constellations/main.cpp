@@ -10,11 +10,11 @@
 
 TEST_INIT;
 
-/// This constellation uses async mode with uncompressed uint32_t counter values and uint32_t time values.
-using CounterConstellationT = simdb::Constellation<uint32_t, uint32_t, simdb::AsyncModes::ASYNC, simdb::CompressionModes::UNCOMPRESSED>;
+/// This constellation uses async mode with uncompressed uint32_t counter values.
+using CounterConstellationT = simdb::Constellation<uint32_t, simdb::AsyncModes::ASYNC, simdb::CompressionModes::UNCOMPRESSED>;
 
-/// This constellation uses async mode with compressed double random stat values and uint32_t time values.
-using RandStatConstellationT = simdb::Constellation<double, uint32_t, simdb::AsyncModes::ASYNC, simdb::CompressionModes::COMPRESSED>;
+/// This constellation uses async mode with compressed double random stat values.
+using RandStatConstellationT = simdb::Constellation<double, simdb::AsyncModes::ASYNC, simdb::CompressionModes::COMPRESSED>;
 
 /// Example class for counter values, which are common in certain simulators.
 class Counter
@@ -123,9 +123,6 @@ public:
             std::string name;
             query->select("Name", name);
 
-            std::string time_type;
-            query->select("TimeType", time_type);
-
             std::string data_type;
             query->select("DataType", data_type);
 
@@ -136,13 +133,11 @@ public:
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "InstCounts");
-            EXPECT_EQUAL(time_type, "INT");
             EXPECT_EQUAL(data_type, "INT");
             EXPECT_EQUAL(compressed, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandStats");
-            EXPECT_EQUAL(time_type, "INT");
             EXPECT_EQUAL(data_type, "REAL");
             EXPECT_EQUAL(compressed, 1);
 
@@ -209,15 +204,16 @@ private:
     void configConstellations_()
     {
         auto constellation_mgr = db_mgr_->getConstellationMgr();
+        constellation_mgr->useTimestampsFrom(&time_);
 
-        std::unique_ptr<CounterConstellationT> ctr_constellation(new CounterConstellationT("InstCounts", &time_));
+        std::unique_ptr<CounterConstellationT> ctr_constellation(new CounterConstellationT("InstCounts"));
 
         ctr_constellation->addStat("stats.num_insts_issued", std::bind(&Execute::getNumIssued, &execute_));
         ctr_constellation->addStat("stats.num_insts_retired", std::bind(&Retire::getNumRetired, &retire_));
 
         constellation_mgr->addConstellation(std::move(ctr_constellation));
 
-        std::unique_ptr<RandStatConstellationT> rnd_constellation(new RandStatConstellationT("RandStats", &time_));
+        std::unique_ptr<RandStatConstellationT> rnd_constellation(new RandStatConstellationT("RandStats"));
 
         for (size_t idx = 0; idx < rand_stats_.size(); ++idx) {
             const auto name = "stats.rand" + std::to_string(idx);
@@ -225,8 +221,7 @@ private:
         }
 
         constellation_mgr->addConstellation(std::move(rnd_constellation));
-
-        constellation_mgr->finalizeConstellations();
+        db_mgr_->finalizeConstellations();
     }
 
     void step_(bool issue, bool retire)
@@ -252,7 +247,7 @@ private:
     Execute execute_;
     Retire retire_;
     std::array<double, 100> rand_stats_;
-    uint32_t time_ = 0;
+    uint64_t time_ = 0;
 };
 
 void runNegativeTests()
@@ -263,13 +258,14 @@ void runNegativeTests()
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     // Pretend we have some member variables for collection.
-    uint32_t dummy_time = 0;
+    uint64_t dummy_time = 0; 
     uint32_t dummy_data = 0;
 
     auto constellation_mgr = db_mgr.getConstellationMgr();
+    constellation_mgr->useTimestampsFrom(&dummy_time);
 
-    std::unique_ptr<CounterConstellationT> constellation1(new CounterConstellationT("InstCounts", &dummy_time));
-    std::unique_ptr<CounterConstellationT> constellation2(new CounterConstellationT("InstCounts", &dummy_time));
+    std::unique_ptr<CounterConstellationT> constellation1(new CounterConstellationT("InstCounts"));
+    std::unique_ptr<CounterConstellationT> constellation2(new CounterConstellationT("InstCounts"));
 
     // Hang onto the constellation raw pointer so we can attempt bogus API calls on it after move().
     auto constellation1_ptr = constellation1.get();
@@ -290,10 +286,10 @@ void runNegativeTests()
     EXPECT_THROW(constellation_mgr->collectConstellations());
 
     // Should not throw. Normal use.
-    EXPECT_NOTHROW(constellation_mgr->finalizeConstellations());
+    EXPECT_NOTHROW(db_mgr.finalizeConstellations());
 
     // Should throw since we already finalized the constellations.
-    EXPECT_THROW(constellation_mgr->finalizeConstellations());
+    EXPECT_THROW(db_mgr.finalizeConstellations());
 
     // Should throw even with a valid stat path, since we already finalized the constellations.
     EXPECT_THROW(constellation1_ptr->addStat("another_valid_python", &dummy_data));

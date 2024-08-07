@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <sqlite3.h>
 #include <thread>
@@ -15,7 +16,7 @@ namespace simdb
 
 class AsyncTaskQueue;
 
-typedef std::function<void()> TransactionFunc;
+using TransactionFunc = std::function<void()>;
 
 /*!
  * \class SQLiteReturnCode

@@ -28,21 +28,13 @@ namespace simdb
  *        these values on the AsyncTaskQueue thread to save a significant  
  *        amount of disk space in your database file.
  */
-template <typename DataT, typename TimeT, AsyncModes amode = AsyncModes::ASYNC, CompressionModes cmode = CompressionModes::COMPRESSED>
-class Constellation : public ConstellationWithTime<TimeT>
+template <typename DataT, AsyncModes amode = AsyncModes::ASYNC, CompressionModes cmode = CompressionModes::COMPRESSED>
+class Constellation : public ConstellationBase
 {
 public:
-    /// Construct with a name and a backpointer to the time value.
-    Constellation(const std::string& name, const TimeT* time_ptr)
-        : ConstellationWithTime<TimeT>(time_ptr)
-        , name_(name)
-    {
-    }
-
-    /// Construct with a name and a function pointer to get the time value.
-    Constellation(const std::string& name, std::function<TimeT()> func_ptr)
-        : ConstellationWithTime<TimeT>(func_ptr)
-        , name_(name)
+    /// Construct with a name for this constellation.
+    Constellation(const std::string& name)
+        : name_(name)
     {
     }
 
@@ -126,13 +118,6 @@ public:
             throw DBException("Cannot call finalize() on a constellation more than once");
         }
 
-        std::string time_type;
-        if (std::is_integral<TimeT>::value) {
-            time_type = "INT";
-        } else if (std::is_floating_point<TimeT>::value) {
-            time_type = "REAL";
-        }
-
         std::string data_type;
         if (std::is_integral<DataT>::value) {
             data_type = "INT";
@@ -143,8 +128,8 @@ public:
         int compressed = (cmode == CompressionModes::COMPRESSED) ? 1 : 0;
 
         auto record = db_mgr->INSERT(SQL_TABLE("Constellations"),
-                                     SQL_COLUMNS("Name", "TimeType", "DataType", "Compressed"),
-                                     SQL_VALUES(name_, time_type, data_type, compressed));
+                                     SQL_COLUMNS("Name", "DataType", "Compressed"),
+                                     SQL_VALUES(name_, data_type, compressed));
 
         constellation_pkey_ = record->getId();
 
@@ -161,7 +146,7 @@ public:
     ///         and write the values to the database.
     ///
     /// \throws Throws an exception if finalize() was not already called first.
-    void collect(DatabaseManager* db_mgr) override
+    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) override
     {
         if (!finalized_) {
             throw DBException("Cannot call collect() on a constellation before calling finalize()");
@@ -189,9 +174,7 @@ public:
             num_bytes = stats_values_.size() * sizeof(DataT);
         }
 
-        const auto time_val = this->getCurrentTime();
-
-        std::unique_ptr<WorkerTask> task(new ConstellationSerializer(db_mgr, constellation_pkey_, time_val, data_ptr, num_bytes));
+        std::unique_ptr<WorkerTask> task(new ConstellationSerializer(db_mgr, constellation_pkey_, timestamp, data_ptr, num_bytes));
 
         if (async) {
             db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
@@ -249,10 +232,10 @@ private:
     public:
         /// Construct with a timestamp and the data values, whether compressed or not.
         ConstellationSerializer(
-            DatabaseManager* db_mgr, const int constellation_id, double time_val, const void* data_ptr, const size_t num_bytes)
+            DatabaseManager* db_mgr, const int constellation_id, const TimestampBase* timestamp, const void* data_ptr, const size_t num_bytes)
             : db_mgr_(db_mgr)
             , constellation_id_(constellation_id)
-            , time_val_(time_val)
+            , timestamp_binder_(timestamp->createBinder())
         {
             data_vals_.resize(num_bytes);
             memcpy(data_vals_.data(), data_ptr, num_bytes);
@@ -263,7 +246,7 @@ private:
         {
             db_mgr_->INSERT(SQL_TABLE("ConstellationData"),
                             SQL_COLUMNS("ConstellationID", "TimeVal", "DataVals"),
-                            SQL_VALUES(constellation_id_, time_val_, data_vals_));
+                            SQL_VALUES(constellation_id_, timestamp_binder_, data_vals_));
         }
 
     private:
@@ -273,8 +256,8 @@ private:
         /// Primary key in the Constellations table.
         const int constellation_id_;
 
-        /// Timestamp at the time of construction.
-        const double time_val_;
+        /// Timestamp binder holding the timestamp value at the time of construction.
+        ValueContainerBasePtr timestamp_binder_;
 
         /// Data values.
         std::vector<char> data_vals_;
