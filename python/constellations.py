@@ -68,6 +68,13 @@ class Constellations:
             if constellation_name is None or constellation_name == constellation.name:
                 all_constellations[constellation.name] = constellation.Unpack(time_range)
 
+        if constellation_name is not None:
+            valid_names = [const.name for const in self._constellations]
+            assert len(all_constellations) > 0, \
+                'Constellation named {} does not exist. ' \
+                'Available constellations: {}'.format(constellation_name, \
+                                                      ','.join(valid_names))
+
         return all_constellations
 
     # Dump all constellations (data and metadata) to the provided CSV file:
