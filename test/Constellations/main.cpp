@@ -133,12 +133,12 @@ public:
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "InstCounts");
-            EXPECT_EQUAL(data_type, "INT");
+            EXPECT_EQUAL(data_type, "uint32_t");
             EXPECT_EQUAL(compressed, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandStats");
-            EXPECT_EQUAL(data_type, "REAL");
+            EXPECT_EQUAL(data_type, "double");
             EXPECT_EQUAL(compressed, 1);
 
             EXPECT_FALSE(result_set.getNextRecord());
