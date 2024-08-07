@@ -4,6 +4,7 @@
 
 #include "simdb/schema/ColumnTypedefs.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
+#include "simdb/sqlite/ValueContainer.hpp"
 
 #include <algorithm>
 #include <list>
