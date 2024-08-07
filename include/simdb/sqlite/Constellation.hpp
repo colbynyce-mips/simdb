@@ -36,6 +36,17 @@ public:
     Constellation(const std::string& name)
         : name_(name)
     {
+        static_assert(std::is_same<DataT, uint8_t>::value  ||
+                      std::is_same<DataT, uint16_t>::value ||
+                      std::is_same<DataT, uint32_t>::value ||
+                      std::is_same<DataT, uint64_t>::value ||
+                      std::is_same<DataT, int8_t>::value   ||
+                      std::is_same<DataT, int16_t>::value  ||
+                      std::is_same<DataT, int32_t>::value  ||
+                      std::is_same<DataT, int64_t>::value  ||
+                      std::is_same<DataT, float>::value    ||
+                      std::is_same<DataT, double>::value,
+                      "Invalid DataT for constellation");
     }
 
     /// \brief   Add a stat to this constellation using a backpointer to the data value.
@@ -119,10 +130,28 @@ public:
         }
 
         std::string data_type;
-        if (std::is_integral<DataT>::value) {
-            data_type = "INT";
-        } else if (std::is_floating_point<DataT>::value) {
-            data_type = "REAL";
+        if (std::is_same<DataT, uint8_t>::value) {
+            data_type = "uint8_t";
+        } else if (std::is_same<DataT, uint16_t>::value) {
+            data_type = "uint16_t";
+        } else if (std::is_same<DataT, uint32_t>::value) {
+            data_type = "uint32_t";
+        } else if (std::is_same<DataT, uint64_t>::value) {
+            data_type = "uint64_t";
+        } else if (std::is_same<DataT, int8_t>::value) {
+            data_type = "int8_t";
+        } else if (std::is_same<DataT, int16_t>::value) {
+            data_type = "int16_t";
+        } else if (std::is_same<DataT, int32_t>::value) {
+            data_type = "int32_t";
+        } else if (std::is_same<DataT, int64_t>::value) {
+            data_type = "int64_t";
+        } else if (std::is_same<DataT, float>::value) {
+            data_type = "float";
+        } else if (std::is_same<DataT, double>::value) {
+            data_type = "double";
+        } else {
+            throw DBException("Invalid DataT");
         }
 
         int compressed = (cmode == CompressionModes::COMPRESSED) ? 1 : 0;
