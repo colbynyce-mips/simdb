@@ -31,9 +31,6 @@ public:
     /// Get the name of this constellation.
     virtual std::string getName() const = 0;
 
-    /// Get the sync/async mode for this constellation.
-    virtual bool isSynchronous() const = 0;
-
     /// Write metadata about this constellation to the database.
     virtual void finalize(DatabaseManager* db_mgr) = 0;
 
@@ -131,7 +128,6 @@ public:
             }
         }
 
-        use_safe_transaction_ |= constellation->isSynchronous();
         constellations_.emplace_back(constellation.release());
     }
 
@@ -139,18 +135,12 @@ public:
     /// of all constellations.
     void collectConstellations()
     {
-        auto collect = [&]() {
+        db_conn_->safeTransaction([&]() {
             for (auto& constellation : constellations_) {
                 constellation->collect(db_mgr_, timestamp_.get());
             }
             return true;
-        };
-
-        if (use_safe_transaction_) {
-            db_conn_->safeTransaction(collect);
-        } else {
-            collect();
-        }
+        });
     }
 
 private:
@@ -199,18 +189,12 @@ private:
     /// One-time finalization of all constellations. Called by friend class DatabaseManager.
     void finalizeConstellations_()
     {
-        auto finalize = [&]() {
+        db_conn_->safeTransaction([&]() {
             for (auto& constellation : constellations_) {
                 constellation->finalize(db_mgr_);
             }
             return true;
-        };
-
-        if (use_safe_transaction_) {
-            db_conn_->safeTransaction(finalize);
-        } else {
-            finalize();
-        }
+        });
     }
 
     /// DatabaseManager. Needed so we can call finalize() and collect() on the
@@ -220,10 +204,6 @@ private:
     /// SQLiteTransaction. Needed so we can put synchronously serialized constellations
     /// inside BEGIN/COMMIT TRANSACTION calls for best performance.
     SQLiteTransaction* db_conn_;
-
-    /// Flag saying whether we need BEGIN/COMMIT TRANSACTION calls for best performance.
-    /// Only applies to synchronously serialized constellations.
-    bool use_safe_transaction_ = false;
 
     /// All user-configured constellations.
     std::vector<std::unique_ptr<ConstellationBase>> constellations_;

@@ -28,7 +28,7 @@ namespace simdb
  *        these values on the AsyncTaskQueue thread to save a significant  
  *        amount of disk space in your database file.
  */
-template <typename DataT, AsyncModes amode = AsyncModes::ASYNC, CompressionModes cmode = CompressionModes::COMPRESSED>
+template <typename DataT, CompressionModes cmode = CompressionModes::COMPRESSED>
 class Constellation : public ConstellationBase
 {
 public:
@@ -115,12 +115,6 @@ public:
         return name_;
     }
 
-    /// Get the sync/async mode for this constellation.
-    bool isSynchronous() const override
-    {
-        return (cmode == CompressionModes::COMPRESSED);
-    }
-
     /// \brief  Write metadata about this constellation to the database.
     /// \throws Throws an exception if called more than once.
     void finalize(DatabaseManager* db_mgr) override
@@ -189,8 +183,6 @@ public:
         }
 
         const bool compress = (cmode == CompressionModes::COMPRESSED);
-        const bool async = (amode == AsyncModes::ASYNC);
-
         const void* data_ptr;
         size_t num_bytes;
 
@@ -205,11 +197,7 @@ public:
 
         std::unique_ptr<WorkerTask> task(new ConstellationSerializer(db_mgr, constellation_pkey_, timestamp, data_ptr, num_bytes));
 
-        if (async) {
-            db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
-        } else {
-            task->completeTask();
-        }
+        db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
     }
 
 private:

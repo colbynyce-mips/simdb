@@ -10,12 +10,12 @@
 
 TEST_INIT;
 
-/// This constellation uses async mode with uncompressed uint32_t counter values.
-using CounterConstellationT = simdb::Constellation<uint32_t, simdb::AsyncModes::ASYNC, simdb::CompressionModes::UNCOMPRESSED>;
+/// This constellation uses uncompressed uint32_t counter values.
+using CounterConstellationT = simdb::Constellation<uint32_t, simdb::CompressionModes::UNCOMPRESSED>;
 
-/// This constellation uses async mode with compressed double random stat values.
+/// This constellation uses compressed double random stat values.
 template <typename DataT>
-using RandStatConstellationT = simdb::Constellation<DataT, simdb::AsyncModes::ASYNC, simdb::CompressionModes::COMPRESSED>;
+using RandStatConstellationT = simdb::Constellation<DataT, simdb::CompressionModes::COMPRESSED>;
 
 /// Example class for counter values, which are common in certain simulators.
 class Counter
