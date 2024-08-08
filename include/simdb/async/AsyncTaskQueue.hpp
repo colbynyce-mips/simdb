@@ -87,7 +87,12 @@ public:
         concurrent_queue_.emplace(task.release());
 
         if (!timed_eval_.isRunning()) {
+            if (threadRunning()) {
+                throw DBException("Must call DatabaseManager::closeDatabase() " \
+                                  "before opening another connection!");
+            }
             timed_eval_.start();
+            threadRunning() = true;
         }
     }
 
@@ -138,6 +143,10 @@ public:
     ///          will hang.
     void stopThread()
     {
+        if (!timed_eval_.isRunning()) {
+            return;
+        }
+
         // Put a special interrupt packet in the queue. This
         // does nothing but throw an interrupt exception when
         // its turn is up.
@@ -146,6 +155,7 @@ public:
 
         // Join the thread and wait until the exception is thrown.
         timed_eval_.stop();
+        threadRunning() = false;
     }
 
     /// \brief Safely execute the given functor in an atomic transaction.
@@ -199,6 +209,13 @@ private:
 
         AsyncTaskQueue* const task_queue_;
     };
+
+    // Keep track of how many AsyncTaskQueues (DatabaseManagers) are
+    // live and restrict it to at most one worker thread.
+    static bool& threadRunning() {
+        static bool running = false;
+        return running;
+    }
 
     /// Database connection used for safeTransaction().
     SQLiteTransaction* db_conn_ = nullptr;

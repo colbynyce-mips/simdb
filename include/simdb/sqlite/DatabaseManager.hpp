@@ -47,9 +47,17 @@ public:
         }
     }
 
-    /// Open database connections will be implicitly closed when the
-    /// destructor is called.
-    ~DatabaseManager() = default;
+    /// You must explicitly call closeDatabase() prior to deleting
+    /// the DatabaseManager to close the sqlite3 connection and to
+    /// stop the AsyncTaskQueue thread if it is still running.
+    ~DatabaseManager()
+    {
+        if (db_conn_) {
+            std::cout << "You must call DatabaseManager::closeDatabase() "
+                      << "before it goes out of scope!" << std::endl;
+            std::terminate();
+        }
+    }
 
     /// \brief  Using a Schema object for your database, construct
     ///         the physical database file and open the connection.
@@ -281,6 +289,16 @@ public:
     std::unique_ptr<SqlQuery> createQuery(const char* table_name)
     {
         return std::unique_ptr<SqlQuery>(new SqlQuery(table_name, db_conn_->getDatabase()));
+    }
+
+    /// Close the sqlite3 connection and stop the AsyncTaskQueue thread
+    /// if it is still running.
+    void closeDatabase()
+    {
+        if (db_conn_) {
+            db_conn_->getTaskQueue()->stopThread();
+            db_conn_.reset();
+        }
     }
 
 private:

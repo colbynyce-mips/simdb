@@ -406,6 +406,8 @@ void runNegativeTests()
 
     // Should throw since we already added a constellation with the same name as this one.
     EXPECT_THROW(constellation_mgr->addConstellation(std::move(constellation2)));
+
+    db_mgr.closeDatabase();
 }
 
 int main()
@@ -425,6 +427,7 @@ int main()
     Sim sim(&db_mgr);
     sim.runSimulation();
     sim.verifyDataWithSqlQuery();
+    db_mgr.closeDatabase();
 
     // This MUST be put at the end of unit test files' main() function.
     ENSURE_ALL_REACHED(0);

@@ -827,7 +827,9 @@ int main()
 
         void completeTask() override
         {
-            db_mgr_->INSERT(SQL_TABLE("HighVolumeData"), SQL_COLUMNS("RawData"), SQL_VALUES(data_));
+            if (db_mgr_) {
+                db_mgr_->INSERT(SQL_TABLE("HighVolumeData"), SQL_COLUMNS("RawData"), SQL_VALUES(data_));
+            }
         }
 
     private:
@@ -878,6 +880,27 @@ int main()
 
     // Verify that we cannot open a database connection for an invalid file
     EXPECT_THROW(simdb::DatabaseManager db_mgr3(__FILE__));
+
+    db_mgr.closeDatabase();
+    db_mgr2.closeDatabase();
+
+    // Verify that we cannot schedule task on the AsyncTaskQueue for multiple
+    // DatabaseManagers at once. We only allow one worker thread.
+    simdb::DatabaseManager db_mgr4("threadA.db");
+    simdb::DatabaseManager db_mgr5("threadB.db");
+    db_mgr4.createDatabaseFromSchema(schema);
+    db_mgr5.createDatabaseFromSchema(schema);
+
+    std::unique_ptr<simdb::WorkerTask> taskA(new AsyncWriter(nullptr, 0, 0));
+    std::unique_ptr<simdb::WorkerTask> taskB(new AsyncWriter(nullptr, 0, 0));
+
+    EXPECT_NOTHROW(db_mgr4.getConnection()->getTaskQueue()->addTask(std::move(taskA)));
+    EXPECT_THROW(db_mgr5.getConnection()->getTaskQueue()->addTask(std::move(taskB)));
+    db_mgr4.closeDatabase();
+
+    taskA.reset(new AsyncWriter(nullptr, 0, 0));
+    EXPECT_NOTHROW(db_mgr5.getConnection()->getTaskQueue()->addTask(std::move(taskA)));
+    db_mgr5.closeDatabase();
 
     // This MUST be put at the end of unit test files' main() function.
     ENSURE_ALL_REACHED(0);
