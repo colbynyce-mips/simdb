@@ -136,9 +136,11 @@ public:
     void collectConstellations()
     {
         db_conn_->safeTransaction([&]() {
+            timestamp_->ensureTimeHasAdvanced();
             for (auto& constellation : constellations_) {
                 constellation->collect(db_mgr_, timestamp_.get());
             }
+            timestamp_->captureCurrentTime();
             return true;
         });
     }

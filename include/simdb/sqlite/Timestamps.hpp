@@ -18,6 +18,8 @@ class TimestampBase
 public:
     virtual ColumnDataType getDataType() const = 0;
     virtual ValueContainerBase* createBinder() const = 0;
+    virtual void captureCurrentTime() = 0;
+    virtual void ensureTimeHasAdvanced() const = 0;
 };
 
 /*!
@@ -57,8 +59,21 @@ public:
         return new Integral32ValueContainer(time_.getValue());
     }
 
+    void captureCurrentTime() override
+    {
+        time_snapshot_ = std::make_pair(time_.getValue(), true);
+    }
+
+    void ensureTimeHasAdvanced() const override
+    {
+        if (time_snapshot_.second && time_.getValue() <= time_snapshot_.first) {
+            throw DBException("Cannot collect constellation - time has not advanced");
+        }
+    }
+
 private:
     ScalarValueReader<TimeT> time_;
+    std::pair<TimeT, bool> time_snapshot_ = std::make_pair(0, false);
 };
 
 /*!
@@ -98,8 +113,21 @@ public:
         return new Integral64ValueContainer(time_.getValue());
     }
 
+    void captureCurrentTime() override
+    {
+        time_snapshot_ = std::make_pair(time_.getValue(), true);
+    }
+
+    void ensureTimeHasAdvanced() const override
+    {
+        if (time_snapshot_.second && time_.getValue() <= time_snapshot_.first) {
+            throw DBException("Cannot collect constellation - time has not advanced");
+        }
+    }
+
 private:
     ScalarValueReader<TimeT> time_;
+    std::pair<TimeT, bool> time_snapshot_ = std::make_pair(0, false);
 };
 
 /*!
@@ -139,8 +167,21 @@ public:
         return new FloatingPointValueContainer(time_.getValue());
     }
 
+    void captureCurrentTime() override
+    {
+        time_snapshot_ = std::make_pair(time_.getValue(), true);
+    }
+
+    void ensureTimeHasAdvanced() const override
+    {
+        if (time_snapshot_.second && time_.getValue() <= time_snapshot_.first) {
+            throw DBException("Cannot collect constellation - time has not advanced");
+        }
+    }
+
 private:
     ScalarValueReader<TimeT> time_;
+    std::pair<TimeT, bool> time_snapshot_ = std::make_pair(0, false);
 };
 
 using TimestampPtr = std::shared_ptr<TimestampBase>;

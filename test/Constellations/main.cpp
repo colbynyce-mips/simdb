@@ -313,7 +313,12 @@ private:
         assignRandomVals_<float>(rand_floats_);
         assignRandomVals_<double>(rand_doubles_);
 
-        db_mgr_->getConstellationMgr()->collectConstellations();
+        // Collect as normal.
+        EXPECT_NOTHROW(db_mgr_->getConstellationMgr()->collectConstellations());
+
+        // Ensure that collecting again at any timestamp that is not monotonically
+        // increasing throws an exception.
+        EXPECT_THROW(db_mgr_->getConstellationMgr()->collectConstellations());
     }
 
     template <typename DataT>
