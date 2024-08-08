@@ -143,6 +143,7 @@ public:
             for (auto& constellation : constellations_) {
                 constellation->collect(db_mgr_, timestamp_.get());
             }
+            return true;
         };
 
         if (use_safe_transaction_) {
@@ -202,6 +203,7 @@ private:
             for (auto& constellation : constellations_) {
                 constellation->finalize(db_mgr_);
             }
+            return true;
         };
 
         if (use_safe_transaction_) {

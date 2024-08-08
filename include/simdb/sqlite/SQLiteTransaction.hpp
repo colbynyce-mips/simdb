@@ -16,7 +16,10 @@ namespace simdb
 
 class AsyncTaskQueue;
 
-using TransactionFunc = std::function<void()>;
+/// \return Return TRUE if the transaction func wrote to the database
+///         (INSERT, setProperty*(), ...) which is used to get more 
+///         accurate PerfDiagnostics reports about SimDB usage.
+using TransactionFunc = std::function<bool()>;
 
 /*!
  * \class SQLiteReturnCode
