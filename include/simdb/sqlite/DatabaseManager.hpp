@@ -194,7 +194,7 @@ public:
         }
 
         auto db_id = db_conn_->getLastInsertRowId();
-        return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase()));
+        return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase(), db_conn_.get()));
     }
 
     /// This INSERT() overload is to be used for tables that were defined with
@@ -210,7 +210,7 @@ public:
         }
 
         auto db_id = db_conn_->getLastInsertRowId();
-        return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase()));
+        return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase(), db_conn_.get()));
     }
 
     /// \brief  Get a SqlRecord from a database ID for the given table.
@@ -373,7 +373,7 @@ private:
         } else if (rc == SQLITE_DONE) {
             return nullptr;
         } else if (rc == SQLITE_ROW) {
-            return std::unique_ptr<SqlRecord>(new SqlRecord(table_name, db_id, db_conn_->getDatabase()));
+            return std::unique_ptr<SqlRecord>(new SqlRecord(table_name, db_id, db_conn_->getDatabase(), db_conn_.get()));
         } else {
             throw DBException("Internal error has occured: ") << sqlite3_errmsg(db_conn_->getDatabase());
         }

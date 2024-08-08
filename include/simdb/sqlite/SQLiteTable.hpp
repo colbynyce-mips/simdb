@@ -5,6 +5,7 @@
 #include "simdb/schema/ColumnTypedefs.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/sqlite/ValueContainer.hpp"
+#include "simdb/sqlite/SQLiteTransaction.hpp"
 
 #include <algorithm>
 #include <list>
@@ -195,10 +196,11 @@ private:
 class SqlRecord
 {
 public:
-    SqlRecord(const std::string& table_name, const int32_t db_id, sqlite3* db_conn)
+    SqlRecord(const std::string& table_name, const int32_t db_id, sqlite3* db_conn, SQLiteTransaction* transaction)
         : table_name_(table_name)
         , db_id_(db_id)
         , db_conn_(db_conn)
+        , transaction_(transaction)
     {
     }
 
@@ -299,6 +301,9 @@ private:
 
     // Underlying sqlite3 database
     sqlite3* const db_conn_;
+
+    // Used for safeTransaction()
+    SQLiteTransaction* const transaction_;
 };
 
 /// Run a query on the given table, column, and database ID, and return the property value.
@@ -348,87 +353,123 @@ inline std::vector<T> SqlRecord::getPropertyBlob(const char* col_name) const
 
 inline void SqlRecord::setPropertyInt32(const char* col_name, const int32_t val) const
 {
-    auto stmt = createSetPropertyStmt_(col_name);
-    if (SQLiteReturnCode(sqlite3_bind_int(stmt, 1, val))) {
-        throw DBException(sqlite3_errmsg(db_conn_));
-    }
-    stepStatement_(stmt, {SQLITE_DONE});
+    transaction_->safeTransaction([&]() {
+        auto stmt = createSetPropertyStmt_(col_name);
+        if (SQLiteReturnCode(sqlite3_bind_int(stmt, 1, val))) {
+            throw DBException(sqlite3_errmsg(db_conn_));
+        }
+        stepStatement_(stmt, {SQLITE_DONE});
+
+        return true;
+    });
 }
 
 inline void SqlRecord::setPropertyInt64(const char* col_name, const int64_t val) const
 {
-    auto stmt = createSetPropertyStmt_(col_name);
-    if (SQLiteReturnCode(sqlite3_bind_int64(stmt, 1, val))) {
-        throw DBException(sqlite3_errmsg(db_conn_));
-    }
-    stepStatement_(stmt, {SQLITE_DONE});
+    transaction_->safeTransaction([&]() {
+        auto stmt = createSetPropertyStmt_(col_name);
+        if (SQLiteReturnCode(sqlite3_bind_int64(stmt, 1, val))) {
+            throw DBException(sqlite3_errmsg(db_conn_));
+        }
+        stepStatement_(stmt, {SQLITE_DONE});
+
+        return true;
+    });
 }
 
 inline void SqlRecord::setPropertyUInt32(const char* col_name, const uint32_t val) const
 {
-    auto stmt = createSetPropertyStmt_(col_name);
-    if (SQLiteReturnCode(sqlite3_bind_int(stmt, 1, val))) {
-        throw DBException(sqlite3_errmsg(db_conn_));
-    }
-    stepStatement_(stmt, {SQLITE_DONE});
+    transaction_->safeTransaction([&]() {
+        auto stmt = createSetPropertyStmt_(col_name);
+        if (SQLiteReturnCode(sqlite3_bind_int(stmt, 1, val))) {
+            throw DBException(sqlite3_errmsg(db_conn_));
+        }
+        stepStatement_(stmt, {SQLITE_DONE});
+
+        return true;
+    });
 }
 
 inline void SqlRecord::setPropertyUInt64(const char* col_name, const uint64_t val) const
 {
-    auto stmt = createSetPropertyStmt_(col_name);
-    if (SQLiteReturnCode(sqlite3_bind_int64(stmt, 1, val))) {
-        throw DBException(sqlite3_errmsg(db_conn_));
-    }
-    stepStatement_(stmt, {SQLITE_DONE});
+    transaction_->safeTransaction([&]() {
+        auto stmt = createSetPropertyStmt_(col_name);
+        if (SQLiteReturnCode(sqlite3_bind_int64(stmt, 1, val))) {
+            throw DBException(sqlite3_errmsg(db_conn_));
+        }
+        stepStatement_(stmt, {SQLITE_DONE});
+
+        return true;
+    });
 }
 
 inline void SqlRecord::setPropertyDouble(const char* col_name, const double val) const
 {
-    auto stmt = createSetPropertyStmt_(col_name);
-    if (SQLiteReturnCode(sqlite3_bind_double(stmt, 1, val))) {
-        throw DBException(sqlite3_errmsg(db_conn_));
-    }
-    stepStatement_(stmt, {SQLITE_DONE});
+    transaction_->safeTransaction([&]() {
+        auto stmt = createSetPropertyStmt_(col_name);
+        if (SQLiteReturnCode(sqlite3_bind_double(stmt, 1, val))) {
+            throw DBException(sqlite3_errmsg(db_conn_));
+        }
+        stepStatement_(stmt, {SQLITE_DONE});
+
+        return true;
+    });
 }
 
 inline void SqlRecord::setPropertyString(const char* col_name, const std::string& val) const
 {
-    auto stmt = createSetPropertyStmt_(col_name);
-    if (SQLiteReturnCode(sqlite3_bind_text(stmt, 1, val.c_str(), -1, 0))) {
-        throw DBException(sqlite3_errmsg(db_conn_));
-    }
-    stepStatement_(stmt, {SQLITE_DONE});
+    transaction_->safeTransaction([&]() {
+        auto stmt = createSetPropertyStmt_(col_name);
+        if (SQLiteReturnCode(sqlite3_bind_text(stmt, 1, val.c_str(), -1, 0))) {
+            throw DBException(sqlite3_errmsg(db_conn_));
+        }
+        stepStatement_(stmt, {SQLITE_DONE});
+
+        return true;
+    });
 }
 
 template <typename T>
 inline void SqlRecord::setPropertyBlob(const char* col_name, const std::vector<T>& val) const
 {
-    auto stmt = createSetPropertyStmt_(col_name);
-    if (SQLiteReturnCode(sqlite3_bind_blob(stmt, 1, val.data(), val.size() * sizeof(T), 0))) {
-        throw DBException(sqlite3_errmsg(db_conn_));
-    }
-    stepStatement_(stmt, {SQLITE_DONE});
+    transaction_->safeTransaction([&]() {
+        auto stmt = createSetPropertyStmt_(col_name);
+        if (SQLiteReturnCode(sqlite3_bind_blob(stmt, 1, val.data(), val.size() * sizeof(T), 0))) {
+            throw DBException(sqlite3_errmsg(db_conn_));
+        }
+        stepStatement_(stmt, {SQLITE_DONE});
+
+        return true;
+    });
 }
 
 inline void SqlRecord::setPropertyBlob(const char* col_name, const void* data, const size_t bytes) const
 {
-    auto stmt = createSetPropertyStmt_(col_name);
-    if (SQLiteReturnCode(sqlite3_bind_blob(stmt, 1, data, bytes, 0))) {
-        throw DBException(sqlite3_errmsg(db_conn_));
-    }
-    stepStatement_(stmt, {SQLITE_DONE});
+    transaction_->safeTransaction([&]() {
+        auto stmt = createSetPropertyStmt_(col_name);
+        if (SQLiteReturnCode(sqlite3_bind_blob(stmt, 1, data, bytes, 0))) {
+            throw DBException(sqlite3_errmsg(db_conn_));
+        }
+        stepStatement_(stmt, {SQLITE_DONE});
+
+        return true;
+    });
 }
 
 inline bool SqlRecord::removeFromTable()
 {
-    std::ostringstream oss;
-    oss << "DELETE FROM " << table_name_ << " WHERE Id=" << db_id_;
-    const auto cmd = oss.str();
+    transaction_->safeTransaction([&]() {
+        std::ostringstream oss;
+        oss << "DELETE FROM " << table_name_ << " WHERE Id=" << db_id_;
+        const auto cmd = oss.str();
 
-    auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_, cmd.c_str(), nullptr, nullptr, nullptr));
-    if (rc) {
-        throw DBException(sqlite3_errmsg(db_conn_));
-    }
+        auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_, cmd.c_str(), nullptr, nullptr, nullptr));
+        if (rc) {
+            throw DBException(sqlite3_errmsg(db_conn_));
+        }
+
+        return true;
+    });
 
     return sqlite3_changes(db_conn_) == 1;
 }
