@@ -209,13 +209,13 @@ class Constellation:
             fmt = 'I'*(int(len(data_vals)/4))
         elif self._data_type == 'uint64_t':
             fmt = 'Q'*(int(len(data_vals)/8))
-        elif self._data_type == 'uint8_t':
+        elif self._data_type == 'int8_t':
             fmt = 'b'*len(data_vals)
-        elif self._data_type == 'uint16_t':
+        elif self._data_type == 'int16_t':
             fmt = 'h'*(int(len(data_vals)/2))
-        elif self._data_type == 'uint32_t':
+        elif self._data_type == 'int32_t':
             fmt = 'i'*(int(len(data_vals)/4))
-        elif self._data_type == 'uint64_t':
+        elif self._data_type == 'int64_t':
             fmt = 'q'*(int(len(data_vals)/8))
         elif self._data_type == 'float':
             fmt = 'f'*(int(len(data_vals)/4))

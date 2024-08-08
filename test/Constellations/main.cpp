@@ -14,7 +14,8 @@ TEST_INIT;
 using CounterConstellationT = simdb::Constellation<uint32_t, simdb::AsyncModes::ASYNC, simdb::CompressionModes::UNCOMPRESSED>;
 
 /// This constellation uses async mode with compressed double random stat values.
-using RandStatConstellationT = simdb::Constellation<double, simdb::AsyncModes::ASYNC, simdb::CompressionModes::COMPRESSED>;
+template <typename DataT>
+using RandStatConstellationT = simdb::Constellation<DataT, simdb::AsyncModes::ASYNC, simdb::CompressionModes::COMPRESSED>;
 
 /// Example class for counter values, which are common in certain simulators.
 class Counter
@@ -137,7 +138,52 @@ public:
             EXPECT_EQUAL(compressed, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
-            EXPECT_EQUAL(name, "RandStats");
+            EXPECT_EQUAL(name, "RandInt8s");
+            EXPECT_EQUAL(data_type, "int8_t");
+            EXPECT_EQUAL(compressed, 1);
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(name, "RandInt16s");
+            EXPECT_EQUAL(data_type, "int16_t");
+            EXPECT_EQUAL(compressed, 1);
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(name, "RandInt32s");
+            EXPECT_EQUAL(data_type, "int32_t");
+            EXPECT_EQUAL(compressed, 1);
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(name, "RandInt64s");
+            EXPECT_EQUAL(data_type, "int64_t");
+            EXPECT_EQUAL(compressed, 1);
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(name, "RandUInt8s");
+            EXPECT_EQUAL(data_type, "uint8_t");
+            EXPECT_EQUAL(compressed, 1);
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(name, "RandUInt16s");
+            EXPECT_EQUAL(data_type, "uint16_t");
+            EXPECT_EQUAL(compressed, 1);
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(name, "RandUInt32s");
+            EXPECT_EQUAL(data_type, "uint32_t");
+            EXPECT_EQUAL(compressed, 1);
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(name, "RandUInt64s");
+            EXPECT_EQUAL(data_type, "uint64_t");
+            EXPECT_EQUAL(compressed, 1);
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(name, "RandFloats");
+            EXPECT_EQUAL(data_type, "float");
+            EXPECT_EQUAL(compressed, 1);
+
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(name, "RandDoubles");
             EXPECT_EQUAL(data_type, "double");
             EXPECT_EQUAL(compressed, 1);
 
@@ -163,11 +209,16 @@ public:
             EXPECT_EQUAL(constellation_id, 1);
             EXPECT_EQUAL(stat_path, "stats.num_insts_retired");
 
-            for (size_t idx = 0; idx < rand_stats_.size(); ++idx) {
-                EXPECT_TRUE(result_set.getNextRecord());
-                EXPECT_EQUAL(constellation_id, 2);
-                EXPECT_EQUAL(stat_path, "stats.rand" + std::to_string(idx));
-            }
+            validateStatPaths_(result_set, constellation_id, 2, "stats.rand_int8s.bin", stat_path, rand_int8s_);
+            validateStatPaths_(result_set, constellation_id, 3, "stats.rand_int16s.bin", stat_path, rand_int16s_);
+            validateStatPaths_(result_set, constellation_id, 4, "stats.rand_int32s.bin", stat_path, rand_int32s_);
+            validateStatPaths_(result_set, constellation_id, 5, "stats.rand_int64s.bin", stat_path, rand_int64s_);
+            validateStatPaths_(result_set, constellation_id, 6, "stats.rand_uint8s.bin", stat_path, rand_uint8s_);
+            validateStatPaths_(result_set, constellation_id, 7, "stats.rand_uint16s.bin", stat_path, rand_uint16s_);
+            validateStatPaths_(result_set, constellation_id, 8, "stats.rand_uint32s.bin", stat_path, rand_uint32s_);
+            validateStatPaths_(result_set, constellation_id, 9, "stats.rand_uint64s.bin", stat_path, rand_uint64s_);
+            validateStatPaths_(result_set, constellation_id, 10, "stats.rand_floats.bin", stat_path, rand_floats_);
+            validateStatPaths_(result_set, constellation_id, 11, "stats.rand_doubles.bin", stat_path, rand_doubles_);
 
             EXPECT_FALSE(result_set.getNextRecord());
         }
@@ -213,15 +264,30 @@ private:
 
         constellation_mgr->addConstellation(std::move(ctr_constellation));
 
-        std::unique_ptr<RandStatConstellationT> rnd_constellation(new RandStatConstellationT("RandStats"));
+        addConstellation_<int8_t>(rand_int8s_, "stats.rand_int8s.bin", "RandInt8s", constellation_mgr);
+        addConstellation_<int16_t>(rand_int16s_, "stats.rand_int16s.bin", "RandInt16s", constellation_mgr);
+        addConstellation_<int32_t>(rand_int32s_, "stats.rand_int32s.bin", "RandInt32s", constellation_mgr);
+        addConstellation_<int64_t>(rand_int64s_, "stats.rand_int64s.bin", "RandInt64s", constellation_mgr);
+        addConstellation_<uint8_t>(rand_uint8s_, "stats.rand_uint8s.bin", "RandUInt8s", constellation_mgr);
+        addConstellation_<uint16_t>(rand_uint16s_, "stats.rand_uint16s.bin", "RandUInt16s", constellation_mgr);
+        addConstellation_<uint32_t>(rand_uint32s_, "stats.rand_uint32s.bin", "RandUInt32s", constellation_mgr);
+        addConstellation_<uint64_t>(rand_uint64s_, "stats.rand_uint64s.bin", "RandUInt64s", constellation_mgr);
+        addConstellation_<float>(rand_floats_, "stats.rand_floats.bin", "RandFloats", constellation_mgr);
+        addConstellation_<double>(rand_doubles_, "stats.rand_doubles.bin", "RandDoubles", constellation_mgr);
 
-        for (size_t idx = 0; idx < rand_stats_.size(); ++idx) {
-            const auto name = "stats.rand" + std::to_string(idx);
-            rnd_constellation->addStat(name, &rand_stats_[idx]);
+        db_mgr_->finalizeConstellations();
+    }
+
+    template <typename DataT>
+    void addConstellation_(const std::array<DataT, 10> & array, const std::string& stat_path_prefix, const std::string& constellation_name, simdb::Constellations* constellation_mgr) {
+        std::unique_ptr<RandStatConstellationT<DataT>> constellation(new RandStatConstellationT<DataT>(constellation_name));
+
+        for (size_t idx = 0; idx < array.size(); ++idx) {
+            const auto name = stat_path_prefix + std::to_string(idx);
+            constellation->addStat(name, &array[idx]);
         }
 
-        constellation_mgr->addConstellation(std::move(rnd_constellation));
-        db_mgr_->finalizeConstellations();
+        constellation_mgr->addConstellation(std::move(constellation));
     }
 
     void step_(bool issue, bool retire)
@@ -236,17 +302,61 @@ private:
             retire_.retire();
         }
 
-        for (auto& val : rand_stats_) {
-            val = rand() % 30 * 3.14;
-        }
+        assignRandomVals_<int8_t>(rand_int8s_);
+        assignRandomVals_<int16_t>(rand_int16s_);
+        assignRandomVals_<int32_t>(rand_int32s_);
+        assignRandomVals_<int64_t>(rand_int64s_);
+        assignRandomVals_<uint8_t>(rand_uint8s_);
+        assignRandomVals_<uint16_t>(rand_uint16s_);
+        assignRandomVals_<uint32_t>(rand_uint32s_);
+        assignRandomVals_<uint64_t>(rand_uint64s_);
+        assignRandomVals_<float>(rand_floats_);
+        assignRandomVals_<double>(rand_doubles_);
 
         db_mgr_->getConstellationMgr()->collectConstellations();
+    }
+
+    template <typename DataT>
+    typename std::enable_if<std::is_integral<DataT>::value, void>::type
+    assignRandomVals_(std::array<DataT, 10> &array)
+    {
+        for (auto& bin : array) {
+            bin = rand() % 10;
+        }
+    }
+
+    template <typename DataT>
+    typename std::enable_if<std::is_floating_point<DataT>::value, void>::type
+    assignRandomVals_(std::array<DataT, 10> &array)
+    {
+        for (auto& bin : array) {
+            bin = rand() % 10 * 3.14;
+        }
+    }
+
+    template <typename DataT>
+    void validateStatPaths_(simdb::SqlResultIterator& result_set, int& actual_constellation_id, const int expected_constellation_id, const std::string& stat_path_prefix, std::string& actual_stat_path, const std::array<DataT, 10>& array)
+    {
+        for (size_t idx = 0; idx < array.size(); ++idx) {
+            EXPECT_TRUE(result_set.getNextRecord());
+            EXPECT_EQUAL(actual_constellation_id, expected_constellation_id);
+            EXPECT_EQUAL(actual_stat_path, stat_path_prefix + std::to_string(idx));
+        }
     }
 
     simdb::DatabaseManager* db_mgr_;
     Execute execute_;
     Retire retire_;
-    std::array<double, 100> rand_stats_;
+    std::array<int8_t, 10> rand_int8s_;
+    std::array<int16_t, 10> rand_int16s_;
+    std::array<int32_t, 10> rand_int32s_;
+    std::array<int64_t, 10> rand_int64s_;
+    std::array<uint8_t, 10> rand_uint8s_;
+    std::array<uint16_t, 10> rand_uint16s_;
+    std::array<uint32_t, 10> rand_uint32s_;
+    std::array<uint64_t, 10> rand_uint64s_;
+    std::array<float, 10> rand_floats_;
+    std::array<double, 10> rand_doubles_;
     uint64_t time_ = 0;
 };
 
