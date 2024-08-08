@@ -825,11 +825,13 @@ int main()
         {
         }
 
-        void completeTask() override
+        bool completeTask() override
         {
             if (db_mgr_) {
                 db_mgr_->INSERT(SQL_TABLE("HighVolumeData"), SQL_COLUMNS("RawData"), SQL_VALUES(data_));
+                return true;
             }
+            return false;
         }
 
     private:

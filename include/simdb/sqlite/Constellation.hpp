@@ -271,11 +271,13 @@ private:
         }
 
         /// Asynchronously write the constellation data to the database.
-        void completeTask() override
+        bool completeTask() override
         {
             db_mgr_->INSERT(SQL_TABLE("ConstellationData"),
                             SQL_COLUMNS("ConstellationID", "TimeVal", "DataVals"),
                             SQL_VALUES(constellation_id_, timestamp_binder_, data_vals_));
+
+            return true;
         }
 
     private:

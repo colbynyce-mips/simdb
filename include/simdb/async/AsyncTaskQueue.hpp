@@ -35,8 +35,10 @@ public:
     /// Destructor
     virtual ~WorkerTask() = default;
 
-    /// Called when this task's turn is up on the worker thread.
-    virtual void completeTask() = 0;
+    /// \brief Called when this task's turn is up on the worker thread.
+    /// \return Return TRUE if the task wrote to the database (INSERT, setProperty*(), ...)
+    ///         which is used to get more accurate PerfDiagnostics reports about SimDB usage.
+    virtual bool completeTask() = 0;
 };
 
 /*!
@@ -50,7 +52,7 @@ class WorkerInterrupt : public WorkerTask
 protected:
     /// Throw a special exception that informs the worker
     /// thread's infinite consumer loop to finish.
-    void completeTask() override
+    bool completeTask() override
     {
         throw InterruptException();
     }
@@ -322,11 +324,13 @@ private:
         {
         }
 
-        void completeTask() override
+        bool completeTask() override
         {
+            bool wrote_to_db = false;
             for (auto &task : tasks_) {
-                task->completeTask();
+                wrote_to_db != task->completeTask();
             }
+            return wrote_to_db;
         }
 
     private:
