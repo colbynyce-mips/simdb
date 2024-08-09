@@ -167,8 +167,6 @@ int main(int argc, char** argv)
         sim_controls.fullTest();
     }
 
-    simdb::PerfTimer timer;
-
     // First start by misusing SimDB and purposefully avoid the highest-impact
     // performance utilities: safeTransaction() and AsyncTaskQueue.
     Sim slow_sim("slow.db");
@@ -176,17 +174,12 @@ int main(int argc, char** argv)
     slow_sim.run(false);      // Not using AsyncTaskQueue
     slow_sim.teardown(false); // Not in safeTransaction()
 
-    const double slow_elap_time = timer.elapsedTime();
-    timer.restart();
-
     // Now run another simulation using SimDB the way it is intended for
     // best performance.
     Sim fast_sim("fast.db");
     fast_sim.setup(true);     // Use safeTransaction()
     fast_sim.run(true);       // Use AsyncTaskQueue
     fast_sim.teardown(true);  // Use safeTransaction()
-
-    const double fast_elap_time = timer.elapsedTime();
 
     // Write the performance results to stdout.
     std::cout << std::endl;
