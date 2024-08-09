@@ -15,14 +15,6 @@ namespace simdb
 
 class DatabaseManager;
 
-/// \enum  AsyncModes
-/// \brief Asynchronous or synchronous modes of operation.
-enum class AsyncModes
-{
-    ASYNC,
-    SYNC
-};
-
 /*!
  * \class WorkerTask
  *
@@ -36,9 +28,7 @@ public:
     virtual ~WorkerTask() = default;
 
     /// \brief Called when this task's turn is up on the worker thread.
-    /// \return Return TRUE if the task wrote to the database (INSERT, setProperty*(), ...)
-    ///         which is used to get more accurate PerfDiagnostics reports about SimDB usage.
-    virtual bool completeTask() = 0;
+    virtual void completeTask() = 0;
 };
 
 /*!
@@ -52,7 +42,7 @@ class WorkerInterrupt : public WorkerTask
 protected:
     /// Throw a special exception that informs the worker
     /// thread's infinite consumer loop to finish.
-    bool completeTask() override
+    void completeTask() override
     {
         throw InterruptException();
     }
@@ -107,15 +97,9 @@ public:
     {
         safeTransaction([&]() {
             std::unique_ptr<WorkerTask> task;
-            bool wrote_to_db = false;
             while (concurrent_queue_.try_pop(task)) {
-                try {
-                    wrote_to_db != task->completeTask();
-                } catch (const InterruptException&) {
-                    break;
-                }
+                task->completeTask();
             }
-            return wrote_to_db;
         });
     }
 
@@ -326,13 +310,11 @@ private:
         {
         }
 
-        bool completeTask() override
+        void completeTask() override
         {
-            bool wrote_to_db = false;
             for (auto &task : tasks_) {
-                wrote_to_db != task->completeTask();
+                task->completeTask();
             }
-            return wrote_to_db;
         }
 
     private:
