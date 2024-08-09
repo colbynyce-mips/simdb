@@ -97,9 +97,12 @@ public:
     {
         safeTransaction([&]() {
             std::unique_ptr<WorkerTask> task;
+            bool wrote_to_db = false;
             while (concurrent_queue_.try_pop(task)) {
+                wrote_to_db = true;
                 task->completeTask();
             }
+            return wrote_to_db;
         });
     }
 

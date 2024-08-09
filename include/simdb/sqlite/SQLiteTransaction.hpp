@@ -16,7 +16,9 @@ namespace simdb
 
 class AsyncTaskQueue;
 
-using TransactionFunc = std::function<void()>;
+/// To support SimDB self-profiling, return TRUE only if the transaction
+/// involved touching the database (setProperty*(), INSERT, SELECT, etc.)
+using TransactionFunc = std::function<bool()>;
 
 /*!
  * \class SQLiteReturnCode
