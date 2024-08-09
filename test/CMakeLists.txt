@@ -7,3 +7,4 @@ add_custom_command(
 
 add_subdirectory(SQLiteConnection)
 add_subdirectory(Constellations)
+add_subdirectory(PerfDiagnostics)

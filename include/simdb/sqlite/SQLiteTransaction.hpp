@@ -3,6 +3,7 @@
 #pragma once
 
 #include "simdb/Errors.hpp"
+#include "simdb/utils/PerfDiagnostics.hpp"
 
 #include <chrono>
 #include <functional>
@@ -141,7 +142,9 @@ public:
                     transaction();
                 } else {
                     ScopedTransaction scoped_transaction(db_conn_, transaction, in_transaction_flag_);
-                    (void)scoped_transaction;
+                    if (profiler_ && scoped_transaction.touchedDatabase()) {
+                        profiler_->onCommitTransaction();
+                    }
                 }
 
                 // We got this far without an exception, which means
@@ -159,6 +162,12 @@ public:
     virtual AsyncTaskQueue* getTaskQueue() const
     {
         return nullptr;
+    }
+
+    /// Allow us to track performance metrics to diagnose SimDB misuse.
+    void enableProfiling(PerfDiagnostics* profiler)
+    {
+        profiler_ = profiler;
     }
 
 protected:
@@ -210,7 +219,7 @@ private:
         {
             in_transaction_flag_ = true;
             executeCommand_("BEGIN TRANSACTION");
-            transaction();
+            touched_db_ = transaction();
         }
 
         /// Issues COMMIT TRANSACTION
@@ -218,6 +227,12 @@ private:
         {
             executeCommand_("COMMIT TRANSACTION");
             in_transaction_flag_ = false;
+        }
+
+        /// Let the SQLiteTransaction know whether we touched the DB.
+        bool touchedDatabase() const
+        {
+            return touched_db_;
         }
 
     private:
@@ -237,7 +252,13 @@ private:
 
         /// Reference to SQLiteTransaction::in_transaction_flag_
         bool& in_transaction_flag_;
+
+        /// Let the SQLiteTransaction know whether we touched the DB.
+        bool touched_db_ = false;
     };
+
+    // SimDB self-profiler.
+    PerfDiagnostics* profiler_ = nullptr;
 };
 
 } // namespace simdb

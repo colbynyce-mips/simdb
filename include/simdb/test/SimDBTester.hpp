@@ -11,7 +11,6 @@
 #include "simdb/utils/MathUtils.hpp"
 
 #include <algorithm>
-#include <chrono>
 #include <cstring>
 #include <fstream>
 #include <inttypes.h>
@@ -827,30 +826,5 @@ private:
                   << "TESTS PASSED -- No errors found during test.\n"                                                                      \
                   << std::endl;                                                                                                            \
     }
-
-/// Simple elapsed time helper.
-class PerfTimer
-{
-public:
-    PerfTimer()
-    {
-        restart();
-    }
-
-    double elapsedTime() const
-    {
-        auto end = std::chrono::steady_clock::now();
-        auto elap = (std::chrono::duration_cast<std::chrono::microseconds>(end - begin_).count()) / 1000000.0;
-        return elap;
-    }
-
-    void restart()
-    {
-        begin_ = std::chrono::steady_clock::now();
-    }
-
-private:
-    std::chrono::steady_clock::time_point begin_;
-};
 
 } // namespace simdb

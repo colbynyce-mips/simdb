@@ -7,6 +7,7 @@
 #include "simdb/sqlite/SQLiteConnection.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/sqlite/SQLiteTable.hpp"
+#include "simdb/utils/PerfDiagnostics.hpp"
 
 namespace simdb
 {
@@ -50,6 +51,10 @@ public:
     /// You must explicitly call closeDatabase() prior to deleting
     /// the DatabaseManager to close the sqlite3 connection and to
     /// stop the AsyncTaskQueue thread if it is still running.
+    ///
+    /// Also write performance diagnostics to stdout if profiling was
+    /// enabled, and writeProfileReport() was never explicitly
+    /// called.
     ~DatabaseManager()
     {
         if (db_conn_) {
@@ -57,17 +62,27 @@ public:
                       << "before it goes out of scope!" << std::endl;
             std::terminate();
         }
+
+        if (perf_diagnostics_ && !perf_diagnostics_->reportWritten()) {
+            perf_diagnostics_->writeReport(std::cout);
+        }
     }
 
     /// \brief  Using a Schema object for your database, construct
     ///         the physical database file and open the connection.
+    ///
+    /// \param profile Pass in TRUE if you want to enable SimDB
+    ///                performance diagnostics. You will be responsible
+    ///                for calling enterSimPhase() at the appropriate times
+    ///                if you want the resulting report to separate DB usage
+    ///                based on setup, simloop, and teardown phases.
     ///
     /// \throws This will throw an exception for DatabaseManager's
     ///         whose connection was initialized with a previously
     ///         existing file.
     ///
     /// \return Returns true if successful, false otherwise.
-    bool createDatabaseFromSchema(const Schema& schema)
+    bool createDatabaseFromSchema(const Schema& schema, const bool profile = false)
     {
         if (!append_schema_allowed_) {
             throw DBException("Cannot alter schema if you created a DatabaseManager with an existing file.");
@@ -80,6 +95,12 @@ public:
         createDatabaseFile_();
 
         db_conn_->realizeSchema(schema_);
+
+        if (db_conn_->isValid() && profile) {
+            perf_diagnostics_.reset(new PerfDiagnostics);
+            db_conn_->enableProfiling(perf_diagnostics_.get());
+        }
+
         return db_conn_->isValid();
     }
 
@@ -179,38 +200,52 @@ public:
     /// \return SqlRecord which wraps the table and the ID of its record.
     std::unique_ptr<SqlRecord> INSERT(SqlTable&& table, SqlColumns&& cols, SqlValues&& vals)
     {
-        std::ostringstream oss;
-        oss << "INSERT INTO " << table.getName();
-        cols.writeColsForINSERT(oss);
-        vals.writeValsForINSERT(oss);
+        std::unique_ptr<SqlRecord> record;
 
-        std::string cmd = oss.str();
-        auto stmt = db_conn_->prepareStatement(cmd);
-        vals.bindValsForINSERT(stmt);
+        db_conn_->safeTransaction([&](){
+            std::ostringstream oss;
+            oss << "INSERT INTO " << table.getName();
+            cols.writeColsForINSERT(oss);
+            vals.writeValsForINSERT(oss);
 
-        auto rc = SQLiteReturnCode(sqlite3_step(stmt));
-        if (rc != SQLITE_DONE) {
-            throw DBException("Could not perform INSERT. Error: ") << sqlite3_errmsg(db_conn_->getDatabase());
-        }
+            std::string cmd = oss.str();
+            auto stmt = db_conn_->prepareStatement(cmd);
+            vals.bindValsForINSERT(stmt);
 
-        auto db_id = db_conn_->getLastInsertRowId();
-        return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase(), db_conn_.get()));
+            auto rc = SQLiteReturnCode(sqlite3_step(stmt));
+            if (rc != SQLITE_DONE) {
+                throw DBException("Could not perform INSERT. Error: ") << sqlite3_errmsg(db_conn_->getDatabase());
+            }
+
+            auto db_id = db_conn_->getLastInsertRowId();
+            record.reset(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase(), db_conn_.get()));
+            return true;
+        });
+
+        return record;
     }
 
     /// This INSERT() overload is to be used for tables that were defined with
     /// at least one default value for its column(s).
     std::unique_ptr<SqlRecord> INSERT(SqlTable&& table)
     {
-        const std::string cmd = "INSERT INTO " + table.getName() + " DEFAULT VALUES";
-        auto stmt = db_conn_->prepareStatement(cmd);
+        std::unique_ptr<SqlRecord> record;
 
-        auto rc = SQLiteReturnCode(sqlite3_step(stmt));
-        if (rc != SQLITE_DONE) {
-            throw DBException("Could not perform INSERT. Error: ") << sqlite3_errmsg(db_conn_->getDatabase());
-        }
+        db_conn_->safeTransaction([&](){
+            const std::string cmd = "INSERT INTO " + table.getName() + " DEFAULT VALUES";
+            auto stmt = db_conn_->prepareStatement(cmd);
 
-        auto db_id = db_conn_->getLastInsertRowId();
-        return std::unique_ptr<SqlRecord>(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase(), db_conn_.get()));
+            auto rc = SQLiteReturnCode(sqlite3_step(stmt));
+            if (rc != SQLITE_DONE) {
+                throw DBException("Could not perform INSERT. Error: ") << sqlite3_errmsg(db_conn_->getDatabase());
+            }
+
+            auto db_id = db_conn_->getLastInsertRowId();
+            record.reset(new SqlRecord(table.getName(), db_id, db_conn_->getDatabase(), db_conn_.get()));
+            return true;
+        });
+
+        return record;
     }
 
     /// \brief  Get a SqlRecord from a database ID for the given table.
@@ -234,14 +269,18 @@ public:
     /// \return Returns true if successful, false otherwise.
     bool removeRecordFromTable(const char* table_name, const int db_id)
     {
-        std::ostringstream oss;
-        oss << "DELETE FROM " << table_name << " WHERE Id=" << db_id;
-        const auto cmd = oss.str();
+        db_conn_->safeTransaction([&]() {
+            std::ostringstream oss;
+            oss << "DELETE FROM " << table_name << " WHERE Id=" << db_id;
+            const auto cmd = oss.str();
 
-        auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_->getDatabase(), cmd.c_str(), nullptr, nullptr, nullptr));
-        if (rc) {
-            throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
-        }
+            auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_->getDatabase(), cmd.c_str(), nullptr, nullptr, nullptr));
+            if (rc) {
+                throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
+            }
+
+            return true;
+        });
 
         return sqlite3_changes(db_conn_->getDatabase()) == 1;
     }
@@ -251,14 +290,18 @@ public:
     /// \return Returns the total number of deleted records.
     uint32_t removeAllRecordsFromTable(const char* table_name)
     {
-        std::ostringstream oss;
-        oss << "DELETE FROM " << table_name;
-        const auto cmd = oss.str();
+        db_conn_->safeTransaction([&]() {
+            std::ostringstream oss;
+            oss << "DELETE FROM " << table_name;
+            const auto cmd = oss.str();
 
-        auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_->getDatabase(), cmd.c_str(), nullptr, nullptr, nullptr));
-        if (rc) {
-            throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
-        }
+            auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_->getDatabase(), cmd.c_str(), nullptr, nullptr, nullptr));
+            if (rc) {
+                throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
+            }
+
+            return true;
+        });
 
         return sqlite3_changes(db_conn_->getDatabase());
     }
@@ -268,19 +311,24 @@ public:
     /// \return Returns the total number of deleted records across all tables.
     uint32_t removeAllRecordsFromAllTables()
     {
-        const char* cmd = "SELECT name FROM sqlite_master WHERE type='table'";
-        auto stmt = db_conn_->prepareStatement(cmd);
-
         uint32_t count = 0;
-        while (true) {
-            auto rc = SQLiteReturnCode(sqlite3_step(stmt));
-            if (rc != SQLITE_ROW) {
-                break;
+
+        db_conn_->safeTransaction([&]() {
+            const char* cmd = "SELECT name FROM sqlite_master WHERE type='table'";
+            auto stmt = db_conn_->prepareStatement(cmd);
+
+            while (true) {
+                auto rc = SQLiteReturnCode(sqlite3_step(stmt));
+                if (rc != SQLITE_ROW) {
+                    break;
+                }
+
+                auto table_name = sqlite3_column_text(stmt, 0);
+                count += removeAllRecordsFromTable((const char*)table_name);
             }
 
-            auto table_name = sqlite3_column_text(stmt, 0);
-            count += removeAllRecordsFromTable((const char*)table_name);
-        }
+            return true;
+        });
 
         return count;
     }
@@ -298,6 +346,33 @@ public:
         if (db_conn_) {
             db_conn_->getTaskQueue()->stopThread();
             db_conn_.reset();
+        }
+
+        if (perf_diagnostics_) {
+            perf_diagnostics_->onCloseDatabase();
+        }
+    }
+
+    /// \brief Write the current performance diagnostics to file.
+    /// \param filename Name of the report file, or "" to print to stdout.
+    /// \param title Title of the report.
+    bool writeProfileReport(std::ostream& os, const std::string& title = "") const
+    {
+        if (!perf_diagnostics_) {
+            return false;
+        }
+
+        perf_diagnostics_->writeReport(os, title);
+        return true;
+    }
+
+    /// To support accurate SimDB self-profiling, update the simulation
+    /// phase at the appropriate times (SETUP->SIMLOOP->TEARDOWN). This
+    /// is used to write profile data separated by phase. 
+    void enterSimPhase(const SimPhase phase)
+    {
+        if (perf_diagnostics_) {
+            perf_diagnostics_->enterSimPhase(phase);
         }
     }
 
@@ -400,6 +475,10 @@ private:
 
     /// Hold onto all the user-configured constellations.
     std::unique_ptr<Constellations> constellations_;
+
+    /// Self-profiler to help users maximize performance of SimDB
+    /// with its intended use.
+    std::unique_ptr<PerfDiagnostics> perf_diagnostics_;
 };
 
 } // namespace simdb
