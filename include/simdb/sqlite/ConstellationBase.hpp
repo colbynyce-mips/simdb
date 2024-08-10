@@ -20,7 +20,7 @@ class DatabaseManager;
 /*!
  * \class ConstellationBase
  *
- * \brief Base class for the Constellation class.
+ * \brief Base class for all constellation classes.
  */
 class ConstellationBase
 {

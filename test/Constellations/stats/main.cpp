@@ -3,7 +3,7 @@
  *      from all over a simulator).
  */
 
-#include "simdb/sqlite/Constellation.hpp"
+#include "simdb/sqlite/StatConstellation.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/test/SimDBTester.hpp"
 #include <array>
@@ -11,11 +11,11 @@
 TEST_INIT;
 
 /// This constellation uses uncompressed uint32_t counter values.
-using CounterConstellationT = simdb::Constellation<uint32_t, simdb::CompressionModes::UNCOMPRESSED>;
+using CounterConstellationT = simdb::StatConstellation<uint32_t, simdb::CompressionModes::UNCOMPRESSED>;
 
 /// This constellation uses compressed double random stat values.
 template <typename DataT>
-using RandStatConstellationT = simdb::Constellation<DataT, simdb::CompressionModes::COMPRESSED>;
+using RandStatConstellationT = simdb::StatConstellation<DataT, simdb::CompressionModes::COMPRESSED>;
 
 /// Example class for counter values, which are common in certain simulators.
 class Counter

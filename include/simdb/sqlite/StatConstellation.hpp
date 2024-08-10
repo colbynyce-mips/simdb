@@ -1,4 +1,4 @@
-// <Constellation> -*- C++ -*-
+// <StatConstellation> -*- C++ -*-
 
 #pragma once
 
@@ -12,7 +12,7 @@ namespace simdb
 {
 
 /*!
- * \class Constellation
+ * \class StatConstellation
  *
  * \brief It is common in simulators to have many individual stats of the same 
  *        datatype that could belong to the same logical group:
@@ -22,18 +22,18 @@ namespace simdb
  *          - all stats for CSV reports (e.g. doubles)
  *          - etc.
  * 
- *        Using the Constellation feature, you can gather these stats with a
+ *        Using the StatConstellation feature, you can gather these stats with a
  *        single API call during simulation, such as at every time step or 
  *        every clock cycle, and optionally let SimDB automatically compress  
  *        these values on the AsyncTaskQueue thread to save a significant  
  *        amount of disk space in your database file.
  */
 template <typename DataT, CompressionModes cmode = CompressionModes::COMPRESSED>
-class Constellation : public ConstellationBase
+class StatConstellation : public ConstellationBase
 {
 public:
     /// Construct with a name for this constellation.
-    Constellation(const std::string& name)
+    StatConstellation(const std::string& name)
         : name_(name)
     {
         static_assert(std::is_same<DataT, uint8_t>::value  ||
