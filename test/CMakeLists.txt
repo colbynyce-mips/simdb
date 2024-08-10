@@ -6,5 +6,5 @@ add_custom_command(
     POST_BUILD COMMAND ctest -LE --test-action test)
 
 add_subdirectory(SQLiteConnection)
-add_subdirectory(Constellations)
+add_subdirectory(Collection)
 add_subdirectory(PerfDiagnostics)

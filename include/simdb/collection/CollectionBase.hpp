@@ -1,4 +1,4 @@
-// <ConstellationBase> -*- C++ -*-
+// <CollectionBase> -*- C++ -*-
 
 #pragma once
 
@@ -18,45 +18,45 @@ namespace simdb
 class DatabaseManager;
 
 /*!
- * \class ConstellationBase
+ * \class CollectionBase
  *
- * \brief Base class for all constellation classes.
+ * \brief Base class for all collection classes.
  */
-class ConstellationBase
+class CollectionBase
 {
 public:
     /// Destructor
-    virtual ~ConstellationBase() = default;
+    virtual ~CollectionBase() = default;
 
-    /// Get the name of this constellation.
+    /// Get the name of this collection.
     virtual std::string getName() const = 0;
 
-    /// Write metadata about this constellation to the database.
+    /// Write metadata about this collection to the database.
     virtual void finalize(DatabaseManager* db_mgr) = 0;
 
-    /// Collect all values in this constellation into one data vector
+    /// Collect all values in this collection into one data vector
     /// and write the values to the database.
     virtual void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) = 0;
 };
 
 /*!
- * \class Constellations
+ * \class Collections
  *
- * \brief This class holds onto all user-configured constellations for
+ * \brief This class holds onto all user-configured collections for
  *        an easy way to trigger simulation-wide stat collection.
  */
-class Constellations
+class Collections
 {
 public:
     /// Construct with the DatabaseManager and SQLiteTransaction.
-    Constellations(DatabaseManager* db_mgr, SQLiteTransaction* db_conn)
+    Collections(DatabaseManager* db_mgr, SQLiteTransaction* db_conn)
         : db_mgr_(db_mgr)
         , db_conn_(db_conn)
     {
     }
 
     /// \brief  Use the given backpointer to an integral/double time value
-    ///         when adding timestamps to collected constellations.
+    ///         when adding timestamps to collected collections.
     ///
     /// \throws Throws an exception if called a second time with a different
     ///         timestamp type (call 1st time with uint64_t, call 2nd time
@@ -72,7 +72,7 @@ public:
     }
 
     /// \brief  Use the given function pointer to an integral/double time value
-    ///         when adding timestamps to collected constellations.
+    ///         when adding timestamps to collected collections.
     ///
     /// \throws Throws an exception if called a second time with a different
     ///         timestamp type (call 1st time with uint64_t, call 2nd time
@@ -88,7 +88,7 @@ public:
     }
 
     /// Populate the schema with the appropriate tables for all the
-    /// constellations. Must be called after useTimestampsFrom().
+    /// collections. Must be called after useTimestampsFrom().
     void defineSchema(Schema& schema) const
     {
         if (!timestamp_) {
@@ -97,48 +97,50 @@ public:
 
         using dt = ColumnDataType;
 
-        schema.addTable("ConstellationGlobals")
+        schema.addTable("CollectionGlobals")
             .addColumn("TimeType", dt::string_t);
 
-        schema.addTable("Constellations")
+        schema.addTable("Collections")
             .addColumn("Name", dt::string_t)
             .addColumn("DataType", dt::string_t)
             .addColumn("Compressed", dt::int32_t);
 
-        schema.addTable("ConstellationPaths")
-            .addColumn("ConstellationID", dt::int32_t)
+        schema.addTable("CollectionPaths")
+            .addColumn("CollectionID", dt::int32_t)
             .addColumn("StatPath", dt::string_t);
 
-        schema.addTable("ConstellationData")
-            .addColumn("ConstellationID", dt::int32_t)
+        schema.addTable("CollectionData")
+            .addColumn("CollectionID", dt::int32_t)
             .addColumn("TimeVal", timestamp_->getDataType())
             .addColumn("DataVals", dt::blob_t)
-            .createCompoundIndexOn({"ConstellationID", "TimeVal"});
+            .createCompoundIndexOn({"CollectionID", "TimeVal"});
     }
 
-    /// \brief  Add a user-configured constellation.
+    /// \brief  Add a user-configured collection.
     ///
-    /// \throws Throws an exception if a constellation with the same name as
+    /// \throws Throws an exception if a collection with the same name as
     ///         this one was already added.
-    void addConstellation(std::unique_ptr<ConstellationBase> constellation)
+    void addCollection(std::unique_ptr<CollectionBase> collection)
     {
-        for (const auto& my_constellation : constellations_) {
-            if (my_constellation->getName() == constellation->getName()) {
-                throw DBException("Constellation with this name already exists: ") << constellation->getName();
+        for (const auto& my_collection : collections_) {
+            if (my_collection->getName() == collection->getName()) {
+                throw DBException("Collection with this name already exists: ") << collection->getName();
             }
         }
 
-        constellations_.emplace_back(constellation.release());
+        collections_.emplace_back(collection.release());
     }
 
     /// Called manually during simulation to trigger automatic collection
-    /// of all constellations.
-    void collectConstellations()
+    /// of all collections.
+    void collectAll()
     {
         db_conn_->safeTransaction([&]() {
-            timestamp_->ensureTimeHasAdvanced();
-            for (auto& constellation : constellations_) {
-                constellation->collect(db_mgr_, timestamp_.get());
+            if (!timestamp_->ensureTimeHasAdvanced()) {
+                throw DBException("Cannot perform  - time has not advanced");
+            }
+            for (auto& collection : collections_) {
+                collection->collect(db_mgr_, timestamp_.get());
             }
             timestamp_->captureCurrentTime();
             return true;
@@ -188,27 +190,27 @@ private:
         return std::make_shared<TimestampDouble<TimeT>>(func_ptr);
     }
 
-    /// One-time finalization of all constellations. Called by friend class DatabaseManager.
-    void finalizeConstellations_()
+    /// One-time finalization of all collections. Called by friend class DatabaseManager.
+    void finalizeCollections_()
     {
         db_conn_->safeTransaction([&]() {
-            for (auto& constellation : constellations_) {
-                constellation->finalize(db_mgr_);
+            for (auto& collection : collections_) {
+                collection->finalize(db_mgr_);
             }
             return true;
         });
     }
 
     /// DatabaseManager. Needed so we can call finalize() and collect() on the
-    /// ConstellationBase objects.
+    /// CollectionBase objects.
     DatabaseManager* db_mgr_;
 
-    /// SQLiteTransaction. Needed so we can put synchronously serialized constellations
+    /// SQLiteTransaction. Needed so we can put synchronously serialized collections
     /// inside BEGIN/COMMIT TRANSACTION calls for best performance.
     SQLiteTransaction* db_conn_;
 
-    /// All user-configured constellations.
-    std::vector<std::unique_ptr<ConstellationBase>> constellations_;
+    /// All user-configured collections.
+    std::vector<std::unique_ptr<CollectionBase>> collections_;
 
     /// This is used to dynamically get the timestamp for each INSERT from either
     /// a user-provided backpointer or a function pointer that can get a timestamp

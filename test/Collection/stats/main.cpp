@@ -1,21 +1,21 @@
 /*
- \brief Tests for SimDB constellations feature (collecting groups of stats
+ \brief Tests for SimDB collections feature (collecting groups of stats
  *      from all over a simulator).
  */
 
-#include "simdb/constellations/StatConstellation.hpp"
+#include "simdb/collection/ScalarStats.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/test/SimDBTester.hpp"
 #include <array>
 
 TEST_INIT;
 
-/// This constellation uses uncompressed uint32_t counter values.
-using CounterConstellationT = simdb::StatConstellation<uint32_t, simdb::CompressionModes::UNCOMPRESSED>;
+/// This collection uses uncompressed uint32_t counter values.
+using CounterCollectionT = simdb::StatCollection<uint32_t, simdb::CompressionModes::UNCOMPRESSED>;
 
-/// This constellation uses compressed double random stat values.
+/// This collection uses compressed double random stat values.
 template <typename DataT>
-using RandStatConstellationT = simdb::StatConstellation<DataT, simdb::CompressionModes::COMPRESSED>;
+using RandStatCollectionT = simdb::StatCollection<DataT, simdb::CompressionModes::COMPRESSED>;
 
 /// Example class for counter values, which are common in certain simulators.
 class Counter
@@ -77,7 +77,7 @@ private:
     Counter num_insts_retired_;
 };
 
-/// Example simulator with Execute->Retire units. We will configure a constellation
+/// Example simulator with Execute->Retire units. We will configure a collection
 /// for the issued/retired counters.
 class Sim
 {
@@ -89,7 +89,7 @@ public:
 
     void runSimulation()
     {
-        configConstellations_();
+        configCollections_();
 
         // Issue an instruction for 5 time steps. Do not retire anything at this
         // time to simulate a processing / pipeline delay.
@@ -119,7 +119,7 @@ public:
     void verifyDataWithSqlQuery()
     {
         {
-            auto query = db_mgr_->createQuery("Constellations");
+            auto query = db_mgr_->createQuery("Collections");
 
             std::string name;
             query->select("Name", name);
@@ -191,10 +191,10 @@ public:
         }
 
         {
-            auto query = db_mgr_->createQuery("ConstellationPaths");
+            auto query = db_mgr_->createQuery("CollectionPaths");
 
-            int constellation_id;
-            query->select("ConstellationID", constellation_id);
+            int collection_id;
+            query->select("CollectionID", collection_id);
 
             std::string stat_path;
             query->select("StatPath", stat_path);
@@ -202,29 +202,29 @@ public:
             auto result_set = query->getResultSet();
 
             EXPECT_TRUE(result_set.getNextRecord());
-            EXPECT_EQUAL(constellation_id, 1);
+            EXPECT_EQUAL(collection_id, 1);
             EXPECT_EQUAL(stat_path, "stats.num_insts_issued");
 
             EXPECT_TRUE(result_set.getNextRecord());
-            EXPECT_EQUAL(constellation_id, 1);
+            EXPECT_EQUAL(collection_id, 1);
             EXPECT_EQUAL(stat_path, "stats.num_insts_retired");
 
-            validateStatPaths_(result_set, constellation_id, 2, "stats.rand_int8s.bin", stat_path, rand_int8s_);
-            validateStatPaths_(result_set, constellation_id, 3, "stats.rand_int16s.bin", stat_path, rand_int16s_);
-            validateStatPaths_(result_set, constellation_id, 4, "stats.rand_int32s.bin", stat_path, rand_int32s_);
-            validateStatPaths_(result_set, constellation_id, 5, "stats.rand_int64s.bin", stat_path, rand_int64s_);
-            validateStatPaths_(result_set, constellation_id, 6, "stats.rand_uint8s.bin", stat_path, rand_uint8s_);
-            validateStatPaths_(result_set, constellation_id, 7, "stats.rand_uint16s.bin", stat_path, rand_uint16s_);
-            validateStatPaths_(result_set, constellation_id, 8, "stats.rand_uint32s.bin", stat_path, rand_uint32s_);
-            validateStatPaths_(result_set, constellation_id, 9, "stats.rand_uint64s.bin", stat_path, rand_uint64s_);
-            validateStatPaths_(result_set, constellation_id, 10, "stats.rand_floats.bin", stat_path, rand_floats_);
-            validateStatPaths_(result_set, constellation_id, 11, "stats.rand_doubles.bin", stat_path, rand_doubles_);
+            validateStatPaths_(result_set, collection_id, 2, "stats.rand_int8s.bin", stat_path, rand_int8s_);
+            validateStatPaths_(result_set, collection_id, 3, "stats.rand_int16s.bin", stat_path, rand_int16s_);
+            validateStatPaths_(result_set, collection_id, 4, "stats.rand_int32s.bin", stat_path, rand_int32s_);
+            validateStatPaths_(result_set, collection_id, 5, "stats.rand_int64s.bin", stat_path, rand_int64s_);
+            validateStatPaths_(result_set, collection_id, 6, "stats.rand_uint8s.bin", stat_path, rand_uint8s_);
+            validateStatPaths_(result_set, collection_id, 7, "stats.rand_uint16s.bin", stat_path, rand_uint16s_);
+            validateStatPaths_(result_set, collection_id, 8, "stats.rand_uint32s.bin", stat_path, rand_uint32s_);
+            validateStatPaths_(result_set, collection_id, 9, "stats.rand_uint64s.bin", stat_path, rand_uint64s_);
+            validateStatPaths_(result_set, collection_id, 10, "stats.rand_floats.bin", stat_path, rand_floats_);
+            validateStatPaths_(result_set, collection_id, 11, "stats.rand_doubles.bin", stat_path, rand_doubles_);
 
             EXPECT_FALSE(result_set.getNextRecord());
         }
 
         {
-            auto query = db_mgr_->createQuery("ConstellationData");
+            auto query = db_mgr_->createQuery("CollectionData");
 
             double time_val;
             query->select("TimeVal", time_val);
@@ -235,7 +235,7 @@ public:
             for (auto id : {1,2}) {
                 double expected_time_val = 1;
                 query->resetConstraints();
-                query->addConstraintForInt("ConstellationID", simdb::Constraints::EQUAL, id);
+                query->addConstraintForInt("CollectionID", simdb::Constraints::EQUAL, id);
                 {
                     auto result_set = query->getResultSet();
 
@@ -252,42 +252,42 @@ public:
     }
 
 private:
-    void configConstellations_()
+    void configCollections_()
     {
-        auto constellation_mgr = db_mgr_->getConstellationMgr();
-        constellation_mgr->useTimestampsFrom(&time_);
+        auto collection_mgr = db_mgr_->getCollectionMgr();
+        collection_mgr->useTimestampsFrom(&time_);
 
-        std::unique_ptr<CounterConstellationT> ctr_constellation(new CounterConstellationT("InstCounts"));
+        std::unique_ptr<CounterCollectionT> ctr_collection(new CounterCollectionT("InstCounts"));
 
-        ctr_constellation->addStat("stats.num_insts_issued", std::bind(&Execute::getNumIssued, &execute_));
-        ctr_constellation->addStat("stats.num_insts_retired", std::bind(&Retire::getNumRetired, &retire_));
+        ctr_collection->addStat("stats.num_insts_issued", std::bind(&Execute::getNumIssued, &execute_));
+        ctr_collection->addStat("stats.num_insts_retired", std::bind(&Retire::getNumRetired, &retire_));
 
-        constellation_mgr->addConstellation(std::move(ctr_constellation));
+        collection_mgr->addCollection(std::move(ctr_collection));
 
-        addConstellation_<int8_t>(rand_int8s_, "stats.rand_int8s.bin", "RandInt8s", constellation_mgr);
-        addConstellation_<int16_t>(rand_int16s_, "stats.rand_int16s.bin", "RandInt16s", constellation_mgr);
-        addConstellation_<int32_t>(rand_int32s_, "stats.rand_int32s.bin", "RandInt32s", constellation_mgr);
-        addConstellation_<int64_t>(rand_int64s_, "stats.rand_int64s.bin", "RandInt64s", constellation_mgr);
-        addConstellation_<uint8_t>(rand_uint8s_, "stats.rand_uint8s.bin", "RandUInt8s", constellation_mgr);
-        addConstellation_<uint16_t>(rand_uint16s_, "stats.rand_uint16s.bin", "RandUInt16s", constellation_mgr);
-        addConstellation_<uint32_t>(rand_uint32s_, "stats.rand_uint32s.bin", "RandUInt32s", constellation_mgr);
-        addConstellation_<uint64_t>(rand_uint64s_, "stats.rand_uint64s.bin", "RandUInt64s", constellation_mgr);
-        addConstellation_<float>(rand_floats_, "stats.rand_floats.bin", "RandFloats", constellation_mgr);
-        addConstellation_<double>(rand_doubles_, "stats.rand_doubles.bin", "RandDoubles", constellation_mgr);
+        addCollection_<int8_t>(rand_int8s_, "stats.rand_int8s.bin", "RandInt8s", collection_mgr);
+        addCollection_<int16_t>(rand_int16s_, "stats.rand_int16s.bin", "RandInt16s", collection_mgr);
+        addCollection_<int32_t>(rand_int32s_, "stats.rand_int32s.bin", "RandInt32s", collection_mgr);
+        addCollection_<int64_t>(rand_int64s_, "stats.rand_int64s.bin", "RandInt64s", collection_mgr);
+        addCollection_<uint8_t>(rand_uint8s_, "stats.rand_uint8s.bin", "RandUInt8s", collection_mgr);
+        addCollection_<uint16_t>(rand_uint16s_, "stats.rand_uint16s.bin", "RandUInt16s", collection_mgr);
+        addCollection_<uint32_t>(rand_uint32s_, "stats.rand_uint32s.bin", "RandUInt32s", collection_mgr);
+        addCollection_<uint64_t>(rand_uint64s_, "stats.rand_uint64s.bin", "RandUInt64s", collection_mgr);
+        addCollection_<float>(rand_floats_, "stats.rand_floats.bin", "RandFloats", collection_mgr);
+        addCollection_<double>(rand_doubles_, "stats.rand_doubles.bin", "RandDoubles", collection_mgr);
 
-        db_mgr_->finalizeConstellations();
+        db_mgr_->finalizeCollections();
     }
 
     template <typename DataT>
-    void addConstellation_(const std::array<DataT, 10> & array, const std::string& stat_path_prefix, const std::string& constellation_name, simdb::Constellations* constellation_mgr) {
-        std::unique_ptr<RandStatConstellationT<DataT>> constellation(new RandStatConstellationT<DataT>(constellation_name));
+    void addCollection_(const std::array<DataT, 10> & array, const std::string& stat_path_prefix, const std::string& collection_name, simdb::Collections* collection_mgr) {
+        std::unique_ptr<RandStatCollectionT<DataT>> collection(new RandStatCollectionT<DataT>(collection_name));
 
         for (size_t idx = 0; idx < array.size(); ++idx) {
             const auto name = stat_path_prefix + std::to_string(idx);
-            constellation->addStat(name, &array[idx]);
+            collection->addStat(name, &array[idx]);
         }
 
-        constellation_mgr->addConstellation(std::move(constellation));
+        collection_mgr->addCollection(std::move(collection));
     }
 
     void step_(bool issue, bool retire)
@@ -314,11 +314,11 @@ private:
         assignRandomVals_<double>(rand_doubles_);
 
         // Collect as normal.
-        EXPECT_NOTHROW(db_mgr_->getConstellationMgr()->collectConstellations());
+        EXPECT_NOTHROW(db_mgr_->getCollectionMgr()->collectAll());
 
         // Ensure that collecting again at any timestamp that is not monotonically
         // increasing throws an exception.
-        EXPECT_THROW(db_mgr_->getConstellationMgr()->collectConstellations());
+        EXPECT_THROW(db_mgr_->getCollectionMgr()->collectAll());
     }
 
     template <typename DataT>
@@ -340,11 +340,11 @@ private:
     }
 
     template <typename DataT>
-    void validateStatPaths_(simdb::SqlResultIterator& result_set, int& actual_constellation_id, const int expected_constellation_id, const std::string& stat_path_prefix, std::string& actual_stat_path, const std::array<DataT, 10>& array)
+    void validateStatPaths_(simdb::SqlResultIterator& result_set, int& actual_collection_id, const int expected_collection_id, const std::string& stat_path_prefix, std::string& actual_stat_path, const std::array<DataT, 10>& array)
     {
         for (size_t idx = 0; idx < array.size(); ++idx) {
             EXPECT_TRUE(result_set.getNextRecord());
-            EXPECT_EQUAL(actual_constellation_id, expected_constellation_id);
+            EXPECT_EQUAL(actual_collection_id, expected_collection_id);
             EXPECT_EQUAL(actual_stat_path, stat_path_prefix + std::to_string(idx));
         }
     }
@@ -376,41 +376,41 @@ void runNegativeTests()
     uint64_t dummy_time = 0; 
     uint32_t dummy_data = 0;
 
-    auto constellation_mgr = db_mgr.getConstellationMgr();
-    constellation_mgr->useTimestampsFrom(&dummy_time);
+    auto collection_mgr = db_mgr.getCollectionMgr();
+    collection_mgr->useTimestampsFrom(&dummy_time);
 
-    std::unique_ptr<CounterConstellationT> constellation1(new CounterConstellationT("InstCounts"));
-    std::unique_ptr<CounterConstellationT> constellation2(new CounterConstellationT("InstCounts"));
+    std::unique_ptr<CounterCollectionT> collection1(new CounterCollectionT("InstCounts"));
+    std::unique_ptr<CounterCollectionT> collection2(new CounterCollectionT("InstCounts"));
 
-    // Hang onto the constellation raw pointer so we can attempt bogus API calls on it after move().
-    auto constellation1_ptr = constellation1.get();
+    // Hang onto the collection raw pointer so we can attempt bogus API calls on it after move().
+    auto collection1_ptr = collection1.get();
 
     // Should throw due to the stat path not being usable from python.
-    EXPECT_THROW(constellation1->addStat("123_invalid_python", &dummy_data));
+    EXPECT_THROW(collection1->addStat("123_invalid_python", &dummy_data));
 
     // Should not throw. Normal use.
-    EXPECT_NOTHROW(constellation1->addStat("valid_python", &dummy_data));
+    EXPECT_NOTHROW(collection1->addStat("valid_python", &dummy_data));
 
-    // Should throw since "valid_python" is already a stat in this constellation.
-    EXPECT_THROW(constellation1->addStat("valid_python", &dummy_data));
-
-    // Should not throw. Normal use.
-    EXPECT_NOTHROW(constellation_mgr->addConstellation(std::move(constellation1)));
-
-    // Should throw since we can't collect before finalizing the constellations.
-    EXPECT_THROW(constellation_mgr->collectConstellations());
+    // Should throw since "valid_python" is already a stat in this collection.
+    EXPECT_THROW(collection1->addStat("valid_python", &dummy_data));
 
     // Should not throw. Normal use.
-    EXPECT_NOTHROW(db_mgr.finalizeConstellations());
+    EXPECT_NOTHROW(collection_mgr->addCollection(std::move(collection1)));
 
-    // Should throw since we already finalized the constellations.
-    EXPECT_THROW(db_mgr.finalizeConstellations());
+    // Should throw since we can't collect before finalizing the collections.
+    EXPECT_THROW(collection_mgr->collectAll());
 
-    // Should throw even with a valid stat path, since we already finalized the constellations.
-    EXPECT_THROW(constellation1_ptr->addStat("another_valid_python", &dummy_data));
+    // Should not throw. Normal use.
+    EXPECT_NOTHROW(db_mgr.finalizeCollections());
 
-    // Should throw since we already added a constellation with the same name as this one.
-    EXPECT_THROW(constellation_mgr->addConstellation(std::move(constellation2)));
+    // Should throw since we already finalized the collection.
+    EXPECT_THROW(db_mgr.finalizeCollections());
+
+    // Should throw even with a valid stat path, since we already finalized the collections.
+    EXPECT_THROW(collection1_ptr->addStat("another_valid_python", &dummy_data));
+
+    // Should throw since we already added a collection with the same name as this one.
+    EXPECT_THROW(collection_mgr->addCollection(std::move(collection2)));
 
     db_mgr.closeDatabase();
 }
@@ -419,7 +419,7 @@ int main()
 {
     DB_INIT;
 
-    // Note that we only care about the constellation data and have
+    // Note that we only care about the collection data and have
     // no need for any other tables, aside from the tables that the
     // DatabaseManager adds automatically to support this feature.
     simdb::Schema schema;

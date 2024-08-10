@@ -19,7 +19,7 @@ public:
     virtual ColumnDataType getDataType() const = 0;
     virtual ValueContainerBase* createBinder() const = 0;
     virtual void captureCurrentTime() = 0;
-    virtual void ensureTimeHasAdvanced() const = 0;
+    virtual bool ensureTimeHasAdvanced() const = 0;
 };
 
 /*!
@@ -64,11 +64,9 @@ public:
         time_snapshot_ = std::make_pair(time_.getValue(), true);
     }
 
-    void ensureTimeHasAdvanced() const override
+    bool ensureTimeHasAdvanced() const override
     {
-        if (time_snapshot_.second && time_.getValue() <= time_snapshot_.first) {
-            throw DBException("Cannot collect constellation - time has not advanced");
-        }
+        return (!time_snapshot_.second || time_.getValue() > time_snapshot_.first);
     }
 
 private:
@@ -118,11 +116,9 @@ public:
         time_snapshot_ = std::make_pair(time_.getValue(), true);
     }
 
-    void ensureTimeHasAdvanced() const override
+    bool ensureTimeHasAdvanced() const override
     {
-        if (time_snapshot_.second && time_.getValue() <= time_snapshot_.first) {
-            throw DBException("Cannot collect constellation - time has not advanced");
-        }
+        return (!time_snapshot_.second || time_.getValue() > time_snapshot_.first);
     }
 
 private:
@@ -172,11 +168,9 @@ public:
         time_snapshot_ = std::make_pair(time_.getValue(), true);
     }
 
-    void ensureTimeHasAdvanced() const override
+    bool ensureTimeHasAdvanced() const override
     {
-        if (time_snapshot_.second && time_.getValue() <= time_snapshot_.first) {
-            throw DBException("Cannot collect constellation - time has not advanced");
-        }
+        return (!time_snapshot_.second || time_.getValue() > time_snapshot_.first);
     }
 
 private:

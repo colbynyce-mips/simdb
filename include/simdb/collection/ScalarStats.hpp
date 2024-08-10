@@ -1,9 +1,9 @@
-// <StatConstellation> -*- C++ -*-
+// <StatCollection> -*- C++ -*-
 
 #pragma once
 
 #include "simdb/async/AsyncTaskQueue.hpp"
-#include "simdb/constellations/ConstellationBase.hpp"
+#include "simdb/collection/CollectionBase.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/utils/Compress.hpp"
 #include <cstring>
@@ -12,7 +12,7 @@ namespace simdb
 {
 
 /*!
- * \class StatConstellation
+ * \class StatCollection
  *
  * \brief It is common in simulators to have many individual stats of the same 
  *        datatype that could belong to the same logical group:
@@ -22,18 +22,18 @@ namespace simdb
  *          - all stats for CSV reports (e.g. doubles)
  *          - etc.
  * 
- *        Using the StatConstellation feature, you can gather these stats with a
+ *        Using the StatCollection feature, you can gather these stats with a
  *        single API call during simulation, such as at every time step or 
  *        every clock cycle, and optionally let SimDB automatically compress  
  *        these values on the AsyncTaskQueue thread to save a significant  
  *        amount of disk space in your database file.
  */
 template <typename DataT, CompressionModes cmode = CompressionModes::COMPRESSED>
-class StatConstellation : public ConstellationBase
+class StatCollection : public CollectionBase
 {
 public:
-    /// Construct with a name for this constellation.
-    StatConstellation(const std::string& name)
+    /// Construct with a name for this collection.
+    StatCollection(const std::string& name)
         : name_(name)
     {
         static_assert(std::is_same<DataT, uint8_t>::value  ||
@@ -46,10 +46,10 @@ public:
                       std::is_same<DataT, int64_t>::value  ||
                       std::is_same<DataT, float>::value    ||
                       std::is_same<DataT, double>::value,
-                      "Invalid DataT for constellation");
+                      "Invalid DataT for collection");
     }
 
-    /// \brief   Add a stat to this constellation using a backpointer to the data value.
+    /// \brief   Add a stat to this collection using a backpointer to the data value.
     ///
     /// \param   stat_path Unique stat path e.g. variable name like "counter_foo", or a 
     ///                    dot-delimited simulator location such as "stats.counters.foo"
@@ -68,11 +68,11 @@ public:
         validateStatPath_(stat_path);
 
         if (finalized_) {
-            throw DBException("Cannot add stat to constellation after it's been finalized");
+            throw DBException("Cannot add stat to collection after it's been finalized");
         }
 
         if (!stat_paths_.insert(stat_path).second) {
-            throw DBException("Cannot add stat to constellation - already have a stat with this path: ") << stat_path;
+            throw DBException("Cannot add stat to collection - already have a stat with this path: ") << stat_path;
         }
 
         ScalarValueReader<DataT> reader(data_ptr);
@@ -80,7 +80,7 @@ public:
         stats_.emplace_back(stat);
     }
 
-    /// \brief   Add a stat to this constellation using a function pointer to get the
+    /// \brief   Add a stat to this collection using a function pointer to get the
     ///          data value. This would most commonly be used in favor of the backpointer
     ///          API for calculated stats / evaluated expressions.
     ///
@@ -97,11 +97,11 @@ public:
         validateStatPath_(stat_path);
 
         if (finalized_) {
-            throw DBException("Cannot add stat to constellation after it's been finalized");
+            throw DBException("Cannot add stat to collection after it's been finalized");
         }
 
         if (!stat_paths_.insert(stat_path).second) {
-            throw DBException("Cannot add stat to constellation - already have a stat with this path: ") << stat_path;
+            throw DBException("Cannot add stat to collection - already have a stat with this path: ") << stat_path;
         }
 
         ScalarValueReader<DataT> reader(func_ptr);
@@ -109,18 +109,18 @@ public:
         stats_.emplace_back(stat);
     }
 
-    /// Get the name of this constellation.
+    /// Get the name of this collection.
     std::string getName() const override
     {
         return name_;
     }
 
-    /// \brief  Write metadata about this constellation to the database.
+    /// \brief  Write metadata about this collection to the database.
     /// \throws Throws an exception if called more than once.
     void finalize(DatabaseManager* db_mgr) override
     {
         if (finalized_) {
-            throw DBException("Cannot call finalize() on a constellation more than once");
+            throw DBException("Cannot call finalize() on a collection more than once");
         }
 
         std::string data_type;
@@ -150,29 +150,29 @@ public:
 
         int compressed = (cmode == CompressionModes::COMPRESSED) ? 1 : 0;
 
-        auto record = db_mgr->INSERT(SQL_TABLE("Constellations"),
+        auto record = db_mgr->INSERT(SQL_TABLE("Collections"),
                                      SQL_COLUMNS("Name", "DataType", "Compressed"),
                                      SQL_VALUES(name_, data_type, compressed));
 
-        constellation_pkey_ = record->getId();
+        collection_pkey_ = record->getId();
 
         for (const auto& stat : stats_) {
-            db_mgr->INSERT(SQL_TABLE("ConstellationPaths"),
-                           SQL_COLUMNS("ConstellationID", "StatPath"),
-                           SQL_VALUES(constellation_pkey_, stat.getPath()));
+            db_mgr->INSERT(SQL_TABLE("CollectionPaths"),
+                           SQL_COLUMNS("CollectionID", "StatPath"),
+                           SQL_VALUES(collection_pkey_, stat.getPath()));
         }
 
         finalized_ = true;
     }
 
-    /// \brief  Collect all values in this constellation into one data vector
+    /// \brief  Collect all values in this collection into one data vector
     ///         and write the values to the database.
     ///
     /// \throws Throws an exception if finalize() was not already called first.
     void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) override
     {
         if (!finalized_) {
-            throw DBException("Cannot call collect() on a constellation before calling finalize()");
+            throw DBException("Cannot call collect() on a collection before calling finalize()");
         }
 
         stats_values_.reserve(stats_.size());
@@ -195,7 +195,7 @@ public:
             num_bytes = stats_values_.size() * sizeof(DataT);
         }
 
-        std::unique_ptr<WorkerTask> task(new ConstellationSerializer(db_mgr, constellation_pkey_, timestamp, data_ptr, num_bytes));
+        std::unique_ptr<WorkerTask> task(new CollectionSerializer(db_mgr, collection_pkey_, timestamp, data_ptr, num_bytes));
 
         db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
     }
@@ -236,42 +236,42 @@ private:
         for (const auto& varname : varnames) {
             if (!validate_python_var(varname)) {
                 std::ostringstream oss;
-                oss << "Invalid stat ID for constellation '" << name_ << "'. Not a valid python variable name: " << varname;
+                oss << "Invalid stat ID for collection '" << name_ << "'. Not a valid python variable name: " << varname;
                 throw DBException(oss.str());
             }
         }
     }
 
-    /// \class ConstellationSerializer
-    /// \brief Writes constellation data on the worker thread.
-    class ConstellationSerializer : public WorkerTask
+    /// \class CollectionSerializer
+    /// \brief Writes collection data on the worker thread.
+    class CollectionSerializer : public WorkerTask
     {
     public:
         /// Construct with a timestamp and the data values, whether compressed or not.
-        ConstellationSerializer(
-            DatabaseManager* db_mgr, const int constellation_id, const TimestampBase* timestamp, const void* data_ptr, const size_t num_bytes)
+        CollectionSerializer(
+            DatabaseManager* db_mgr, const int collection_id, const TimestampBase* timestamp, const void* data_ptr, const size_t num_bytes)
             : db_mgr_(db_mgr)
-            , constellation_id_(constellation_id)
+            , collection_id_(collection_id)
             , timestamp_binder_(timestamp->createBinder())
         {
             data_vals_.resize(num_bytes);
             memcpy(data_vals_.data(), data_ptr, num_bytes);
         }
 
-        /// Asynchronously write the constellation data to the database.
+        /// Asynchronously write the collection data to the database.
         void completeTask() override
         {
-            db_mgr_->INSERT(SQL_TABLE("ConstellationData"),
-                            SQL_COLUMNS("ConstellationID", "TimeVal", "DataVals"),
-                            SQL_VALUES(constellation_id_, timestamp_binder_, data_vals_));
+            db_mgr_->INSERT(SQL_TABLE("CollectionData"),
+                            SQL_COLUMNS("CollectionID", "TimeVal", "DataVals"),
+                            SQL_VALUES(collection_id_, timestamp_binder_, data_vals_));
         }
 
     private:
         /// DatabaseManager used for INSERT().
         DatabaseManager* db_mgr_;
 
-        /// Primary key in the Constellations table.
-        const int constellation_id_;
+        /// Primary key in the Collections table.
+        const int collection_id_;
 
         /// Timestamp binder holding the timestamp value at the time of construction.
         ValueContainerBasePtr timestamp_binder_;
@@ -307,10 +307,10 @@ private:
         ScalarValueReader<StatT> reader_;
     };
 
-    /// Name of this constellation. Serialized to the database.
+    /// Name of this collection. Serialized to the database.
     std::string name_;
 
-    /// All the stats in this constellation.
+    /// All the stats in this collection.
     std::vector<Stat<DataT>> stats_;
 
     /// Quick lookup to ensure that stat paths are all unique.
@@ -325,11 +325,11 @@ private:
     /// All the stats' compressed values in one vector.
     std::vector<char> stats_values_compressed_;
 
-    /// Flag saying whether we can add more stats to this constellation.
+    /// Flag saying whether we can add more stats to this collection.
     bool finalized_ = false;
 
-    /// Our primary key in the Constellations table.
-    int constellation_pkey_ = -1;
+    /// Our primary key in the Collections table.
+    int collection_pkey_ = -1;
 };
 
 } // namespace simdb

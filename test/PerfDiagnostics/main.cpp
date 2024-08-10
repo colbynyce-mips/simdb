@@ -1,6 +1,5 @@
 /*
- \brief Tests for SimDB constellations feature (collecting groups of stats
- *      from all over a simulator).
+ \brief Tests for SimDB self-profiling feature to help users understand AsyncTaskQueue and safeTransaction().
  */
 
 #include "simdb/sqlite/DatabaseManager.hpp"

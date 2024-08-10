@@ -3,7 +3,7 @@
 #pragma once
 
 #include "simdb/schema/Schema.hpp"
-#include "simdb/constellations/ConstellationBase.hpp"
+#include "simdb/collection/CollectionBase.hpp"
 #include "simdb/sqlite/SQLiteConnection.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/sqlite/SQLiteTable.hpp"
@@ -145,41 +145,41 @@ public:
         return db_conn_.get();
     }
 
-    /// Get access to the Constellations for this database.
-    Constellations* getConstellationMgr()
+    /// Get access to the collections for this database.
+    Collections* getCollectionMgr()
     {
         if (!db_conn_) {
             return nullptr;
         }
 
-        if (!constellations_) {
-            constellations_.reset(new Constellations(this, db_conn_.get()));
+        if (!collections_) {
+            collections_.reset(new Collections(this, db_conn_.get()));
         }
 
-        return constellations_.get();
+        return collections_.get();
     }
 
-    /// Call this one time after all constellations have been configured.
-    void finalizeConstellations()
+    /// Call this one time after all collections have been configured.
+    void finalizeCollections()
     {
-        if (!constellations_) {
+        if (!collections_) {
             return;
         }
 
         Schema schema;
-        constellations_->defineSchema(schema);
+        collections_->defineSchema(schema);
         appendSchema(schema);
 
-        constellations_->finalizeConstellations_();
+        collections_->finalizeCollections_();
 
         std::string time_type;
-        if (constellations_->timestamp_->getDataType() == ColumnDataType::double_t) {
+        if (collections_->timestamp_->getDataType() == ColumnDataType::double_t) {
             time_type = "REAL";
         } else {
             time_type = "INT";
         }
 
-        INSERT(SQL_TABLE("ConstellationGlobals"), SQL_COLUMNS("TimeType"), SQL_VALUES(time_type));
+        INSERT(SQL_TABLE("CollectionGlobals"), SQL_COLUMNS("TimeType"), SQL_VALUES(time_type));
     }
 
     /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
@@ -473,8 +473,8 @@ private:
     /// that were initialized with a previously existing file.
     bool append_schema_allowed_ = true;
 
-    /// Hold onto all the user-configured constellations.
-    std::unique_ptr<Constellations> constellations_;
+    /// Hold onto all the user-configured collections.
+    std::unique_ptr<Collections> collections_;
 
     /// Self-profiler to help users maximize performance of SimDB
     /// with its intended use.
