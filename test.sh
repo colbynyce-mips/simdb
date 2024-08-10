@@ -17,7 +17,7 @@ cd $target
 rm -f build.log
 cmake -DCMAKE_BUILD_TYPE=$cmake_build_type -DCMAKE_EXPORT_COMPILE_COMMANDS=ON .. 2>&1 | tee build.log
 make clean 2>&1 | tee build.log
-make regress 2>&1 | tee build.log
+make -j4 regress 2>&1 | tee build.log
 cd ..
 rm -f compile_commands.json
 ln -s $target/compile_commands.json
