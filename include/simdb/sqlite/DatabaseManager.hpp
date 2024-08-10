@@ -3,7 +3,7 @@
 #pragma once
 
 #include "simdb/schema/Schema.hpp"
-#include "simdb/sqlite/ConstellationBase.hpp"
+#include "simdb/constellations/ConstellationBase.hpp"
 #include "simdb/sqlite/SQLiteConnection.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/sqlite/SQLiteTable.hpp"

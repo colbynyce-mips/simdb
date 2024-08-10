@@ -3,7 +3,7 @@
 #pragma once
 
 #include "simdb/async/AsyncTaskQueue.hpp"
-#include "simdb/sqlite/ConstellationBase.hpp"
+#include "simdb/constellations/ConstellationBase.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/utils/Compress.hpp"
 #include <cstring>

@@ -3,7 +3,7 @@
  *      from all over a simulator).
  */
 
-#include "simdb/sqlite/StatConstellation.hpp"
+#include "simdb/constellations/StatConstellation.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/test/SimDBTester.hpp"
 #include <array>
