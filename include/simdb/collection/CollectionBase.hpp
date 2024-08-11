@@ -5,6 +5,7 @@
 #include "simdb/sqlite/SQLiteTransaction.hpp"
 #include "simdb/sqlite/Timestamps.hpp"
 #include "simdb/schema/Schema.hpp"
+#include "simdb/utils/StringMap.hpp"
 
 #include <functional>
 #include <memory>
@@ -114,6 +115,21 @@ public:
             .addColumn("TimeVal", timestamp_->getDataType())
             .addColumn("DataVals", dt::blob_t)
             .createCompoundIndexOn({"CollectionID", "TimeVal"});
+
+        schema.addTable("StructFields")
+            .addColumn("CollectionName", dt::string_t)
+            .addColumn("FieldName", dt::string_t)
+            .addColumn("FieldType", dt::string_t);
+
+        schema.addTable("EnumDefns")
+            .addColumn("EnumName", dt::string_t)
+            .addColumn("EnumValStr", dt::string_t)
+            .addColumn("EnumValBlob", dt::blob_t)
+            .addColumn("IntType", dt::string_t);
+
+        schema.addTable("StringMap")
+            .addColumn("IntVal", dt::int32_t)
+            .addColumn("String", dt::string_t);
     }
 
     /// \brief  Add a user-configured collection.
@@ -135,16 +151,13 @@ public:
     /// of all collections.
     void collectAll()
     {
-        db_conn_->safeTransaction([&]() {
-            if (!timestamp_->ensureTimeHasAdvanced()) {
-                throw DBException("Cannot perform  - time has not advanced");
-            }
-            for (auto& collection : collections_) {
-                collection->collect(db_mgr_, timestamp_.get());
-            }
-            timestamp_->captureCurrentTime();
-            return true;
-        });
+        if (!timestamp_->ensureTimeHasAdvanced()) {
+            throw DBException("Cannot perform  - time has not advanced");
+        }
+        for (auto& collection : collections_) {
+            collection->collect(db_mgr_, timestamp_.get());
+        }
+        timestamp_->captureCurrentTime();
     }
 
 private:

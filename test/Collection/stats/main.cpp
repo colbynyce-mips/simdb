@@ -10,12 +10,10 @@
 
 TEST_INIT;
 
-/// This collection uses uncompressed uint32_t counter values.
-using CounterCollectionT = simdb::StatCollection<uint32_t, simdb::CompressionModes::UNCOMPRESSED>;
+using CounterCollectionT = simdb::StatCollection<uint32_t>;
 
-/// This collection uses compressed double random stat values.
 template <typename DataT>
-using RandStatCollectionT = simdb::StatCollection<DataT, simdb::CompressionModes::COMPRESSED>;
+using RandStatCollectionT = simdb::StatCollection<DataT>;
 
 /// Example class for counter values, which are common in certain simulators.
 class Counter
@@ -89,7 +87,7 @@ public:
 
     void runSimulation()
     {
-        configCollections_();
+        configCollection_();
 
         // Issue an instruction for 5 time steps. Do not retire anything at this
         // time to simulate a processing / pipeline delay.
@@ -135,7 +133,7 @@ public:
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "InstCounts");
             EXPECT_EQUAL(data_type, "uint32_t");
-            EXPECT_EQUAL(compressed, 0);
+            EXPECT_EQUAL(compressed, 1);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandInt8s");
@@ -252,7 +250,7 @@ public:
     }
 
 private:
-    void configCollections_()
+    void configCollection_()
     {
         auto collection_mgr = db_mgr_->getCollectionMgr();
         collection_mgr->useTimestampsFrom(&time_);

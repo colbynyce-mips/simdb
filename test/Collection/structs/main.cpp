@@ -1,12 +1,11 @@
 /*
- \brief Tests for SimDB constellations feature (collecting groups of stats
- *      from all over a simulator). Unlike the test in the 'stats' directory,
- *      this tests for more general-purpose collection of structs with fields
- *      that are PODs, enums, and strings. We also test that we can collect
- *      smart pointers (or raw pointers) of these structs.
+ \brief Tests for SimDB collections feature. Unlike the test in the 'stats' directory,
+ *      this tests for more general-purpose collection of structs with fields that are
+ *      PODs, enums, and strings. We also test that we can collect smart pointers (or
+ *      raw pointers) of these structs.
  */
 
-#include "simdb/constellations/StructConstellation.hpp"
+#include "simdb/collection/ScalarStructs.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/test/SimDBTester.hpp"
 
@@ -30,17 +29,57 @@ struct Instruction
     std::string mnemonic;
 };
 
-/// Note that when collecting anything like shared_ptr's or raw pointers, you should use
-/// the value type in the Constellation<DataT> signature.
-using InstConstellation = simdb::Constellation<Instruction, simdb::CompressionModes::COMPRESSED>;
-
-InstructionPtr generateRandomInst()
+namespace simdb
 {
-    auto inst = std::make_shared<Instruction>();
+    template <>
+    void defineStructSchema<Instruction>(StructSchema& schema)
+    {
+        schema.setStructName("Instruction");
+        schema.addField<TargetUnit>("unit");
+        schema.addField<uint64_t>("vaddr");
+        schema.addField<std::string>("mnemonic");
+    }
+
+    template <>
+    void defineEnumMap<TargetUnit>(std::string& enum_name, std::map<std::string, int32_t>& map)
+    {
+        enum_name = "TargetUnit";
+        map["ALU0"] = static_cast<int32_t>(TargetUnit::ALU0);
+        map["ALU1"] = static_cast<int32_t>(TargetUnit::ALU1);
+        map["FPU"]  = static_cast<int32_t>(TargetUnit::FPU);
+        map["BR"]   = static_cast<int32_t>(TargetUnit::BR);
+        map["LSU"]  = static_cast<int32_t>(TargetUnit::LSU);
+        map["ROB"]  = static_cast<int32_t>(TargetUnit::ROB);
+    }
+
+    template <>
+    void writeStructFields(const Instruction* inst, StructFieldSerializer<Instruction>* serializer)
+    {
+        serializer->writeField(inst->unit);
+        serializer->writeField(inst->vaddr);
+        serializer->writeField(inst->mnemonic);
+    }
+}
+
+/// Note that when collecting anything like shared_ptr's or raw pointers, you should use
+/// the value type in the ScalarStructCollection<DataT> signature.
+using InstCollection = simdb::ScalarStructCollection<Instruction>;
+
+Instruction* generateRandomInst()
+{
+    std::unique_ptr<Instruction> inst(new Instruction);
     inst->unit = static_cast<TargetUnit>(rand() % (int)TargetUnit::__NUM_UNITS__);
     inst->vaddr = rand();
     inst->mnemonic = rand() % 2 ? (rand() % 2 ? "MOV" : "SUB") : "ADD";
-    return inst;
+    return inst.release();
+}
+
+void populateInst(Instruction& inst)
+{
+    std::unique_ptr<Instruction> rnd(generateRandomInst());
+    inst.unit = rnd->unit;
+    inst.mnemonic = rnd->mnemonic;
+    inst.vaddr = rnd->vaddr;
 }
 
 /// Custom smart pointer class. It is common in large simulators to use memory
@@ -50,8 +89,9 @@ template <typename T>
 class CustomUniquePtr
 {
 public:
+    CustomUniquePtr() = default;
     explicit CustomUniquePtr(T *ptr) : ptr_(ptr) {}
-    ~CustomUniquePtr() { delete ptr_; }
+    ~CustomUniquePtr() { if (ptr_) delete ptr_; }
 
     T* operator->() { return ptr_; }
     const T* operator->() const { return ptr_; }
@@ -62,8 +102,13 @@ public:
     T* get() { return ptr_; }
     const T* get() const { return ptr_; }
 
+    void reset(T *ptr) {
+        if (ptr_) delete ptr_;
+        ptr_ = ptr;
+    }
+
 private:
-    T* ptr_;
+    T* ptr_ = nullptr;
 };
 
 /*!
@@ -76,8 +121,39 @@ private:
 class InstGroup
 {
 public:
+    InstGroup()
+    {
+        // Since the collection system will hold onto backpointers to our
+        // data, we cannot reallocate the instructions after collection
+        // is configured. 
+        inst_raw_ = generateRandomInst();
+        inst_shared_.reset(generateRandomInst());
+        inst_unique_.reset(generateRandomInst());
+        inst_custom_.reset(generateRandomInst());
+    }
+
+    ~InstGroup()
+    {
+        delete inst_raw_;
+    }
+
+    /// Add our structs to the collection.
+    void configCollection(InstCollection* collection)
+    {
+        collection->addStruct("insts.foo", inst_raw_);
+        collection->addStruct("insts.bar", inst_shared_.get());
+        collection->addStruct("insts.fiz", inst_unique_.get());
+        collection->addStruct("insts.fuz", inst_custom_.get());
+    }
+
     /// Regnerate all of the Instruction member variables.
-    
+    void regenerateInstructions()
+    {
+        populateInst(*inst_raw_);
+        populateInst(*inst_shared_);
+        populateInst(*inst_unique_);
+        populateInst(*inst_custom_);
+    }
 
 private:
     Instruction* inst_raw_ = nullptr;
@@ -86,73 +162,7 @@ private:
     CustomUniquePtr<Instruction> inst_custom_;
 };
 
-/// Fetch->Decode->Dispatch
-///        ******
-/// This class will hold onto instructions in a vector.
-///
-class Decode
-{
-public:
-    Decode(uint32_t capacity = DECODE_CAPACITY)
-    {
-        insts_.reserve(capacity);
-    }
-
-    /// Receive an instruction from the Fetch unit
-    void receive(InstructionPtr inst)
-    {
-        assert(insts_.size() != insts_.capacity());
-        insts_.push_back(inst);
-    }
-
-    /// Release the oldest instruction to be sent to the Dispatch unit
-    InstructionPtr release()
-    {
-        assert(!insts_.empty());
-        auto inst = insts_[0];
-        insts_.erase(insts_.begin());
-        return inst;
-    }
-
-private:
-    InstructionQueue insts_;
-};
-
-/// Fetch->Decode->Dispatch
-///                ********
-/// This class will hold onto instructions in a deque.
-///
-class Dispatch
-{
-public:
-    Dispatch(uint32_t capacity = DISPATCH_CAPACITY)
-        : capacity_(capacity)
-    {
-    }
-
-    /// Receive an instruction from the Fetch unit
-    void receive(InstructionPtr inst)
-    {
-        assert(insts_.size() != capacity_);
-        insts_.push_back(inst);
-    }
-
-    /// Release the oldest instruction
-    InstructionPtr release()
-    {
-        assert(!insts_.empty());
-        auto inst = insts_[0];
-        insts_.erase(insts_.begin());
-        return inst;
-    }
-
-private:
-    const uint32_t capacity_;
-    InstructionDeque insts_;
-};
-
-/// Example simulator with Fetch->Decode->Dispatch units. We will configure constellations
-/// for all units.
+/// Example simulator that configures a collection of various structs.
 class Sim
 {
 public:
@@ -163,44 +173,31 @@ public:
 
     void runSimulation()
     {
-        configConstellations_();
+        configCollection_();
+
+        while (time_++ < 1000) {
+            inst_group_.regenerateInstructions();
+            db_mgr_->getCollectionMgr()->collectAll();
+        }
 
         db_mgr_->getConnection()->getTaskQueue()->stopThread();
     }
 
 private:
-    void configConstellations_()
+    void configCollection_()
     {
-        auto constellation_mgr = db_mgr_->getConstellationMgr();
-        constellation_mgr->useTimestampsFrom(&time_);
+        auto collection_mgr = db_mgr_->getCollectionMgr();
+        collection_mgr->useTimestampsFrom(&time_);
 
-        std::unique_ptr<InstConstellation> inst_constellation(new InstConstellation("FetchInstruction"));
+        std::unique_ptr<InstCollection> inst_collection(new InstCollection("ScalarStructs"));
+        inst_group_.configCollection(inst_collection.get());
+        collection_mgr->addCollection(std::move(inst_collection));
 
-
-#if 0
-        ctr_constellation->addStat("stats.num_insts_issued", std::bind(&Execute::getNumIssued, &execute_));
-        ctr_constellation->addStat("stats.num_insts_retired", std::bind(&Retire::getNumRetired, &retire_));
-
-        constellation_mgr->addConstellation(std::move(ctr_constellation));
-
-        addConstellation_<int8_t>(rand_int8s_, "stats.rand_int8s.bin", "RandInt8s", constellation_mgr);
-        addConstellation_<int16_t>(rand_int16s_, "stats.rand_int16s.bin", "RandInt16s", constellation_mgr);
-        addConstellation_<int32_t>(rand_int32s_, "stats.rand_int32s.bin", "RandInt32s", constellation_mgr);
-        addConstellation_<int64_t>(rand_int64s_, "stats.rand_int64s.bin", "RandInt64s", constellation_mgr);
-        addConstellation_<uint8_t>(rand_uint8s_, "stats.rand_uint8s.bin", "RandUInt8s", constellation_mgr);
-        addConstellation_<uint16_t>(rand_uint16s_, "stats.rand_uint16s.bin", "RandUInt16s", constellation_mgr);
-        addConstellation_<uint32_t>(rand_uint32s_, "stats.rand_uint32s.bin", "RandUInt32s", constellation_mgr);
-        addConstellation_<uint64_t>(rand_uint64s_, "stats.rand_uint64s.bin", "RandUInt64s", constellation_mgr);
-        addConstellation_<float>(rand_floats_, "stats.rand_floats.bin", "RandFloats", constellation_mgr);
-        addConstellation_<double>(rand_doubles_, "stats.rand_doubles.bin", "RandDoubles", constellation_mgr);
-#endif
-        db_mgr_->finalizeConstellations();
+        db_mgr_->finalizeCollections();
     }
 
     simdb::DatabaseManager* db_mgr_;
-    Fetch fetch_;
-    Decode decode_;
-    Dispatch dispatch_;
+    InstGroup inst_group_;
     uint64_t time_ = 0;
 };
 

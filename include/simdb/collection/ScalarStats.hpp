@@ -1,9 +1,10 @@
-// <StatCollection> -*- C++ -*-
+// <ScalarStats> -*- C++ -*-
 
 #pragma once
 
 #include "simdb/async/AsyncTaskQueue.hpp"
 #include "simdb/collection/CollectionBase.hpp"
+#include "simdb/collection/BlobSerializer.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/utils/Compress.hpp"
 #include <cstring>
@@ -24,11 +25,10 @@ namespace simdb
  * 
  *        Using the StatCollection feature, you can gather these stats with a
  *        single API call during simulation, such as at every time step or 
- *        every clock cycle, and optionally let SimDB automatically compress  
- *        these values on the AsyncTaskQueue thread to save a significant  
- *        amount of disk space in your database file.
+ *        every clock cycle, and let SimDB automatically compress these values
+ *        to save a significant amount of disk space in your database file.
  */
-template <typename DataT, CompressionModes cmode = CompressionModes::COMPRESSED>
+template <typename DataT>
 class StatCollection : public CollectionBase
 {
 public:
@@ -148,11 +148,9 @@ public:
             throw DBException("Invalid DataT");
         }
 
-        int compressed = (cmode == CompressionModes::COMPRESSED) ? 1 : 0;
-
         auto record = db_mgr->INSERT(SQL_TABLE("Collections"),
                                      SQL_COLUMNS("Name", "DataType", "Compressed"),
-                                     SQL_VALUES(name_, data_type, compressed));
+                                     SQL_VALUES(name_, data_type, 1));
 
         collection_pkey_ = record->getId();
 
@@ -182,18 +180,9 @@ public:
             stats_values_.push_back(stat.getValue());
         }
 
-        const bool compress = (cmode == CompressionModes::COMPRESSED);
-        const void* data_ptr;
-        size_t num_bytes;
-
-        if (compress) {
-            compressDataVec(stats_values_, stats_values_compressed_);
-            data_ptr = stats_values_compressed_.data();
-            num_bytes = stats_values_compressed_.size() * sizeof(char);
-        } else {
-            data_ptr = stats_values_.data();
-            num_bytes = stats_values_.size() * sizeof(DataT);
-        }
+        compressDataVec(stats_values_, stats_values_compressed_);
+        const void* data_ptr = stats_values_compressed_.data();
+        const size_t num_bytes = stats_values_compressed_.size() * sizeof(char);
 
         std::unique_ptr<WorkerTask> task(new CollectionSerializer(db_mgr, collection_pkey_, timestamp, data_ptr, num_bytes));
 
@@ -241,44 +230,6 @@ private:
             }
         }
     }
-
-    /// \class CollectionSerializer
-    /// \brief Writes collection data on the worker thread.
-    class CollectionSerializer : public WorkerTask
-    {
-    public:
-        /// Construct with a timestamp and the data values, whether compressed or not.
-        CollectionSerializer(
-            DatabaseManager* db_mgr, const int collection_id, const TimestampBase* timestamp, const void* data_ptr, const size_t num_bytes)
-            : db_mgr_(db_mgr)
-            , collection_id_(collection_id)
-            , timestamp_binder_(timestamp->createBinder())
-        {
-            data_vals_.resize(num_bytes);
-            memcpy(data_vals_.data(), data_ptr, num_bytes);
-        }
-
-        /// Asynchronously write the collection data to the database.
-        void completeTask() override
-        {
-            db_mgr_->INSERT(SQL_TABLE("CollectionData"),
-                            SQL_COLUMNS("CollectionID", "TimeVal", "DataVals"),
-                            SQL_VALUES(collection_id_, timestamp_binder_, data_vals_));
-        }
-
-    private:
-        /// DatabaseManager used for INSERT().
-        DatabaseManager* db_mgr_;
-
-        /// Primary key in the Collections table.
-        const int collection_id_;
-
-        /// Timestamp binder holding the timestamp value at the time of construction.
-        ValueContainerBasePtr timestamp_binder_;
-
-        /// Data values.
-        std::vector<char> data_vals_;
-    };
 
     /// \class Stat
     /// \brief A single named statistic.

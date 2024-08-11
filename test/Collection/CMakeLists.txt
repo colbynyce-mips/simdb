@@ -1,1 +1,2 @@
 add_subdirectory(stats)
+add_subdirectory(structs)
