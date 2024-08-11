@@ -5,7 +5,7 @@
  *      raw pointers) of these structs.
  */
 
-#include "simdb/collection/ScalarStructs.hpp"
+#include "simdb/collection/Structs.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/test/SimDBTester.hpp"
 
@@ -189,7 +189,7 @@ private:
         auto collection_mgr = db_mgr_->getCollectionMgr();
         collection_mgr->useTimestampsFrom(&time_);
 
-        std::unique_ptr<InstCollection> inst_collection(new InstCollection("ScalarStructs"));
+        std::unique_ptr<InstCollection> inst_collection(new InstCollection("Structs"));
         inst_group_.configCollection(inst_collection.get());
         collection_mgr->addCollection(std::move(inst_collection));
 

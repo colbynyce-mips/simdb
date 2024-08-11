@@ -1,4 +1,4 @@
-// <ScalarStructs> -*- C++ -*-
+// <Structs> -*- C++ -*-
 
 #pragma once
 
