@@ -4,3 +4,4 @@ debug/**
 .vscode
 build.log
 .editorconfig
+python/__pycache__
