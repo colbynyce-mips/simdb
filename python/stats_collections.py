@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 # This module makes it easy to unpack statistics data that was
-# serialized to the database using SimDB's "constellations"
+# serialized to the database using SimDB's "collections"
 # feature.
 #
 # It is provided as a python module to help keep the internal
@@ -11,17 +11,17 @@
 
 import argparse, sqlite3, zlib, struct
 
-class Constellations:
+class Collections:
     # Create with the full path to the database file
     def __init__(self, db_path):
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        cursor.execute('SELECT TimeType FROM ConstellationGlobals LIMIT 1')
+        cursor.execute('SELECT TimeType FROM CollectionGlobals LIMIT 1')
         for row in cursor.fetchall():
             self._time_type = row[0]
         
-        cursor.execute('SELECT Id,Name,DataType,Compressed FROM Constellations')
+        cursor.execute('SELECT Id,Name,DataType,Compressed FROM Collections')
 
         meta_by_id = {}
         for id, name, data_type, compressed in cursor.fetchall():
@@ -30,68 +30,68 @@ class Constellations:
                               'Compressed':compressed,
                               'StatPaths':[]}
 
-        cursor.execute('SELECT ConstellationID,StatPath FROM ConstellationPaths')
+        cursor.execute('SELECT CollectionID,StatPath FROM CollectionPaths')
         for id,stat_path in cursor.fetchall():
             meta_by_id[id]['StatPaths'].append(stat_path)
 
-        self._constellations = []
+        self._collections = []
         for id, meta in meta_by_id.items():
             name = meta['Name']
             data_type = meta['DataType']
             compressed = meta['Compressed']
             stat_paths = meta['StatPaths']
 
-            constellation = Constellation(conn, id, name, self._time_type, data_type, compressed, stat_paths)
-            self._constellations.append(constellation)
+            collection = Collection(conn, id, name, self._time_type, data_type, compressed, stat_paths)
+            self._collections.append(collection)
 
     @property
     def time_type(self):
         return self._time_type
 
-    # Get all constellation data (time and data values) as a dict:
+    # Get all collection data (time and data values) as a dict:
     #
-    # all_constellations = {
-    #   'ConstellationA': {
+    # all_collections = {
+    #   'CollectionA': {
     #     'TimeVals': [1,2,3,4,5]
     #     'DataVals': {
     #       'stat1': [5,2,6,7,4],
     #       'stat2': [7,7,3,4,1]
     #     }
     #   },
-    #   'ConstellationB': {
+    #   'CollectionB': {
     #     ...
     #   }
     # }
-    def Unpack(self, constellation_name=None, time_range=None):
-        all_constellations = {}
-        for constellation in self._constellations:
-            if constellation_name is None or constellation_name == constellation.name:
-                all_constellations[constellation.name] = constellation.Unpack(time_range)
+    def Unpack(self, collection_name=None, time_range=None):
+        all_collections = {}
+        for collection in self._collections:
+            if collection_name is None or collection_name == collection.name:
+                all_collections[collection.name] = collection.Unpack(time_range)
 
-        if constellation_name is not None:
-            valid_names = [const.name for const in self._constellations]
-            assert len(all_constellations) > 0, \
-                'Constellation named {} does not exist. ' \
-                'Available constellations: {}'.format(constellation_name, \
+        if collection_name is not None:
+            valid_names = [const.name for const in self._collections]
+            assert len(all_collections) > 0, \
+                'Collection named {} does not exist. ' \
+                'Available collections: {}'.format(collection_name, \
                                                       ','.join(valid_names))
 
-        return all_constellations
+        return all_collections
 
-    # Dump all constellations (data and metadata) to the provided CSV file:
+    # Dump all collections (data and metadata) to the provided CSV file:
     #
-    # ConstellationA
+    # CollectionA
     # TimeVals,1,2,3,4,5
     # stat1,5,2,6,7,4
     # stat2,7,7,3,4,1
     #
-    # ConstellationB
+    # CollectionB
     # ...
     #
-    def DumpToCSV(self, filename, constellation_name=None, time_range=None, time_precision=None, data_precision=None):
-        all_constellations = self.Unpack(constellation_name, time_range)
+    def DumpToCSV(self, filename, collection_name=None, time_range=None, time_precision=None, data_precision=None):
+        all_collections = self.Unpack(collection_name, time_range)
 
-        def DumpConstellation(name, data_dict, time_precision, data_precision, fout):
-            fout.write('Constellation,' + name + ',\n')
+        def DumpCollection(name, data_dict, time_precision, data_precision, fout):
+            fout.write('Collection,' + name + ',\n')
             fout.write('TimeVals,')
             time_vals = data_dict['TimeVals']
             if time_precision >= 0:
@@ -107,10 +107,10 @@ class Constellations:
             fout.write('\n')
 
         with open(filename, 'w') as fout:
-            for name, data_dict in all_constellations.items():
-                DumpConstellation(name, data_dict, time_precision, data_precision, fout)
+            for name, data_dict in all_collections.items():
+                DumpCollection(name, data_dict, time_precision, data_precision, fout)
 
-class Constellation:
+class Collection:
     def __init__(self, conn, id, name, time_type, data_type, compressed, stat_paths):
         self._conn = conn
         self._id = id
@@ -124,9 +124,9 @@ class Constellation:
     def name(self):
         return self._name
 
-    # Get constellation data (time and data values) as a dict:
+    # Get collection data (time and data values) as a dict:
     #
-    # constellation = {
+    # collection = {
     #   'TimeVals': [1,2,3,4,5]
     #   'DataVals': {
     #     'stat1': [5,2,6,7,4],
@@ -135,7 +135,7 @@ class Constellation:
     # }
     def Unpack(self, time_range=None):
         cursor = self._conn.cursor()
-        cmd = 'SELECT TimeVal,DataVals FROM ConstellationData WHERE ConstellationID={} '.format(self._id)
+        cmd = 'SELECT TimeVal,DataVals FROM CollectionData WHERE CollectionID={} '.format(self._id)
 
         if time_range is not None:
             assert type(time_range) in (list,tuple) and len(time_range) == 2
@@ -172,7 +172,7 @@ class Constellation:
         assert len(data_matrix) == len(time_vals)
         data_matrix = [[x[i] for x in data_matrix] for i in range(len(data_matrix[0]))]
 
-        # constellation = {
+        # collection = {
         #   'TimeVals': [1,2,3,4,5]
         #   'DataVals': {
         #     'stat1': [5,2,6,7,4],
@@ -180,11 +180,11 @@ class Constellation:
         #   }
         # }
 
-        constellation_dict = {'TimeVals':time_vals, 'DataVals':{}}
+        collection_dict = {'TimeVals':time_vals, 'DataVals':{}}
         for i,stat_path in enumerate(self._stat_paths):
-            constellation_dict['DataVals'][stat_path] = data_matrix[i]
+            collection_dict['DataVals'][stat_path] = data_matrix[i]
 
-        return constellation_dict
+        return collection_dict
 
     def _FormatTimeVal(self, time_val):
         if self._time_type == 'INT':
@@ -237,7 +237,7 @@ def ParseArgs(time_type=str):
 
     parser.add_argument('--data-precision', type=int, default=-1, help='Precision of the data values in report files')
 
-    parser.add_argument('--constellation-name', help='Name of a single constellation to write to the report(s)')
+    parser.add_argument('--collection-name', help='Name of a single collection to write to the report(s)')
 
     parser.add_argument('--time-range', nargs='+', type=time_type,
                         help='Range of time values to print to the report(s) as ' \
@@ -251,8 +251,8 @@ def ParseArgs(time_type=str):
 if __name__ == '__main__':
     args = ParseArgs()
     db_path = args.db_file
-    constellations = Constellations(db_path)
-    time_type = constellations.time_type
+    collections = Collections(db_path)
+    time_type = collections.time_type
 
     if time_type == 'INT':
         args = ParseArgs(time_type=int)
@@ -263,8 +263,8 @@ if __name__ == '__main__':
 
     time_precision = args.time_precision
     data_precision = args.data_precision
-    constellation_name = args.constellation_name
+    collection_name = args.collection_name
     time_range = args.time_range
 
     if args.csv_report_file:
-        constellations.DumpToCSV(args.csv_report_file, constellation_name, time_range, time_precision, data_precision)
+        collections.DumpToCSV(args.csv_report_file, collection_name, time_range, time_precision, data_precision)
