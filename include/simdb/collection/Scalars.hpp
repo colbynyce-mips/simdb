@@ -1,4 +1,4 @@
-// <ScalarStats> -*- C++ -*-
+// <Scalars> -*- C++ -*-
 
 #pragma once
 

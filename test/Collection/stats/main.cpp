@@ -3,7 +3,7 @@
  *      from all over a simulator).
  */
 
-#include "simdb/collection/ScalarStats.hpp"
+#include "simdb/collection/Scalars.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/test/SimDBTester.hpp"
 #include <array>
