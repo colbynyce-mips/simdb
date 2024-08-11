@@ -142,7 +142,7 @@ public:
                     transaction();
                 } else {
                     ScopedTransaction scoped_transaction(db_conn_, transaction, in_transaction_flag_);
-                    if (profiler_ && scoped_transaction.touchedDatabase()) {
+                    if (scoped_transaction.touchedDatabase() && profiler_) {
                         profiler_->onCommitTransaction();
                     }
                 }
@@ -216,10 +216,10 @@ private:
         ScopedTransaction(sqlite3* db_conn, const TransactionFunc& transaction, bool& in_transaction_flag)
             : db_conn_(db_conn)
             , in_transaction_flag_(in_transaction_flag)
+            , transaction_(transaction)
         {
             in_transaction_flag_ = true;
             executeCommand_("BEGIN TRANSACTION");
-            touched_db_ = transaction();
         }
 
         /// Issues COMMIT TRANSACTION
@@ -229,9 +229,11 @@ private:
             in_transaction_flag_ = false;
         }
 
-        /// Let the SQLiteTransaction know whether we touched the DB.
-        bool touchedDatabase() const
+        /// Invoke the transaction code. Let the SQLiteTransaction know
+        /// whether we touched the DB.
+        bool touchedDatabase()
         {
+            touched_db_ = transaction_();
             return touched_db_;
         }
 
@@ -255,6 +257,9 @@ private:
 
         /// Let the SQLiteTransaction know whether we touched the DB.
         bool touched_db_ = false;
+
+        /// Wraps the user's code in a std::function
+        const TransactionFunc& transaction_;
     };
 
     // SimDB self-profiler.
