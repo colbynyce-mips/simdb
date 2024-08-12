@@ -1,7 +1,4 @@
-/*
- \brief Tests for SimDB collections feature (collecting groups of stats
- *      from all over a simulator).
- */
+/// Tests for SimDB collections feature (specifically scalar PODs).
 
 #include "simdb/collection/Scalars.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
