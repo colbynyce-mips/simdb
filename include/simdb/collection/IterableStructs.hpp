@@ -81,7 +81,7 @@ public:
 
         for (const auto& tup : containers_) {
             auto record = db_mgr->INSERT(SQL_TABLE("CollectionPaths"),
-                                         SQL_COLUMNS("CollectionID", "StatPath"),
+                                         SQL_COLUMNS("CollectionID", "SimPath"),
                                          SQL_VALUES(collection_pkey_, std::get<1>(tup)));
 
             auto path_id = record->getId();

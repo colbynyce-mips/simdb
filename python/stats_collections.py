@@ -28,18 +28,18 @@ class Collections:
             meta_by_id[id] = {'Name':name,
                               'DataType':data_type,
                               'Compressed':compressed,
-                              'StatPaths':[]}
+                              'SimPaths':[]}
 
-        cursor.execute('SELECT CollectionID,StatPath FROM CollectionPaths')
+        cursor.execute('SELECT CollectionID,SimPath FROM CollectionPaths')
         for id,stat_path in cursor.fetchall():
-            meta_by_id[id]['StatPaths'].append(stat_path)
+            meta_by_id[id]['SimPaths'].append(stat_path)
 
         self._collections = []
         for id, meta in meta_by_id.items():
             name = meta['Name']
             data_type = meta['DataType']
             compressed = meta['Compressed']
-            stat_paths = meta['StatPaths']
+            stat_paths = meta['SimPaths']
 
             collection = Collection(conn, id, name, self._time_type, data_type, compressed, stat_paths)
             self._collections.append(collection)

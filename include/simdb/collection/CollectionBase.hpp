@@ -166,7 +166,7 @@ public:
 
         schema.addTable("CollectionPaths")
             .addColumn("CollectionID", dt::int32_t)
-            .addColumn("StatPath", dt::string_t);
+            .addColumn("SimPath", dt::string_t);
 
         schema.addTable("CollectionData")
             .addColumn("CollectionID", dt::int32_t)
