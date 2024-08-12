@@ -7,21 +7,6 @@
 namespace simdb
 {
 
-template <typename StructT, bool Sparse>
-class ContainerSerializer
-{
-public:
-    ContainerSerializer(int path_id)
-        : path_id_(path_id)
-    {
-    }
-
-private:
-    int path_id_;
-    std::vector<char> container_blob_;
-    std::vector<char> container_blob_compressed_;
-};
-
 /*!
  * \class IterableStructCollection
  *
