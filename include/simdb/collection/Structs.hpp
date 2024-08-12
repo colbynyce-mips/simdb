@@ -12,6 +12,9 @@
 namespace simdb
 {
 
+/// Data types supported by the collection system. Note that
+/// enum struct fields use the std::underlying_type of that
+/// enum, e.g. int32_t
 enum class StructFields
 {
     char_t,
@@ -44,6 +47,8 @@ template <> inline StructFields getFieldDTypeEnum<float>() { return StructFields
 template <> inline StructFields getFieldDTypeEnum<double>() { return StructFields::double_t; }
 template <> inline StructFields getFieldDTypeEnum<std::string>() { return StructFields::string_t; }
 
+/// These dtype strings are stored in the database to inform the downstream 
+/// python module how to interpret the structs' serialized raw bytes.
 inline std::string getFieldDTypeStr(const StructFields dtype)
 {
     switch (dtype) {
@@ -83,6 +88,9 @@ inline size_t getDTypeNumBytes(const StructFields dtype)
     throw DBException("Invalid data type");
 }
 
+/// Avoid all SQLite issues (such as not natively supporting uint64_t, or
+/// truncating double values to less precision that you wanted), these
+/// convertIntToBlob() methods convert scalar PODs to vector<char> (blob).
 template <typename IntT>
 std::vector<char> convertIntToBlob(const IntT val) = delete;
 
@@ -147,9 +155,16 @@ template <> inline std::vector<char> convertIntToBlob<uint64_t>(const uint64_t v
     return blob;
 }
 
+/// Users specialize this template so we can serialize the int->string mapping
+/// for their enums. Ints are stored in the database, and the python modules
+/// turn them back into enums later.
 template <typename EnumT>
 void defineEnumMap(std::string& enum_name, std::map<std::string, typename std::underlying_type<EnumT>::type>& map) = delete;
 
+/*!
+ * \class EnumMap<EnumT>
+ * \brief This class holds and serializes the int->string mapping for the EnumT.
+ */
 template <typename EnumT>
 class EnumMap
 {
@@ -208,16 +223,18 @@ private:
     mutable bool serialized_ = false;
 };
 
-class StructField
+/// \class FieldBase
+/// \brief This class is used to serialize information about a non-enum, non-string field.
+class FieldBase
 {
 public:
-    StructField(const std::string& name, const StructFields type)
+    FieldBase(const std::string& name, const StructFields type)
         : name_(name)
         , dtype_(type)
     {
     }
 
-    virtual ~StructField() = default;
+    virtual ~FieldBase() = default;
 
     const std::string& getName() const
     {
@@ -246,12 +263,14 @@ private:
     StructFields dtype_;
 };
 
+/// \class EnumField
+/// \brief This class is used to serialize information about an enum field.
 template <typename EnumT>
-class StructEnumField : public StructField
+class EnumField : public FieldBase
 {
 public:
-    StructEnumField(const char* name)
-        : StructField(name, getFieldDTypeEnum<typename EnumMap<EnumT>::enum_int_t>())
+    EnumField(const char* name)
+        : FieldBase(name, getFieldDTypeEnum<typename EnumMap<EnumT>::enum_int_t>())
         , map_(EnumMap<EnumT>::instance()->getMap())
         , enum_name_(EnumMap<EnumT>::instance()->getEnumName())
     {
@@ -271,27 +290,26 @@ private:
     std::string enum_name_;
 };
 
-class StructStringField : public StructField
+/// \class StringField
+/// \brief This class is used to serialize information about a string field.
+class StringField : public FieldBase
 {
 public:
-    StructStringField(const char* name)
-        : StructField(name, StructFields::string_t)
+    StringField(const char* name)
+        : FieldBase(name, StructFields::string_t)
     {
-        map_ = StringMap::instance()->getMap();
     }
 
     size_t getNumBytes() const override
     {
         return getDTypeNumBytes(StructFields::uint32_t);
     }
-
-private:
-    typename StringMap::string_map_t map_;
 };
 
 template <typename StructT>
 class StructFieldSerializer;
 
+/// Users specialize this template to write the struct fields one by one into the serializer.
 template <typename StructT>
 void writeStructFields(const StructT* s, StructFieldSerializer<StructT>* serializer) = delete;
 
@@ -299,7 +317,7 @@ template <typename StructT>
 class StructFieldSerializer
 {
 public:
-    StructFieldSerializer(const std::vector<std::unique_ptr<StructField>>& fields, char*& dest)
+    StructFieldSerializer(const std::vector<std::unique_ptr<FieldBase>>& fields, char*& dest)
         : fields_(fields)
         , dest_(dest)
     {
@@ -336,7 +354,7 @@ public:
 
     void writeField(const std::string& val)
     {
-        if (dynamic_cast<const StructStringField*>(fields_[current_field_idx_].get())) {
+        if (dynamic_cast<const StringField*>(fields_[current_field_idx_].get())) {
             uint32_t string_id = StringMap::instance()->getStringId(val);
             writeField<uint32_t>(string_id);
         } else {
@@ -345,7 +363,7 @@ public:
     }
 
 private:
-    const std::vector<std::unique_ptr<StructField>>& fields_;
+    const std::vector<std::unique_ptr<FieldBase>>& fields_;
     size_t current_field_idx_ = 0;
     char*& dest_;
 };
@@ -353,7 +371,7 @@ private:
 class StructBlobSerializer
 {
 public:
-    StructBlobSerializer(std::vector<std::unique_ptr<StructField>>&& fields)
+    StructBlobSerializer(std::vector<std::unique_ptr<FieldBase>>&& fields)
         : fields_(std::move(fields))
     {
     }
@@ -366,7 +384,7 @@ public:
     }
 
 private:
-    std::vector<std::unique_ptr<StructField>> fields_;
+    std::vector<std::unique_ptr<FieldBase>> fields_;
 };
 
 class StructSchema
@@ -395,21 +413,21 @@ public:
     typename std::enable_if<!std::is_enum<FieldT>::value && !std::is_same<FieldT, std::string>::value, void>::type
     addField(const char* name)
     {
-        fields_.emplace_back(new StructField(name, getFieldDTypeEnum<FieldT>()));
+        fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<FieldT>()));
     }
 
     template <typename FieldT>
     typename std::enable_if<std::is_enum<FieldT>::value && !std::is_same<FieldT, std::string>::value, void>::type
     addField(const char* name)
     {
-        fields_.emplace_back(new StructEnumField<FieldT>(name));
+        fields_.emplace_back(new EnumField<FieldT>(name));
     }
 
     template <typename FieldT>
     typename std::enable_if<std::is_same<FieldT, std::string>::value, void>::type
     addField(const char* name)
     {
-        fields_.emplace_back(new StructStringField(name));
+        fields_.emplace_back(new StringField(name));
     }
 
     void writeMetadata(DatabaseManager* db_mgr, const std::string& collection_name) const
@@ -426,7 +444,7 @@ public:
 
 private:
     std::string struct_name_;
-    std::vector<std::unique_ptr<StructField>> fields_;
+    std::vector<std::unique_ptr<FieldBase>> fields_;
 };
 
 template <typename StructT>
@@ -581,9 +599,6 @@ private:
     /// every call to collect(), which can be called very many times
     /// during the simulation.
     std::vector<char> structs_blob_;
-
-    /// All the structs' compressed values in one vector.
-    std::vector<char> structs_blob_compressed_;
 };
 
 } // namespace simdb
