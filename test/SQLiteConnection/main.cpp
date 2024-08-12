@@ -147,6 +147,17 @@ int main()
     record5->setPropertyBlob("SomeBlob", TEST_BLOB2.data_ptr, TEST_BLOB2.num_bytes);
     EXPECT_EQUAL(record5->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR2);
 
+    // Verify that bug is fixed: SQL_VALUES(..., <blob column>, ...)
+    // would not compile when a blob (or vector) value was used in the
+    // middle the SQL_VALUES (or anywhere but the last supplied value).
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
+                  SQL_COLUMNS("SomeBlob", "SomeString"),
+                  SQL_VALUES(TEST_VECTOR, "foo"));
+
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
+                  SQL_COLUMNS("SomeInt32", "SomeBlob", "SomeString"),
+                  SQL_VALUES(10, TEST_BLOB, "foo"));
+
     // Verify setDefaultValue()
     auto record6 = db_mgr.INSERT(SQL_TABLE("DefaultValues"));
     EXPECT_EQUAL(record6->getPropertyInt32("DefaultInt32"), TEST_INT32);

@@ -96,6 +96,13 @@ public:
         col_vals_.emplace_front(createValueContainer_<T>(val));
     }
 
+    template <typename T, typename... Rest>
+    SqlValues(const std::vector<T>& val, Rest... rest)
+        : SqlValues(std::forward<Rest>(rest)...)
+    {
+        col_vals_.emplace_front(createValueContainer_(val));
+    }
+
     template <typename T>
     SqlValues(T val)
     {
