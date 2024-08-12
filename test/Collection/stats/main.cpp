@@ -125,65 +125,65 @@ public:
             std::string data_type;
             query->select("DataType", data_type);
 
-            int compressed;
-            query->select("Compressed", compressed);
+            int is_container;
+            query->select("IsContainer", is_container);
 
             auto result_set = query->getResultSet();
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "InstCounts");
             EXPECT_EQUAL(data_type, "uint32_t");
-            EXPECT_EQUAL(compressed, 1);
+            EXPECT_EQUAL(is_container, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandInt8s");
             EXPECT_EQUAL(data_type, "int8_t");
-            EXPECT_EQUAL(compressed, 1);
+            EXPECT_EQUAL(is_container, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandInt16s");
             EXPECT_EQUAL(data_type, "int16_t");
-            EXPECT_EQUAL(compressed, 1);
+            EXPECT_EQUAL(is_container, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandInt32s");
             EXPECT_EQUAL(data_type, "int32_t");
-            EXPECT_EQUAL(compressed, 1);
+            EXPECT_EQUAL(is_container, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandInt64s");
             EXPECT_EQUAL(data_type, "int64_t");
-            EXPECT_EQUAL(compressed, 1);
+            EXPECT_EQUAL(is_container, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandUInt8s");
             EXPECT_EQUAL(data_type, "uint8_t");
-            EXPECT_EQUAL(compressed, 1);
+            EXPECT_EQUAL(is_container, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandUInt16s");
             EXPECT_EQUAL(data_type, "uint16_t");
-            EXPECT_EQUAL(compressed, 1);
+            EXPECT_EQUAL(is_container, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandUInt32s");
             EXPECT_EQUAL(data_type, "uint32_t");
-            EXPECT_EQUAL(compressed, 1);
+            EXPECT_EQUAL(is_container, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandUInt64s");
             EXPECT_EQUAL(data_type, "uint64_t");
-            EXPECT_EQUAL(compressed, 1);
+            EXPECT_EQUAL(is_container, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandFloats");
             EXPECT_EQUAL(data_type, "float");
-            EXPECT_EQUAL(compressed, 1);
+            EXPECT_EQUAL(is_container, 0);
 
             EXPECT_TRUE(result_set.getNextRecord());
             EXPECT_EQUAL(name, "RandDoubles");
             EXPECT_EQUAL(data_type, "double");
-            EXPECT_EQUAL(compressed, 1);
+            EXPECT_EQUAL(is_container, 0);
 
             EXPECT_FALSE(result_set.getNextRecord());
         }

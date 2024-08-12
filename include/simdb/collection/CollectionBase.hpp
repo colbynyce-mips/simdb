@@ -104,7 +104,7 @@ public:
         schema.addTable("Collections")
             .addColumn("Name", dt::string_t)
             .addColumn("DataType", dt::string_t)
-            .addColumn("Compressed", dt::int32_t);
+            .addColumn("IsContainer", dt::int32_t);
 
         schema.addTable("CollectionPaths")
             .addColumn("CollectionID", dt::int32_t)
@@ -130,6 +130,15 @@ public:
         schema.addTable("StringMap")
             .addColumn("IntVal", dt::int32_t)
             .addColumn("String", dt::string_t);
+
+        schema.addTable("ContainerMeta")
+            .addColumn("PathID", dt::int32_t)
+            .addColumn("Capacity", dt::int32_t)
+            .addColumn("IsSparse", dt::int32_t);
+
+        schema.addTable("SparseValidFlags")
+            .addColumn("CollectionDataID", dt::int32_t)
+            .addColumn("CompressedFlags", dt::blob_t);
     }
 
     /// \brief  Add a user-configured collection.

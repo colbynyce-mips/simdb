@@ -7,6 +7,7 @@
 #include "simdb/collection/BlobSerializer.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/utils/Compress.hpp"
+#include "simdb/utils/PointerUtils.hpp"
 #include <cstring>
 
 namespace simdb
@@ -438,7 +439,7 @@ class StructDefnSerializer
 public:
     StructDefnSerializer()
     {
-        defineStructSchema<StructT>(schema_);
+        defineStructSchema<typename remove_any_pointer<StructT>::type>(schema_);
     }
 
     const std::string& getStructName() const
@@ -468,10 +469,9 @@ private:
 /*!
  * \class ScalarStructCollection
  *
- * \brief This class is used to collect struct-like data structures commonly
- *        encountered in simulators, with support for enum and string fields. 
- *        If you want to collect vectors/deques of structs (or smart pointers 
- *        of structs), use the StructContainerCollection class.
+ * \brief This class is used to collect struct-like data structures commonly encountered
+ *        in simulators, with support for enum and string fields. If you want to collect 
+ *        vectors/deques of structs use the IterableStructCollection class.
  */
 template <typename StructT>
 class ScalarStructCollection : public CollectionBase
@@ -481,14 +481,14 @@ public:
     ScalarStructCollection(const std::string& name)
         : name_(name)
     {
-        static_assert(!std::is_pointer<StructT>::value,
+        static_assert(!is_any_pointer<StructT>::value,
                       "Template type must be a value type");
     }
 
     /// \brief   Add a struct to this collection using a backpointer to the struct.
     ///
-    /// \param   stat_path Unique stat path e.g. variable name like "counter_foo", or a 
-    ///                    dot-delimited simulator location such as "stats.counters.foo"
+    /// \param   struct_path Unique struct path e.g. variable name like "struct_foo", or a 
+    ///                      dot-delimited simulator location such as "structs.foo"
     ///
     /// \param   struct_ptr Backpointer to the struct.
     ///
@@ -496,15 +496,15 @@ public:
     ///          You must ensure that this is a valid pointer for the life of the simulation
     ///          else your program will crash or send bogus data to the database.
     ///
-    /// \throws  Throws an exception if called after finalize() or if the stat_path is not unique.
-    ///          Also throws if the stat path cannot later be used in python (do not use uuids of
+    /// \throws  Throws an exception if called after finalize() or if the struct_path is not unique.
+    ///          Also throws if the struct path cannot later be used in python (do not use uuids of
     ///          the form "abc123-def456").
     void addStruct(const std::string& struct_path, const StructT* struct_ptr)
     {
         validateStructPath_(struct_path);
 
         if (finalized_) {
-            throw DBException("Cannot add stat to collection after it's been finalized");
+            throw DBException("Cannot add struct to collection after it's been finalized");
         }
 
         if (!struct_paths_.insert(struct_path).second) {
@@ -529,8 +529,8 @@ public:
         }
 
         auto record = db_mgr->INSERT(SQL_TABLE("Collections"),
-                                     SQL_COLUMNS("Name", "DataType", "Compressed"),
-                                     SQL_VALUES(name_, meta_serializer_.getStructName(), 1));
+                                     SQL_COLUMNS("Name", "DataType", "IsContainer"),
+                                     SQL_VALUES(name_, meta_serializer_.getStructName(), 0));
 
         collection_pkey_ = record->getId();
 
@@ -570,7 +570,7 @@ public:
         const void* data_ptr = structs_blob_compressed_.data();
         const size_t num_bytes = structs_blob_compressed_.size();
 
-        std::unique_ptr<WorkerTask> task(new CollectionSerializer(db_mgr, collection_pkey_, timestamp, data_ptr, num_bytes));
+        std::unique_ptr<WorkerTask> task(new CollectableSerializer(db_mgr, collection_pkey_, timestamp, data_ptr, num_bytes));
 
         db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
     }
@@ -580,9 +580,9 @@ private:
     /// dot-delimited path of valid python variable names:
     ///
     ///   counter_foo              VALID
-    ///   stats.counters.foo       VALID
+    ///   structs.foo              VALID
     ///   5_counter_foo            INVALID
-    ///   stats.counters?.foo      INVALID 
+    ///   structs?.foo             INVALID 
     void validateStructPath_(std::string struct_path)
     {
         auto validate_python_var = [&](const std::string& varname) {
@@ -611,7 +611,7 @@ private:
         for (const auto& varname : varnames) {
             if (!validate_python_var(varname)) {
                 std::ostringstream oss;
-                oss << "Invalid stat ID for collection '" << name_ << "'. Not a valid python variable name: " << varname;
+                oss << "Invalid struct path for collection '" << name_ << "'. Not a valid python variable name: " << varname;
                 throw DBException(oss.str());
             }
         }
@@ -626,7 +626,7 @@ private:
     /// All the structs' backpointers and their paths.
     std::vector<std::pair<const StructT*, std::string>> structs_;
 
-    /// Flag saying whether we can add more stats to this collection.
+    /// Flag saying whether we can add more structs to this collection.
     bool finalized_ = false;
 
     /// Our primary key in the Collections table.

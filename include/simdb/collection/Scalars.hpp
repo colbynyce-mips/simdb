@@ -149,8 +149,8 @@ public:
         }
 
         auto record = db_mgr->INSERT(SQL_TABLE("Collections"),
-                                     SQL_COLUMNS("Name", "DataType", "Compressed"),
-                                     SQL_VALUES(name_, data_type, 1));
+                                     SQL_COLUMNS("Name", "DataType", "IsContainer"),
+                                     SQL_VALUES(name_, data_type, 0));
 
         collection_pkey_ = record->getId();
 
@@ -184,7 +184,7 @@ public:
         const void* data_ptr = stats_values_compressed_.data();
         const size_t num_bytes = stats_values_compressed_.size() * sizeof(char);
 
-        std::unique_ptr<WorkerTask> task(new CollectionSerializer(db_mgr, collection_pkey_, timestamp, data_ptr, num_bytes));
+        std::unique_ptr<WorkerTask> task(new CollectableSerializer(db_mgr, collection_pkey_, timestamp, data_ptr, num_bytes));
 
         db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
     }
@@ -225,7 +225,7 @@ private:
         for (const auto& varname : varnames) {
             if (!validate_python_var(varname)) {
                 std::ostringstream oss;
-                oss << "Invalid stat ID for collection '" << name_ << "'. Not a valid python variable name: " << varname;
+                oss << "Invalid stat path for collection '" << name_ << "'. Not a valid python variable name: " << varname;
                 throw DBException(oss.str());
             }
         }
