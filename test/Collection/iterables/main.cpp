@@ -1,9 +1,5 @@
-/*
- \brief Tests for SimDB collections feature. Unlike the test in the 'st' directory,
- *      this tests for more general-purpose collection of structs with fields that are
- *      PODs, enums, and strings. We also test that we can collect smart pointers (or
- *      raw pointers) of these structs.
- */
+/// Tests for SimDB collections feature (specifically containers e.g. vector of structs
+/// of PODs, enums, and strings).
 
 #include "simdb/collection/IterableStructs.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
