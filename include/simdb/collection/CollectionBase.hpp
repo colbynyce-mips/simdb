@@ -40,9 +40,16 @@ public:
     /// and write the values to the database.
     virtual void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) = 0;
 
+    /// Allow the Collections class to verify that all simulator paths
+    /// across all collections are unique.
+    const std::unordered_set<std::string>& getElemPaths() const
+    {
+        return element_paths_;
+    }
+
 protected:
-    /// Validate that the stat path is either a valid python variable name, or a
-    /// dot-delimited path of valid python variable names:
+    /// Validate that the path (to a stat, struct, or container) is either a valid python 
+    /// variable name, or a dot-delimited path of valid python variable names:
     ///
     ///   counter_foo              VALID
     ///   stats.counters.foo       VALID
@@ -81,7 +88,7 @@ protected:
             }
         }
 
-        if (!stat_paths_.insert(stat_path).second) {
+        if (!element_paths_.insert(stat_path).second) {
             throw DBException("Cannot add stat to collection - already have a stat with this path: ") << stat_path;
         }
 
@@ -94,8 +101,8 @@ protected:
     bool finalized_ = false;
 
 private:
-    /// Quick lookup to ensure that stat paths are all unique.
-    std::unordered_set<std::string> stat_paths_;
+    /// Quick lookup to ensure that element paths are all unique.
+    std::unordered_set<std::string> element_paths_;
 };
 
 /*!
@@ -211,6 +218,12 @@ public:
             }
         }
 
+        for (const auto& path : collection->getElemPaths()) {
+            if (!element_paths_.insert(path).second) {
+                throw DBException("Cannot add stat to collection - already have a stat with this path: ") << path;
+            }
+        }
+
         collections_.emplace_back(collection.release());
     }
 
@@ -296,6 +309,9 @@ private:
     /// a user-provided backpointer or a function pointer that can get a timestamp
     /// in either 32/64-bit integers or as floating-point values.
     TimestampPtr timestamp_;
+
+    /// Quick lookup to ensure that element paths are all unique.
+    std::unordered_set<std::string> element_paths_;
 
     friend class DatabaseManager;
 };
