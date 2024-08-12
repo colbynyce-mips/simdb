@@ -186,17 +186,10 @@ private:
     /// throughout collection without reallocating.
     std::vector<char> container_blob_;
 
-    /// Compressed raw bytes for struct in one container. Reused over and over 
-    /// throughout collection without reallocating.
-    std::vector<char> container_blob_compressed_;
-
     /// Mask of valid/invalid flags for one container:
     ///    container:  {a*, b*, nullptr, d*}
     ///    sparse_container_valid_flags_: {1,1,0,1}
     std::vector<int> sparse_container_valid_flags_;
-
-    /// Compressed valid flags for sparse containers.
-    std::vector<char> sparse_container_valid_flags_compressed_;
 };
 
 } // namespace simdb

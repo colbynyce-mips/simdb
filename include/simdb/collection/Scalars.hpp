@@ -213,9 +213,6 @@ private:
     /// during the simulation.
     std::vector<DataT> stats_values_;
 
-    /// All the stats' compressed values in one vector.
-    std::vector<char> stats_values_compressed_;
-
     /// Our primary key in the Collections table.
     int collection_pkey_ = -1;
 };
