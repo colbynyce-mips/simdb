@@ -500,16 +500,7 @@ public:
     ///          the form "abc123-def456").
     void addStruct(const std::string& struct_path, const StructT* struct_ptr)
     {
-        validateStructPath_(struct_path);
-
-        if (finalized_) {
-            throw DBException("Cannot add struct to collection after it's been finalized");
-        }
-
-        if (!struct_paths_.insert(struct_path).second) {
-            throw DBException("Cannot add struct to collection - already have a struct with this path: ") << struct_path;
-        }
-
+        validatePath_(struct_path);
         structs_.emplace_back(struct_ptr, struct_path);
     }
 
@@ -570,58 +561,11 @@ public:
     }
 
 private:
-    /// Validate that the struct path is either a valid python variable name, or a
-    /// dot-delimited path of valid python variable names:
-    ///
-    ///   counter_foo              VALID
-    ///   structs.foo              VALID
-    ///   5_counter_foo            INVALID
-    ///   structs?.foo             INVALID 
-    void validateStructPath_(std::string struct_path)
-    {
-        auto validate_python_var = [&](const std::string& varname) {
-            if (varname.empty() || !isalpha(varname[0]) && varname[0] != '_') {
-                return false;
-            }
-
-            for (char ch : varname) {
-                if (!isalnum(ch) && ch != '_') {
-                    return false;
-                }
-            }
-
-            return true;
-        };
-
-        std::vector<std::string> varnames;
-        const char* delim = ".";
-        char* token = std::strtok(const_cast<char*>(struct_path.c_str()), delim);
-
-        while (token) {
-            varnames.push_back(token);
-            token = std::strtok(nullptr, delim);
-        }
-
-        for (const auto& varname : varnames) {
-            if (!validate_python_var(varname)) {
-                std::ostringstream oss;
-                oss << "Invalid struct path for collection '" << name_ << "'. Not a valid python variable name: " << varname;
-                throw DBException(oss.str());
-            }
-        }
-    }
-
     /// Name of this collection. Serialized to the database.
     std::string name_;
 
-    /// Quick lookup to ensure that struct paths are all unique.
-    std::unordered_set<std::string> struct_paths_;
-
     /// All the structs' backpointers and their paths.
     std::vector<std::pair<const StructT*, std::string>> structs_;
-
-    /// Flag saying whether we can add more structs to this collection.
-    bool finalized_ = false;
 
     /// Our primary key in the Collections table.
     int collection_pkey_ = -1;

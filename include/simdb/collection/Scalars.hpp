@@ -7,7 +7,6 @@
 #include "simdb/collection/BlobSerializer.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/utils/Compress.hpp"
-#include <cstring>
 
 namespace simdb
 {
@@ -65,14 +64,10 @@ public:
     ///          the form "abc123-def456").
     void addStat(const std::string& stat_path, const DataT* data_ptr)
     {
-        validateStatPath_(stat_path);
+        validatePath_(stat_path);
 
         if (finalized_) {
             throw DBException("Cannot add stat to collection after it's been finalized");
-        }
-
-        if (!stat_paths_.insert(stat_path).second) {
-            throw DBException("Cannot add stat to collection - already have a stat with this path: ") << stat_path;
         }
 
         ScalarValueReader<DataT> reader(data_ptr);
@@ -94,15 +89,7 @@ public:
     ///          the form "abc123-def456").
     void addStat(const std::string& stat_path, std::function<DataT()> func_ptr)
     {
-        validateStatPath_(stat_path);
-
-        if (finalized_) {
-            throw DBException("Cannot add stat to collection after it's been finalized");
-        }
-
-        if (!stat_paths_.insert(stat_path).second) {
-            throw DBException("Cannot add stat to collection - already have a stat with this path: ") << stat_path;
-        }
+        validatePath_(stat_path);
 
         ScalarValueReader<DataT> reader(func_ptr);
         Stat<DataT> stat(stat_path, reader);
@@ -187,47 +174,6 @@ public:
     }
 
 private:
-    /// Validate that the stat path is either a valid python variable name, or a
-    /// dot-delimited path of valid python variable names:
-    ///
-    ///   counter_foo              VALID
-    ///   stats.counters.foo       VALID
-    ///   5_counter_foo            INVALID
-    ///   stats.counters?.foo      INVALID 
-    void validateStatPath_(std::string stat_path)
-    {
-        auto validate_python_var = [&](const std::string& varname) {
-            if (varname.empty() || !isalpha(varname[0]) && varname[0] != '_') {
-                return false;
-            }
-
-            for (char ch : varname) {
-                if (!isalnum(ch) && ch != '_') {
-                    return false;
-                }
-            }
-
-            return true;
-        };
-
-        std::vector<std::string> varnames;
-        const char* delim = ".";
-        char* token = std::strtok(const_cast<char*>(stat_path.c_str()), delim);
-
-        while (token) {
-            varnames.push_back(token);
-            token = std::strtok(nullptr, delim);
-        }
-
-        for (const auto& varname : varnames) {
-            if (!validate_python_var(varname)) {
-                std::ostringstream oss;
-                oss << "Invalid stat path for collection '" << name_ << "'. Not a valid python variable name: " << varname;
-                throw DBException(oss.str());
-            }
-        }
-    }
-
     /// \class Stat
     /// \brief A single named statistic.
     template <typename StatT = DataT>
@@ -261,9 +207,6 @@ private:
     /// All the stats in this collection.
     std::vector<Stat<DataT>> stats_;
 
-    /// Quick lookup to ensure that stat paths are all unique.
-    std::unordered_set<std::string> stat_paths_;
-
     /// All the stats' values in one vector. Held in a member variable
     /// so we do not reallocate these (potentially large) vectors with
     /// every call to collect(), which can be called very many times
@@ -272,9 +215,6 @@ private:
 
     /// All the stats' compressed values in one vector.
     std::vector<char> stats_values_compressed_;
-
-    /// Flag saying whether we can add more stats to this collection.
-    bool finalized_ = false;
 
     /// Our primary key in the Collections table.
     int collection_pkey_ = -1;

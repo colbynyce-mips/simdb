@@ -54,16 +54,7 @@ public:
     ///          the form "abc123-def456").
     void addContainer(const std::string& container_path, const ContainerT* container_ptr, size_t capacity)
     {
-        validateContainerPath_(container_path);
-
-        if (finalized_) {
-            throw DBException("Cannot add container to collection after it's been finalized");
-        }
-
-        if (!container_paths_.insert(container_path).second) {
-            throw DBException("Cannot add container to collection - already have a container with this path: ") << container_path;
-        }
-
+        validatePath_(container_path);
         containers_.emplace_back(container_ptr, container_path, capacity);
     }
 
@@ -158,47 +149,6 @@ public:
     }
 
 private:
-    /// Validate that the container path is either a valid python variable name, or a
-    /// dot-delimited path of valid python variable names:
-    ///
-    ///   counter_foo              VALID
-    ///   containers.foo              VALID
-    ///   5_counter_foo            INVALID
-    ///   containers?.foo             INVALID 
-    void validateContainerPath_(std::string container_path)
-    {
-        auto validate_python_var = [&](const std::string& varname) {
-            if (varname.empty() || !isalpha(varname[0]) && varname[0] != '_') {
-                return false;
-            }
-
-            for (char ch : varname) {
-                if (!isalnum(ch) && ch != '_') {
-                    return false;
-                }
-            }
-
-            return true;
-        };
-
-        std::vector<std::string> varnames;
-        const char* delim = ".";
-        char* token = std::strtok(const_cast<char*>(container_path.c_str()), delim);
-
-        while (token) {
-            varnames.push_back(token);
-            token = std::strtok(nullptr, delim);
-        }
-
-        for (const auto& varname : varnames) {
-            if (!validate_python_var(varname)) {
-                std::ostringstream oss;
-                oss << "Invalid container path for collection '" << name_ << "'. Not a valid python variable name: " << varname;
-                throw DBException(oss.str());
-            }
-        }
-    }
-
     template <typename ElemT>
     typename std::enable_if<is_any_pointer<ElemT>::value, bool>::type
     writeStruct_(const ElemT& el, char*& dest)
@@ -217,17 +167,11 @@ private:
     /// Name of this collection. Serialized to the database.
     std::string name_;
 
-    /// Quick lookup to ensure that container paths are all unique.
-    std::unordered_set<std::string> container_paths_;
-
     /// All the containers' backpointers, their paths, and their capacities.
     std::vector<std::tuple<const ContainerT*, std::string, size_t>> containers_;
 
     /// Size of one struct when serialized to raw bytes.
     size_t struct_num_bytes_ = 0;
-
-    /// Flag saying whether we can add more structs to this collection.
-    bool finalized_ = false;
 
     /// Our primary key in the Collections table.
     int collection_pkey_ = -1;
