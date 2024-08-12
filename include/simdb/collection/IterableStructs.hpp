@@ -150,21 +150,8 @@ public:
                 ++container_idx;
             }
 
-            compressDataVec(container_blob_, container_blob_compressed_);
-            const void* data_ptr = container_blob_compressed_.data();
-            const size_t num_bytes = container_blob_compressed_.size();
-
-            const void* valid_flags_data_ptr = nullptr;
-            size_t valid_flags_num_bytes = 0;
-
-            if (Sparse) {
-                compressDataVec(sparse_container_valid_flags_, sparse_container_valid_flags_compressed_);
-                valid_flags_data_ptr = sparse_container_valid_flags_compressed_.data();
-                valid_flags_num_bytes = sparse_container_valid_flags_compressed_.size();
-            }
-
-            std::unique_ptr<WorkerTask> task(new IterableStructSerializer(
-                db_mgr, collection_pkey_, timestamp, data_ptr, num_bytes, valid_flags_data_ptr, valid_flags_num_bytes));
+            std::unique_ptr<WorkerTask> task(new IterableStructSerializer<char>(
+                db_mgr, collection_pkey_, timestamp, container_blob_, sparse_container_valid_flags_));
 
             db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
         }

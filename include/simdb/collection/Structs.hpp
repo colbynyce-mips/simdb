@@ -6,7 +6,6 @@
 #include "simdb/collection/CollectionBase.hpp"
 #include "simdb/collection/BlobSerializer.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
-#include "simdb/utils/Compress.hpp"
 #include "simdb/utils/PointerUtils.hpp"
 #include <cstring>
 
@@ -564,13 +563,8 @@ public:
             blob_serializer_->writeStruct(pair.first, dest);
         }
 
-        /// This top level class also has the compressed_blob_ to rule them all,
-        /// performs the compression, and sends it off to the worker queue.
-        compressDataVec(structs_blob_, structs_blob_compressed_);
-        const void* data_ptr = structs_blob_compressed_.data();
-        const size_t num_bytes = structs_blob_compressed_.size();
-
-        std::unique_ptr<WorkerTask> task(new CollectableSerializer(db_mgr, collection_pkey_, timestamp, data_ptr, num_bytes));
+        std::unique_ptr<WorkerTask> task(new CollectableSerializer<char>(
+            db_mgr, collection_pkey_, timestamp, structs_blob_));
 
         db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
     }

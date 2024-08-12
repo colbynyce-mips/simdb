@@ -180,11 +180,8 @@ public:
             stats_values_.push_back(stat.getValue());
         }
 
-        compressDataVec(stats_values_, stats_values_compressed_);
-        const void* data_ptr = stats_values_compressed_.data();
-        const size_t num_bytes = stats_values_compressed_.size() * sizeof(char);
-
-        std::unique_ptr<WorkerTask> task(new CollectableSerializer(db_mgr, collection_pkey_, timestamp, data_ptr, num_bytes));
+        std::unique_ptr<WorkerTask> task(new CollectableSerializer<DataT>(
+            db_mgr, collection_pkey_, timestamp, stats_values_));
 
         db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
     }

@@ -138,7 +138,7 @@ public:
 
         schema.addTable("SparseValidFlags")
             .addColumn("CollectionDataID", dt::int32_t)
-            .addColumn("CompressedFlags", dt::blob_t);
+            .addColumn("Flags", dt::blob_t);
     }
 
     /// \brief  Add a user-configured collection.
