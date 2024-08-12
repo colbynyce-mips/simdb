@@ -50,7 +50,7 @@ public:
     ///          else your program will crash or send bogus data to the database.
     ///
     /// \throws  Throws an exception if called after finalize() or if the stat_path is not unique.
-    ///          Also throws if the stat path cannot later be used in python (do not use uuids of
+    ///          Also throws if the element path cannot later be used in python (do not use uuids of
     ///          the form "abc123-def456").
     void addContainer(const std::string& container_path, const ContainerT* container_ptr, size_t capacity)
     {

@@ -50,7 +50,7 @@ public:
 
     /// \brief   Add a stat to this collection using a backpointer to the data value.
     ///
-    /// \param   stat_path Unique stat path e.g. variable name like "counter_foo", or a 
+    /// \param   stat_path Unique element path e.g. variable name like "counter_foo", or a 
     ///                    dot-delimited simulator location such as "stats.counters.foo"
     ///
     /// \param   data_ptr Backpointer to the raw data value.
@@ -60,7 +60,7 @@ public:
     ///          else your program will crash or send bogus data to the database.
     ///
     /// \throws  Throws an exception if called after finalize() or if the stat_path is not unique.
-    ///          Also throws if the stat path cannot later be used in python (do not use uuids of
+    ///          Also throws if the element path cannot later be used in python (do not use uuids of
     ///          the form "abc123-def456").
     void addStat(const std::string& stat_path, const DataT* data_ptr)
     {
@@ -79,13 +79,13 @@ public:
     ///          data value. This would most commonly be used in favor of the backpointer
     ///          API for calculated stats / evaluated expressions.
     ///
-    /// \param   stat_path Unique stat path e.g. variable name like "counter_foo", or a 
+    /// \param   stat_path Unique element path e.g. variable name like "counter_foo", or a 
     ///                    dot-delimited simulator location such as "stats.counters.foo"
     ///
     /// \param   func_ptr Function pointer to get the raw data value.
     ///
     /// \throws  Throws an exception if called after finalize() or if the stat_path is not unique.
-    ///          Also throws if the stat path cannot later be used in python (do not use uuids of
+    ///          Also throws if the element path cannot later be used in python (do not use uuids of
     ///          the form "abc123-def456").
     void addStat(const std::string& stat_path, std::function<DataT()> func_ptr)
     {
