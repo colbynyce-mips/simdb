@@ -526,7 +526,7 @@ public:
 
         for (const auto& pair : structs_) {
             db_mgr->INSERT(SQL_TABLE("CollectionPaths"),
-                           SQL_COLUMNS("CollectionID", "StatPath"),
+                           SQL_COLUMNS("CollectionID", "SimPath"),
                            SQL_VALUES(collection_pkey_, pair.second));
         }
 
