@@ -257,8 +257,6 @@ private:
         ctr_collection->addStat("stats.num_insts_issued", std::bind(&Execute::getNumIssued, &execute_));
         ctr_collection->addStat("stats.num_insts_retired", std::bind(&Retire::getNumRetired, &retire_));
 
-
-
         collection_mgr->addCollection(std::move(ctr_collection));
 
         addCollection_<int8_t>(rand_int8s_, "stats.rand_int8s.bin", "RandInt8s", collection_mgr);

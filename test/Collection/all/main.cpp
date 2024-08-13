@@ -55,14 +55,14 @@ struct minval { static constexpr auto value = std::numeric_limits<T>::min(); };
 template <typename T>
 struct maxval { static constexpr auto value = std::numeric_limits<T>::max(); };
 
-enum class EnumInt8   : int8_t   { ONE=1, TWO=2, MAXVAL=maxval<int8_t>::value, MINVAL=minval<int8_t>::value, __COUNT__ };
-enum class EnumInt16  : int16_t  { ONE=1, TWO=2, MAXVAL=maxval<int8_t>::value, MINVAL=minval<int8_t>::value, __COUNT__ };
-enum class EnumInt32  : int32_t  { ONE=1, TWO=2, MAXVAL=maxval<int8_t>::value, MINVAL=minval<int8_t>::value, __COUNT__ };
-enum class EnumInt64  : int64_t  { ONE=1, TWO=2, MAXVAL=maxval<int8_t>::value, MINVAL=minval<int8_t>::value, __COUNT__ };
-enum class EnumUInt8  : uint8_t  { ONE=1, TWO=2, MAXVAL=maxval<int8_t>::value, __COUNT__ };
-enum class EnumUInt16 : uint16_t { ONE=1, TWO=2, MAXVAL=maxval<int8_t>::value, __COUNT__ };
-enum class EnumUInt32 : uint32_t { ONE=1, TWO=2, MAXVAL=maxval<int8_t>::value, __COUNT__ };
-enum class EnumUInt64 : uint64_t { ONE=1, TWO=2, MAXVAL=maxval<int8_t>::value, __COUNT__ };
+enum class EnumInt8   : int8_t   { ONE=1, TWO=2, MAXVAL=maxval<int8_t  >::value, MINVAL=minval<int8_t >::value, __COUNT__=4 };
+enum class EnumInt16  : int16_t  { ONE=1, TWO=2, MAXVAL=maxval<int16_t >::value, MINVAL=minval<int16_t>::value, __COUNT__=4 };
+enum class EnumInt32  : int32_t  { ONE=1, TWO=2, MAXVAL=maxval<int32_t >::value, MINVAL=minval<int32_t>::value, __COUNT__=4 };
+enum class EnumInt64  : int64_t  { ONE=1, TWO=2, MAXVAL=maxval<int64_t >::value, MINVAL=minval<int64_t>::value, __COUNT__=4 };
+enum class EnumUInt8  : uint8_t  { ONE=1, TWO=2, MAXVAL=maxval<uint8_t >::value, __COUNT__=3 };
+enum class EnumUInt16 : uint16_t { ONE=1, TWO=2, MAXVAL=maxval<uint16_t>::value, __COUNT__=3 };
+enum class EnumUInt32 : uint32_t { ONE=1, TWO=2, MAXVAL=maxval<uint32_t>::value, __COUNT__=3 };
+enum class EnumUInt64 : uint64_t { ONE=1, TWO=2, MAXVAL=maxval<uint64_t>::value, __COUNT__=3 };
 
 struct AllTypes
 {
@@ -179,37 +179,37 @@ namespace simdb
     template <>
     void defineEnumMap<EnumUInt8>(std::string& enum_name, std::map<std::string, uint8_t>& map)
     {
-        enum_name = "EnumInt8";
-        map["ONE"] = static_cast<int8_t>(EnumUInt8::ONE);
-        map["TWO"] = static_cast<int8_t>(EnumUInt8::TWO);
-        map["MAXVAL"] = static_cast<int8_t>(EnumUInt8::MAXVAL);
+        enum_name = "EnumUInt8";
+        map["ONE"] = static_cast<uint8_t>(EnumUInt8::ONE);
+        map["TWO"] = static_cast<uint8_t>(EnumUInt8::TWO);
+        map["MAXVAL"] = static_cast<uint8_t>(EnumUInt8::MAXVAL);
     }
 
     template <>
     void defineEnumMap<EnumUInt16>(std::string& enum_name, std::map<std::string, uint16_t>& map)
     {
-        enum_name = "EnumInt16";
-        map["ONE"] = static_cast<int16_t>(EnumUInt16::ONE);
-        map["TWO"] = static_cast<int16_t>(EnumUInt16::TWO);
-        map["MAXVAL"] = static_cast<int16_t>(EnumUInt16::MAXVAL);
+        enum_name = "EnumUInt16";
+        map["ONE"] = static_cast<uint16_t>(EnumUInt16::ONE);
+        map["TWO"] = static_cast<uint16_t>(EnumUInt16::TWO);
+        map["MAXVAL"] = static_cast<uint16_t>(EnumUInt16::MAXVAL);
     }
 
     template <>
     void defineEnumMap<EnumUInt32>(std::string& enum_name, std::map<std::string, uint32_t>& map)
     {
-        enum_name = "EnumInt32";
-        map["ONE"] = static_cast<int32_t>(EnumUInt32::ONE);
-        map["TWO"] = static_cast<int32_t>(EnumUInt32::TWO);
-        map["MAXVAL"] = static_cast<int32_t>(EnumUInt32::MAXVAL);
+        enum_name = "EnumUInt32";
+        map["ONE"] = static_cast<uint32_t>(EnumUInt32::ONE);
+        map["TWO"] = static_cast<uint32_t>(EnumUInt32::TWO);
+        map["MAXVAL"] = static_cast<uint32_t>(EnumUInt32::MAXVAL);
     }
 
     template <>
     void defineEnumMap<EnumUInt64>(std::string& enum_name, std::map<std::string, uint64_t>& map)
     {
-        enum_name = "EnumInt64";
-        map["ONE"] = static_cast<int64_t>(EnumUInt64::ONE);
-        map["TWO"] = static_cast<int64_t>(EnumUInt64::TWO);
-        map["MAXVAL"] = static_cast<int64_t>(EnumUInt64::MAXVAL);
+        enum_name = "EnumUInt64";
+        map["ONE"] = static_cast<uint64_t>(EnumUInt64::ONE);
+        map["TWO"] = static_cast<uint64_t>(EnumUInt64::TWO);
+        map["MAXVAL"] = static_cast<uint64_t>(EnumUInt64::MAXVAL);
     }
 
     template <>
