@@ -203,8 +203,8 @@ public:
                 enum_val_blob.num_bytes = enum_val_vec.size();
 
                 db_mgr->INSERT(SQL_TABLE("EnumDefns"),
-                              SQL_COLUMNS("EnumName", "EnumValStr", "EnumValBlob", "IntType"),
-                              SQL_VALUES(enum_name_, enum_val_str, enum_val_blob, int_type_str));
+                               SQL_COLUMNS("EnumName", "EnumValStr", "EnumValBlob", "IntType"),
+                               SQL_VALUES(enum_name_, enum_val_str, enum_val_blob, int_type_str));
             }
 
             serialized_ = true;
