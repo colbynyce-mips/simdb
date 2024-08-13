@@ -126,14 +126,14 @@ namespace simdb
         schema.addField<double>("dbl");
         schema.addField<std::string>("str");
 
-        schema.addField<int8_t>("int8_hex");
-        schema.addField<int16_t>("int16_hex");
-        schema.addField<int32_t>("int32_hex");
-        schema.addField<int64_t>("int64_hex");
-        schema.addField<uint8_t>("uint8_hex");
-        schema.addField<uint16_t>("uint16_hex");
-        schema.addField<uint32_t>("uint32_hex");
-        schema.addField<uint64_t>("uint64_hex");
+        schema.addField<int8_t>("int8_hex", Format::hex);
+        schema.addField<int16_t>("int16_hex", Format::hex);
+        schema.addField<int32_t>("int32_hex", Format::hex);
+        schema.addField<int64_t>("int64_hex", Format::hex);
+        schema.addField<uint8_t>("uint8_hex", Format::hex);
+        schema.addField<uint16_t>("uint16_hex", Format::hex);
+        schema.addField<uint32_t>("uint32_hex", Format::hex);
+        schema.addField<uint64_t>("uint64_hex", Format::hex);
     }
 
     template <>
