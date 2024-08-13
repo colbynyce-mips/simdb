@@ -62,7 +62,7 @@ public:
     /// \throws  Throws an exception if called after finalize() or if the stat_path is not unique.
     ///          Also throws if the stat path cannot later be used in python (do not use uuids of
     ///          the form "abc123-def456").
-    void addStat(const std::string& stat_path, const DataT* data_ptr)
+    void addStat(const std::string& stat_path, const DataT* data_ptr, Format format = Format::none)
     {
         validatePath_(stat_path);
 
@@ -71,7 +71,7 @@ public:
         }
 
         ScalarValueReader<DataT> reader(data_ptr);
-        Stat<DataT> stat(stat_path, reader);
+        Stat<DataT> stat(stat_path, reader, format);
         stats_.emplace_back(stat);
     }
 
@@ -87,12 +87,12 @@ public:
     /// \throws  Throws an exception if called after finalize() or if the stat_path is not unique.
     ///          Also throws if the stat path cannot later be used in python (do not use uuids of
     ///          the form "abc123-def456").
-    void addStat(const std::string& stat_path, std::function<DataT()> func_ptr)
+    void addStat(const std::string& stat_path, std::function<DataT()> func_ptr, Format format = Format::none)
     {
         validatePath_(stat_path);
 
         ScalarValueReader<DataT> reader(func_ptr);
-        Stat<DataT> stat(stat_path, reader);
+        Stat<DataT> stat(stat_path, reader, format);
         stats_.emplace_back(stat);
     }
 
@@ -142,9 +142,13 @@ public:
         collection_pkey_ = record->getId();
 
         for (const auto& stat : stats_) {
-            db_mgr->INSERT(SQL_TABLE("CollectionPaths"),
-                           SQL_COLUMNS("CollectionID", "SimPath"),
-                           SQL_VALUES(collection_pkey_, stat.getPath()));
+            auto record = db_mgr->INSERT(SQL_TABLE("CollectionElems"),
+                                         SQL_COLUMNS("CollectionID", "SimPath"),
+                                         SQL_VALUES(collection_pkey_, stat.getPath()));
+
+            db_mgr->INSERT(SQL_TABLE("FormatOpts"),
+                           SQL_COLUMNS("ScalarElemID", "FormatCode"),
+                           SQL_VALUES(record->getId(), static_cast<int>(stat.getFormat())));
         }
 
         finalized_ = true;
@@ -180,15 +184,21 @@ private:
     class Stat
     {
     public:
-        Stat(const std::string& stat_path, const ScalarValueReader<StatT>& reader)
+        Stat(const std::string& stat_path, const ScalarValueReader<StatT>& reader, const Format format)
             : stat_path_(stat_path)
             , reader_(reader)
+            , format_(format)
         {
         }
 
         const std::string& getPath() const
         {
             return stat_path_;
+        }
+
+        Format getFormat() const
+        {
+            return format_;
         }
 
         StatT getValue() const
@@ -199,6 +209,7 @@ private:
     private:
         std::string stat_path_;
         ScalarValueReader<StatT> reader_;
+        Format format_;
     };
 
     /// Name of this collection. Serialized to the database.

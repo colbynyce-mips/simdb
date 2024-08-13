@@ -228,9 +228,10 @@ private:
 class FieldBase
 {
 public:
-    FieldBase(const std::string& name, const StructFields type)
+    FieldBase(const std::string& name, const StructFields type, const Format format = Format::none)
         : name_(name)
         , dtype_(type)
+        , format_(format)
     {
     }
 
@@ -239,6 +240,11 @@ public:
     const std::string& getName() const
     {
         return name_;
+    }
+
+    Format getFormat() const
+    {
+        return format_;
     }
 
     StructFields getType() const
@@ -254,13 +260,14 @@ public:
     virtual void writeMetadata(DatabaseManager* db_mgr, const std::string& collection_name) const
     {
         db_mgr->INSERT(SQL_TABLE("StructFields"),
-                       SQL_COLUMNS("CollectionName", "FieldName", "FieldType"),
-                       SQL_VALUES(collection_name, name_, getFieldDTypeStr(dtype_)));
+                       SQL_COLUMNS("CollectionName", "FieldName", "FieldType", "FormatCode"),
+                       SQL_VALUES(collection_name, name_, getFieldDTypeStr(dtype_), static_cast<int>(format_)));
     }
 
 private:
     std::string name_;
     StructFields dtype_;
+    Format format_;
 };
 
 /// \class EnumField
@@ -411,9 +418,9 @@ public:
 
     template <typename FieldT>
     typename std::enable_if<!std::is_enum<FieldT>::value && !std::is_same<FieldT, std::string>::value, void>::type
-    addField(const char* name)
+    addField(const char* name, const Format format = Format::none)
     {
-        fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<FieldT>()));
+        fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<FieldT>(), format));
     }
 
     template <typename FieldT>
@@ -543,7 +550,7 @@ public:
         collection_pkey_ = record->getId();
 
         for (const auto& pair : structs_) {
-            db_mgr->INSERT(SQL_TABLE("CollectionPaths"),
+            db_mgr->INSERT(SQL_TABLE("CollectionElems"),
                            SQL_COLUMNS("CollectionID", "SimPath"),
                            SQL_VALUES(collection_pkey_, pair.second));
         }

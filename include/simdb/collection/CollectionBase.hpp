@@ -19,6 +19,12 @@ namespace simdb
 
 class DatabaseManager;
 
+enum class Format
+{
+    none = 0,
+    hex = 1
+};
+
 /*!
  * \class CollectionBase
  *
@@ -40,9 +46,16 @@ public:
     /// and write the values to the database.
     virtual void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) = 0;
 
+    /// Allow the Collections class to verify that all simulator paths
+    /// across all collections are unique.
+    const std::unordered_set<std::string>& getElemPaths() const
+    {
+        return element_paths_;
+    }
+
 protected:
-    /// Validate that the stat path is either a valid python variable name, or a
-    /// dot-delimited path of valid python variable names:
+    /// Validate that the path (to a stat, struct, or container) is either a valid python 
+    /// variable name, or a dot-delimited path of valid python variable names:
     ///
     ///   counter_foo              VALID
     ///   stats.counters.foo       VALID
@@ -81,7 +94,7 @@ protected:
             }
         }
 
-        if (!stat_paths_.insert(stat_path).second) {
+        if (!element_paths_.insert(stat_path).second) {
             throw DBException("Cannot add stat to collection - already have a stat with this path: ") << stat_path;
         }
 
@@ -94,8 +107,8 @@ protected:
     bool finalized_ = false;
 
 private:
-    /// Quick lookup to ensure that stat paths are all unique.
-    std::unordered_set<std::string> stat_paths_;
+    /// Quick lookup to ensure that element paths are all unique.
+    std::unordered_set<std::string> element_paths_;
 };
 
 /*!
@@ -164,7 +177,7 @@ public:
             .addColumn("DataType", dt::string_t)
             .addColumn("IsContainer", dt::int32_t);
 
-        schema.addTable("CollectionPaths")
+        schema.addTable("CollectionElems")
             .addColumn("CollectionID", dt::int32_t)
             .addColumn("SimPath", dt::string_t);
 
@@ -177,7 +190,8 @@ public:
         schema.addTable("StructFields")
             .addColumn("CollectionName", dt::string_t)
             .addColumn("FieldName", dt::string_t)
-            .addColumn("FieldType", dt::string_t);
+            .addColumn("FieldType", dt::string_t)
+            .addColumn("FormatCode", dt::int32_t);
 
         schema.addTable("EnumDefns")
             .addColumn("EnumName", dt::string_t)
@@ -197,6 +211,10 @@ public:
         schema.addTable("SparseValidFlags")
             .addColumn("CollectionDataID", dt::int32_t)
             .addColumn("Flags", dt::blob_t);
+
+        schema.addTable("FormatOpts")
+            .addColumn("ScalarElemID", dt::int32_t)
+            .addColumn("FormatCode", dt::int32_t);
     }
 
     /// \brief  Add a user-configured collection.
@@ -208,6 +226,12 @@ public:
         for (const auto& my_collection : collections_) {
             if (my_collection->getName() == collection->getName()) {
                 throw DBException("Collection with this name already exists: ") << collection->getName();
+            }
+        }
+
+        for (const auto& path : collection->getElemPaths()) {
+            if (!element_paths_.insert(path).second) {
+                throw DBException("Cannot add stat to collection - already have a stat with this path: ") << path;
             }
         }
 
@@ -296,6 +320,9 @@ private:
     /// a user-provided backpointer or a function pointer that can get a timestamp
     /// in either 32/64-bit integers or as floating-point values.
     TimestampPtr timestamp_;
+
+    /// Quick lookup to ensure that element paths are all unique.
+    std::unordered_set<std::string> element_paths_;
 
     friend class DatabaseManager;
 };

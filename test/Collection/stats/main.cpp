@@ -186,7 +186,7 @@ public:
         }
 
         {
-            auto query = db_mgr_->createQuery("CollectionPaths");
+            auto query = db_mgr_->createQuery("CollectionElems");
 
             int collection_id;
             query->select("CollectionID", collection_id);
@@ -256,6 +256,8 @@ private:
 
         ctr_collection->addStat("stats.num_insts_issued", std::bind(&Execute::getNumIssued, &execute_));
         ctr_collection->addStat("stats.num_insts_retired", std::bind(&Retire::getNumRetired, &retire_));
+
+
 
         collection_mgr->addCollection(std::move(ctr_collection));
 
@@ -376,11 +378,12 @@ void runNegativeTests()
 
     std::unique_ptr<CounterCollectionT> collection1(new CounterCollectionT("InstCounts"));
     std::unique_ptr<CounterCollectionT> collection2(new CounterCollectionT("InstCounts"));
+    std::unique_ptr<CounterCollectionT> collection3(new CounterCollectionT("collection3"));
 
     // Hang onto the collection raw pointer so we can attempt bogus API calls on it after move().
     auto collection1_ptr = collection1.get();
 
-    // Should throw due to the stat path not being usable from python.
+    // Should throw due to the element path not being usable from python.
     EXPECT_THROW(collection1->addStat("123_invalid_python", &dummy_data));
 
     // Should not throw. Normal use.
@@ -401,11 +404,18 @@ void runNegativeTests()
     // Should throw since we already finalized the collection.
     EXPECT_THROW(db_mgr.finalizeCollections());
 
-    // Should throw even with a valid stat path, since we already finalized the collections.
+    // Should throw even with a valid element path, since we already finalized the collections.
     EXPECT_THROW(collection1_ptr->addStat("another_valid_python", &dummy_data));
 
     // Should throw since we already added a collection with the same name as this one.
     EXPECT_THROW(collection_mgr->addCollection(std::move(collection2)));
+
+    // Should not throw since this is the first element added to collection3.
+    EXPECT_NOTHROW(collection3->addStat("valid_python", &dummy_data));
+
+    // Should throw because collection1 was already added to the Collections,
+    // and it has a stat by this same name ("valid_python").
+    EXPECT_THROW(collection_mgr->addCollection(std::move(collection3)));
 
     db_mgr.closeDatabase();
 }
