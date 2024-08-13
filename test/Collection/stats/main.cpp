@@ -186,7 +186,7 @@ public:
         }
 
         {
-            auto query = db_mgr_->createQuery("CollectionPaths");
+            auto query = db_mgr_->createQuery("CollectionElems");
 
             int collection_id;
             query->select("CollectionID", collection_id);

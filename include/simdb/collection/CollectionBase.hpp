@@ -19,6 +19,12 @@ namespace simdb
 
 class DatabaseManager;
 
+enum class Format
+{
+    none = 0,
+    hex = 1
+};
+
 /*!
  * \class CollectionBase
  *
@@ -171,7 +177,7 @@ public:
             .addColumn("DataType", dt::string_t)
             .addColumn("IsContainer", dt::int32_t);
 
-        schema.addTable("CollectionPaths")
+        schema.addTable("CollectionElems")
             .addColumn("CollectionID", dt::int32_t)
             .addColumn("SimPath", dt::string_t);
 
@@ -184,7 +190,8 @@ public:
         schema.addTable("StructFields")
             .addColumn("CollectionName", dt::string_t)
             .addColumn("FieldName", dt::string_t)
-            .addColumn("FieldType", dt::string_t);
+            .addColumn("FieldType", dt::string_t)
+            .addColumn("FormatCode", dt::int32_t);
 
         schema.addTable("EnumDefns")
             .addColumn("EnumName", dt::string_t)
@@ -204,6 +211,10 @@ public:
         schema.addTable("SparseValidFlags")
             .addColumn("CollectionDataID", dt::int32_t)
             .addColumn("Flags", dt::blob_t);
+
+        schema.addTable("FormatOpts")
+            .addColumn("ScalarElemID", dt::int32_t)
+            .addColumn("FormatCode", dt::int32_t);
     }
 
     /// \brief  Add a user-configured collection.

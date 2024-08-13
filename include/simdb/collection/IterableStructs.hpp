@@ -80,7 +80,7 @@ public:
         auto struct_num_bytes = meta_serializer_.getStructNumBytes();
 
         for (const auto& tup : containers_) {
-            auto record = db_mgr->INSERT(SQL_TABLE("CollectionPaths"),
+            auto record = db_mgr->INSERT(SQL_TABLE("CollectionElems"),
                                          SQL_COLUMNS("CollectionID", "SimPath"),
                                          SQL_VALUES(collection_pkey_, std::get<1>(tup)));
 
