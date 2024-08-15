@@ -14,6 +14,22 @@
 
 TEST_INIT;
 
+#define INT8_COLLECTION     1
+#define UINT8_COLLECTION    1 
+#define INT16_COLLECTION    1 
+#define UINT16_COLLECTION   1
+#define INT32_COLLECTION    1
+#define UINT32_COLLECTION   1
+#define INT64_COLLECTION    1
+#define UINT64_COLLECTION   1
+#define FLOAT_COLLECTION    1
+#define DOUBLE_COLLECTION   1
+#define STRUCT_COLLECTION   1
+#define ITERABLE_COLLECTION 1
+#define SPARSE_COLLECTION   1
+
+#define PRINT_STRUCTS       0
+
 std::random_device rd;  // a seed source for the random number engine
 std::mt19937 gen(rd()); // mersenne_twister_engine seeded with rd()
 
@@ -55,14 +71,14 @@ struct minval { static constexpr auto value = std::numeric_limits<T>::min(); };
 template <typename T>
 struct maxval { static constexpr auto value = std::numeric_limits<T>::max(); };
 
-enum class EnumInt8   : int8_t   { ONE=1, TWO=2, MAXVAL=maxval<int8_t  >::value, MINVAL=minval<int8_t >::value, __COUNT__=4 };
-enum class EnumInt16  : int16_t  { ONE=1, TWO=2, MAXVAL=maxval<int16_t >::value, MINVAL=minval<int16_t>::value, __COUNT__=4 };
-enum class EnumInt32  : int32_t  { ONE=1, TWO=2, MAXVAL=maxval<int32_t >::value, MINVAL=minval<int32_t>::value, __COUNT__=4 };
-enum class EnumInt64  : int64_t  { ONE=1, TWO=2, MAXVAL=maxval<int64_t >::value, MINVAL=minval<int64_t>::value, __COUNT__=4 };
-enum class EnumUInt8  : uint8_t  { ONE=1, TWO=2, MAXVAL=maxval<uint8_t >::value, __COUNT__=3 };
-enum class EnumUInt16 : uint16_t { ONE=1, TWO=2, MAXVAL=maxval<uint16_t>::value, __COUNT__=3 };
-enum class EnumUInt32 : uint32_t { ONE=1, TWO=2, MAXVAL=maxval<uint32_t>::value, __COUNT__=3 };
-enum class EnumUInt64 : uint64_t { ONE=1, TWO=2, MAXVAL=maxval<uint64_t>::value, __COUNT__=3 };
+enum class EnumInt8   : int8_t   { ONE=1, TWO=2, MAXVAL=maxval<int8_t  >::value, MINVAL=minval<int8_t >::value };
+enum class EnumInt16  : int16_t  { ONE=1, TWO=2, MAXVAL=maxval<int16_t >::value, MINVAL=minval<int16_t>::value };
+enum class EnumInt32  : int32_t  { ONE=1, TWO=2, MAXVAL=maxval<int32_t >::value, MINVAL=minval<int32_t>::value };
+enum class EnumInt64  : int64_t  { ONE=1, TWO=2, MAXVAL=maxval<int64_t >::value, MINVAL=minval<int64_t>::value };
+enum class EnumUInt8  : uint8_t  { ONE=1, TWO=2, MAXVAL=maxval<uint8_t >::value };
+enum class EnumUInt16 : uint16_t { ONE=1, TWO=2, MAXVAL=maxval<uint16_t>::value };
+enum class EnumUInt32 : uint32_t { ONE=1, TWO=2, MAXVAL=maxval<uint32_t>::value };
+enum class EnumUInt64 : uint64_t { ONE=1, TWO=2, MAXVAL=maxval<uint64_t>::value };
 
 struct AllTypes
 {
@@ -88,12 +104,6 @@ struct AllTypes
     double      dbl;
     std::string str;
 
-    int8_t      int8_hex;
-    int16_t     int16_hex;
-    int32_t     int32_hex;
-    int64_t     int64_hex;
-    uint8_t     uint8_hex;
-    uint16_t    uint16_hex;
     uint32_t    uint32_hex;
     uint64_t    uint64_hex;
 };
@@ -126,14 +136,8 @@ namespace simdb
         schema.addField<double>("dbl");
         schema.addField<std::string>("str");
 
-        schema.addField<int8_t>("int8_hex", Format::hex);
-        schema.addField<int16_t>("int16_hex", Format::hex);
-        schema.addField<int32_t>("int32_hex", Format::hex);
-        schema.addField<int64_t>("int64_hex", Format::hex);
-        schema.addField<uint8_t>("uint8_hex", Format::hex);
-        schema.addField<uint16_t>("uint16_hex", Format::hex);
-        schema.addField<uint32_t>("uint32_hex", Format::hex);
-        schema.addField<uint64_t>("uint64_hex", Format::hex);
+        schema.addHexField<uint32_t>("uint32_hex");
+        schema.addHexField<uint64_t>("uint64_hex");
     }
 
     template <>
@@ -235,12 +239,6 @@ namespace simdb
         serializer->writeField(all->flt);
         serializer->writeField(all->dbl);
         serializer->writeField(all->str);
-        serializer->writeField(all->int8_hex);
-        serializer->writeField(all->int16_hex);
-        serializer->writeField(all->int32_hex);
-        serializer->writeField(all->int64_hex);
-        serializer->writeField(all->uint8_hex);
-        serializer->writeField(all->uint16_hex);
         serializer->writeField(all->uint32_hex);
         serializer->writeField(all->uint64_hex);
     }
@@ -265,18 +263,99 @@ using SparseStructGroupCollection = simdb::IterableStructCollection<StructGroup,
 #define STRUCT_GROUP_CAPACITY 8
 #define SPARSE_STRUCT_GROUP_CAPACITY 16
 
+template <typename EnumT>
+typename std::enable_if<std::is_signed<typename std::underlying_type<EnumT>::type>::value, EnumT>::type
+generateRandomEnum()
+{
+    switch (rand() % 4) {
+        case 0:  return EnumT::ONE;
+        case 1:  return EnumT::TWO;
+        case 2:  return EnumT::MINVAL;
+        case 3:  return EnumT::MAXVAL;
+        default: std::terminate();
+    }
+}
+
+template <typename EnumT>
+typename std::enable_if<!std::is_signed<typename std::underlying_type<EnumT>::type>::value, EnumT>::type
+generateRandomEnum()
+{
+    switch (rand() % 3) {
+        case 0:  return EnumT::ONE;
+        case 1:  return EnumT::TWO;
+        case 2:  return EnumT::MAXVAL;
+        default: std::terminate();
+    }
+}
+
+template <typename EnumT>
+typename std::enable_if<std::is_signed<typename std::underlying_type<EnumT>::type>::value, std::ostream&>::type
+operator<<(std::ostream& os, const EnumT unit)
+{
+    switch (unit) {
+        case EnumT::ONE:    os << "ONE("<< (int)EnumT::ONE <<")"; break;
+        case EnumT::TWO:    os << "TWO("<< (int)EnumT::TWO <<")"; break;
+        case EnumT::MINVAL: os << "MINVAL("<< (int)EnumT::MINVAL <<")"; break;
+        case EnumT::MAXVAL: os << "MAXVAL("<< (int)EnumT::MAXVAL <<")"; break;
+    }
+
+    return os;
+}
+
+template <typename EnumT>
+typename std::enable_if<!std::is_signed<typename std::underlying_type<EnumT>::type>::value, std::ostream&>::type
+operator<<(std::ostream& os, const EnumT unit)
+{
+    switch (unit) {
+        case EnumT::ONE:    os << "ONE("<< (int)EnumT::ONE <<")"; break;
+        case EnumT::TWO:    os << "TWO("<< (int)EnumT::TWO <<")"; break;
+        case EnumT::MAXVAL: os << "MAXVAL("<< (int)EnumT::MAXVAL <<")"; break;
+    }
+
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const AllTypes all)
+{
+    os << "  " << all.e_int8 << "\n";
+    os << "  " << all.e_int16 << "\n";
+    os << "  " << all.e_int32 << "\n";
+    os << "  " << all.e_int64 << "\n";
+    os << "  " << all.e_uint8 << "\n";
+    os << "  " << all.e_uint16 << "\n";
+    os << "  " << all.e_uint32 << "\n";
+    os << "  " << all.e_uint64 << "\n";
+    os << "  " << all.ch << "\n";
+    os << "  " << (int)all.int8 << "\n";
+    os << "  " << all.int16 << "\n";
+    os << "  " << all.int32 << "\n";
+    os << "  " << all.int64 << "\n";
+    os << "  " << (int)all.uint8 << "\n";
+    os << "  " << all.uint16 << "\n";
+    os << "  " << all.uint32 << "\n";
+    os << "  " << all.uint64 << "\n";
+    os << "  " << all.flt << "\n";
+    os << "  " << all.dbl << "\n";
+    os << "  " << all.str << "\n";
+    os << "  0x" << std::hex << all.uint32_hex << "\n";
+    os << "  0x" << std::hex << all.uint64_hex << "\n";
+    os << std::dec;
+
+    return os;
+}
+
 std::shared_ptr<AllTypes> generateRandomStruct()
 {
     auto s = std::make_shared<AllTypes>();
 
-    s->e_int8 = static_cast<EnumInt8>(rand() % (int)EnumInt8::__COUNT__);
-    s->e_int16 = static_cast<EnumInt16>(rand() % (int)EnumInt16::__COUNT__);
-    s->e_int32 = static_cast<EnumInt32>(rand() % (int)EnumInt32::__COUNT__);
-    s->e_int64 = static_cast<EnumInt64>(rand() % (int)EnumInt64::__COUNT__);
-    s->e_uint8 = static_cast<EnumUInt8>(rand() % (int)EnumUInt8::__COUNT__);
-    s->e_uint16 = static_cast<EnumUInt16>(rand() % (int)EnumUInt16::__COUNT__);
-    s->e_uint32 = static_cast<EnumUInt32>(rand() % (int)EnumUInt32::__COUNT__);
-    s->e_uint64 = static_cast<EnumUInt64>(rand() % (int)EnumUInt64::__COUNT__);
+    s->e_int8 = generateRandomEnum<EnumInt8>();
+    s->e_int16 = generateRandomEnum<EnumInt16>();
+    s->e_int32 = generateRandomEnum<EnumInt32>();
+    s->e_int64 = generateRandomEnum<EnumInt64>();
+    s->e_uint8 = generateRandomEnum<EnumUInt8>();
+    s->e_uint16 = generateRandomEnum<EnumUInt16>();
+    s->e_uint32 = generateRandomEnum<EnumUInt32>();
+    s->e_uint64 = generateRandomEnum<EnumUInt64>();
 
     s->ch = generateRandomChar();
     s->int8 = generateRandomInt<int8_t>();
@@ -291,14 +370,12 @@ std::shared_ptr<AllTypes> generateRandomStruct()
     s->dbl = generateRandomReal<double>();
     s->str = generateRandomString();
 
-    s->int8_hex = generateRandomInt<int8_t>();
-    s->int16_hex = generateRandomInt<int16_t>();
-    s->int32_hex = generateRandomInt<int32_t>();
-    s->int64_hex = generateRandomInt<int64_t>();
-    s->uint8_hex = generateRandomInt<uint8_t>();
-    s->uint16_hex = generateRandomInt<uint16_t>();
     s->uint32_hex = generateRandomInt<uint32_t>();
     s->uint64_hex = generateRandomInt<uint64_t>();
+
+#if PRINT_STRUCTS
+    std::cout << "Struct:\n" << *s << "\n";
+#endif
 
     return s;
 }
@@ -332,58 +409,71 @@ private:
         auto collection_mgr = db_mgr_->getCollectionMgr();
         collection_mgr->useTimestampsFrom(&time_);
 
+#if INT8_COLLECTION
         std::unique_ptr<StatCollectionInt8> int8_collection(new StatCollectionInt8("Int8Collection"));
         int8_collection->addStat("stats.int8", &stat_int8_);
         collection_mgr->addCollection(std::move(int8_collection));
-
+#endif
+#if INT16_COLLECTION
         std::unique_ptr<StatCollectionInt16> int16_collection(new StatCollectionInt16("Int16Collection"));
         int16_collection->addStat("stats.int16", &stat_int16_);
         collection_mgr->addCollection(std::move(int16_collection));
-
+#endif
+#if INT32_COLLECTION
         std::unique_ptr<StatCollectionInt32> int32_collection(new StatCollectionInt32("Int32Collection"));
         int32_collection->addStat("stats.int32", &stat_int32_);
         collection_mgr->addCollection(std::move(int32_collection));
-
+#endif
+#if INT64_COLLECTION
         std::unique_ptr<StatCollectionInt64> int64_collection(new StatCollectionInt64("Int64Collection"));
         int64_collection->addStat("stats.int64", &stat_int64_);
         collection_mgr->addCollection(std::move(int64_collection));
-
+#endif
+#if UINT8_COLLECTION
         std::unique_ptr<StatCollectionUInt8> uint8_collection(new StatCollectionUInt8("UInt8Collection"));
         uint8_collection->addStat("stats.uint8", &stat_uint8_);
         collection_mgr->addCollection(std::move(uint8_collection));
-
+#endif
+#if UINT16_COLLECTION
         std::unique_ptr<StatCollectionUInt16> uint16_collection(new StatCollectionUInt16("UInt16Collection"));
         uint16_collection->addStat("stats.uint16", &stat_uint16_);
         collection_mgr->addCollection(std::move(uint16_collection));
-
+#endif
+#if UINT32_COLLECTION
         std::unique_ptr<StatCollectionUInt32> uint32_collection(new StatCollectionUInt32("UInt32Collection"));
         uint32_collection->addStat("stats.uint32", &stat_uint32_);
         collection_mgr->addCollection(std::move(uint32_collection));
-
+#endif
+#if UINT64_COLLECTION
         std::unique_ptr<StatCollectionUInt64> uint64_collection(new StatCollectionUInt64("UInt64Collection"));
         uint64_collection->addStat("stats.uint64", &stat_uint64_);
         collection_mgr->addCollection(std::move(uint64_collection));
-
+#endif
+#if FLOAT_COLLECTION
         std::unique_ptr<StatCollectionFloat> float_collection(new StatCollectionFloat("FloatCollection"));
         float_collection->addStat("stats.float", &stat_flt_);
         collection_mgr->addCollection(std::move(float_collection));
-
+#endif
+#if DOUBLE_COLLECTION
         std::unique_ptr<StatCollectionDouble> double_collection(new StatCollectionDouble("DoubleCollection"));
         double_collection->addStat("stats.double", &stat_dbl_);
         collection_mgr->addCollection(std::move(double_collection));
-
+#endif
+#if STRUCT_COLLECTION
         std::unique_ptr<ScalarStructCollection> scalar_struct_collection(new ScalarStructCollection("StructCollection"));
         scalar_struct_collection->addStruct("structs.scalar", &scalar_struct_);
         collection_mgr->addCollection(std::move(scalar_struct_collection));
-
+#endif
+#if ITERABLE_COLLECTION
         std::unique_ptr<StructGroupCollection> iterable_struct_collection(new StructGroupCollection("ContigStructsCollection"));
         iterable_struct_collection->addContainer("structs.iterables.contig", &iterable_structs_, STRUCT_GROUP_CAPACITY);
         collection_mgr->addCollection(std::move(iterable_struct_collection));
-
+#endif
+#if SPARSE_COLLECTION
         std::unique_ptr<SparseStructGroupCollection> sparse_iterable_struct_collection(new SparseStructGroupCollection("SparseStructsCollection"));
         sparse_iterable_struct_collection->addContainer("structs.iterables.sparse", &sparse_iterable_structs_, SPARSE_STRUCT_GROUP_CAPACITY);
         collection_mgr->addCollection(std::move(sparse_iterable_struct_collection));
-
+#endif
         db_mgr_->finalizeCollections();
     }
 

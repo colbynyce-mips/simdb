@@ -418,9 +418,9 @@ public:
 
     template <typename FieldT>
     typename std::enable_if<!std::is_enum<FieldT>::value && !std::is_same<FieldT, std::string>::value, void>::type
-    addField(const char* name, const Format format = Format::none)
+    addField(const char* name)
     {
-        fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<FieldT>(), format));
+        fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<FieldT>()));
     }
 
     template <typename FieldT>
@@ -435,6 +435,13 @@ public:
     addField(const char* name)
     {
         fields_.emplace_back(new StringField(name));
+    }
+
+    template <typename FieldT>
+    typename std::enable_if<std::is_same<FieldT, uint32_t>::value || std::is_same<FieldT, uint64_t>::value, void>::type
+    addHexField(const char* name)
+    {
+        fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<FieldT>(), Format::hex));
     }
 
     void writeMetadata(DatabaseManager* db_mgr, const std::string& collection_name) const
