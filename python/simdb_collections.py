@@ -70,6 +70,15 @@ class Collections:
             deserializer = self._deserializers_by_collection_name[collection_name]
             deserializer.AddField(field_name, field_type, format_code)
 
+        cmd = 'SELECT Name,DataType FROM Collections WHERE IsContainer=0 AND DataType IN ({})'
+        pods = ['int8_t','int16_t','int32_t','int64_t','uint8_t','uint16_t','uint32_t','uint64_t','double','float']
+        cmd = cmd.format(','.join('"'+pod+'"' for pod in pods))
+        cursor.execute(cmd)
+
+        for collection_name,data_type in cursor.fetchall():
+            assert collection_name not in self._deserializers_by_collection_name
+            self._deserializers_by_collection_name[collection_name] = StatsDeserializer(data_type)
+
     def cursor(self):
         return self._conn.cursor()
 
@@ -95,14 +104,11 @@ class Collections:
 
         collection_name = self._collection_names_by_simpath[elem_path]
         deserializer = self._deserializers_by_collection_name[collection_name]
+        offset = self._offsets_by_simpath[elem_path]
 
         for time_val, data_blob in cursor.fetchall():
             time_vals.append(self._FormatTimeVal(time_val))
             data_blob = zlib.decompress(data_blob)
-            collection_id = self._collection_ids_by_simpath[elem_path]
-            collection_name = self._collection_names_by_collection_id[collection_id]
-            deserializer = self._deserializers_by_collection_name[collection_name]
-            offset = self._offsets_by_simpath[elem_path]
             data_vals.append(deserializer.Unpack(data_blob, offset))
 
         return {'TimeVals': time_vals, 'DataVals': data_vals}
@@ -149,6 +155,45 @@ class Enum:
 
     def Format(self, val):
         return self._strings_by_int[val]
+
+class StatsDeserializer:
+    NUM_BYTES_MAP = {
+        'int8_t'  :1,
+        'int16_t' :2,
+        'int32_t' :4,
+        'int64_t' :8,
+        'uint8_t' :1,
+        'uint16_t':2,
+        'uint32_t':4,
+        'uint64_t':8,
+        'float'   :4,
+        'double'  :8
+    }
+
+    FORMAT_CODES_MAP = {
+        'int8_t'  :'b',
+        'int16_t' :'h',
+        'int32_t' :'i',
+        'int64_t' :'q',
+        'uint8_t' :'B',
+        'uint16_t':'H',
+        'uint32_t':'I',
+        'uint64_t':'Q',
+        'float'   :'f',
+        'double'  :'d'
+    }
+
+    def __init__(self, data_type):
+        self._scalar_num_bytes = StatsDeserializer.NUM_BYTES_MAP[data_type]
+        self._format = StatsDeserializer.FORMAT_CODES_MAP[data_type]
+        self._cast = float if data_type in ('float','double') else int
+
+    def Unpack(self, data_blob, elem_offset):
+        start = elem_offset*self._scalar_num_bytes
+        end = start + self._scalar_num_bytes
+        raw_bytes = data_blob[start:end]
+        val = struct.unpack(self._format, raw_bytes)[0]
+        return self._cast(val)
 
 class StructDeserializer:
     def __init__(self, strings_by_int, enums_by_name):
