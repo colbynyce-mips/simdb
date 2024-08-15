@@ -153,7 +153,12 @@ private:
     typename std::enable_if<is_any_pointer<ElemT>::value, bool>::type
     writeStruct_(const ElemT& el, char*& dest)
     {
-        return el ? writeStruct_(*el, dest) : false;
+        if (el) {
+            return writeStruct_(*el, dest);
+        } else {
+            dest += struct_num_bytes_;
+            return false;
+        }
     }
 
     template <typename ElemT>

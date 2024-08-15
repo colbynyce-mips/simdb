@@ -81,9 +81,9 @@ class Collections:
         for collection_name,field_name,field_type,format_code in cursor.fetchall():
             if collection_name not in self._deserializers_by_collection_name:
                 if collection_name not in container_collections:
-                    deserializer = StructDeserializer(strings_by_int, enums_by_name, self._offsets_by_simpath)
+                    deserializer = StructDeserializer(strings_by_int, enums_by_name, self._offsets_by_simpath, cursor)
                 else:
-                    deserializer = IterableDeserializer(strings_by_int, enums_by_name, container_meta_by_simpath, self._offsets_by_simpath)
+                    deserializer = IterableDeserializer(strings_by_int, enums_by_name, container_meta_by_simpath, self._offsets_by_simpath, cursor)
 
                 self._deserializers_by_collection_name[collection_name] = deserializer
 
@@ -97,7 +97,7 @@ class Collections:
 
         for collection_name,data_type in cursor.fetchall():
             assert collection_name not in self._deserializers_by_collection_name
-            self._deserializers_by_collection_name[collection_name] = StatsDeserializer(data_type, self._offsets_by_simpath)
+            self._deserializers_by_collection_name[collection_name] = StatsDeserializer(data_type, self._offsets_by_simpath, cursor)
 
     def cursor(self):
         return self._conn.cursor()
@@ -108,7 +108,7 @@ class Collections:
     def Unpack(self, elem_path, time_range=None):
         cursor = self.cursor()
         collection_id = self._collection_ids_by_simpath[elem_path]
-        cmd = 'SELECT TimeVal,DataVals FROM CollectionData WHERE CollectionID={} '.format(collection_id)
+        cmd = 'SELECT Id,TimeVal,DataVals FROM CollectionData WHERE CollectionID={} '.format(collection_id)
 
         if time_range is not None:
             assert type(time_range) in (list,tuple) and len(time_range) == 2
@@ -125,13 +125,13 @@ class Collections:
         collection_name = self._collection_names_by_simpath[elem_path]
         deserializer = self._deserializers_by_collection_name[collection_name]
 
-        for time_val, data_blob in cursor.fetchall():
+        for collection_data_id, time_val, data_blob in cursor.fetchall():
             time_vals.append(self._FormatTimeVal(time_val))
             if data_blob is None or len(data_blob) == 0:
                 data_vals.append(None)
             else:
                 data_blob = zlib.decompress(data_blob)
-                data_vals.append(deserializer.Unpack(data_blob, elem_path))
+                data_vals.append(deserializer.Unpack(data_blob, elem_path, collection_data_id))
 
         return {'TimeVals': time_vals, 'DataVals': data_vals}
 
@@ -178,7 +178,15 @@ class Enum:
     def Format(self, val):
         return self._strings_by_int[val]
 
-class StatsDeserializer:
+class Deserializer:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    @property
+    def cursor(self):
+        return self._cursor
+
+class StatsDeserializer(Deserializer):
     NUM_BYTES_MAP = {
         'int8_t'  :1,
         'int16_t' :2,
@@ -205,13 +213,14 @@ class StatsDeserializer:
         'double'  :'d'
     }
 
-    def __init__(self, data_type, offsets_by_simpath):
+    def __init__(self, data_type, offsets_by_simpath, cursor):
+        Deserializer.__init__(self, cursor)
         self._scalar_num_bytes = StatsDeserializer.NUM_BYTES_MAP[data_type]
         self._format = StatsDeserializer.FORMAT_CODES_MAP[data_type]
         self._cast = float if data_type in ('float','double') else int
         self._offsets_by_simpath = offsets_by_simpath
 
-    def Unpack(self, data_blob, elem_path):
+    def Unpack(self, data_blob, elem_path, collection_data_id):
         elem_offset = self._offsets_by_simpath[elem_path]
         start = elem_offset*self._scalar_num_bytes
         end = start + self._scalar_num_bytes
@@ -219,8 +228,9 @@ class StatsDeserializer:
         val = struct.unpack(self._format, raw_bytes)[0]
         return self._cast(val)
 
-class StructDeserializer:
-    def __init__(self, strings_by_int, enums_by_name, offsets_by_simpath):
+class StructDeserializer(Deserializer):
+    def __init__(self, strings_by_int, enums_by_name, offsets_by_simpath, cursor):
+        Deserializer.__init__(self, cursor)
         self._strings_by_int = strings_by_int
         self._enums_by_name = enums_by_name
         self._offsets_by_simpath = offsets_by_simpath
@@ -254,7 +264,7 @@ class StructDeserializer:
 
         self._field_formatters.append(formatter)
 
-    def Unpack(self, data_blob, elem_path):
+    def Unpack(self, data_blob, elem_path, collection_data_id):
         struct_num_bytes = self.GetStructNumBytes()
         elem_offset = self._offsets_by_simpath[elem_path]
         data_blob = data_blob[struct_num_bytes*elem_offset:struct_num_bytes*(elem_offset+1)]
@@ -307,23 +317,48 @@ class StructDeserializer:
         return num_bytes
 
 class IterableDeserializer(StructDeserializer):
-    def __init__(self, strings_by_int, enums_by_name, container_meta_by_simpath, offsets_by_simpath):
-        StructDeserializer.__init__(self, strings_by_int, enums_by_name, offsets_by_simpath)
+    def __init__(self, strings_by_int, enums_by_name, container_meta_by_simpath, offsets_by_simpath, cursor):
+        StructDeserializer.__init__(self, strings_by_int, enums_by_name, offsets_by_simpath, cursor)
         self._container_meta_by_simpath = container_meta_by_simpath
         self._offsets_by_simpath = offsets_by_simpath
-        # TODO: Sparse containers
 
-    def Unpack(self, data_blob, elem_path):
+    def Unpack(self, data_blob, elem_path, collection_data_id):
         offset = self._offsets_by_simpath[elem_path]
         capacity = self._container_meta_by_simpath[elem_path]['Capacity']
         sparse = self._container_meta_by_simpath[elem_path]['IsSparse']
         struct_num_bytes = self.GetStructNumBytes()
 
         res = []
-        while len(data_blob) > 0:
-            struct_blob = data_blob[:struct_num_bytes]
-            data_blob = data_blob[struct_num_bytes:]
-            res.append(StructDeserializer.Unpack(self, struct_blob, elem_path))
+
+        if not sparse:
+            while len(data_blob) > 0:
+                struct_blob = data_blob[:struct_num_bytes]
+                data_blob = data_blob[struct_num_bytes:]
+                res.append(StructDeserializer.Unpack(self, struct_blob, elem_path, collection_data_id))
+        else:
+            cmd = 'SELECT Flags FROM SparseValidFlags WHERE CollectionDataID={}'.format(collection_data_id)
+            cursor = self.cursor
+            cursor.execute(cmd)
+
+            flags = None
+            for flags in cursor.fetchall():
+                flags = flags[0]
+
+            assert flags is not None and len(flags) > 0
+            flags = zlib.decompress(flags)
+            flags = struct.unpack('i'*int(len(data_blob) / struct_num_bytes), flags)
+            assert len(flags) == len(data_blob) / struct_num_bytes
+
+            flag_idx = 0
+            while len(data_blob) > 0:
+                struct_blob = data_blob[:struct_num_bytes]
+                data_blob = data_blob[struct_num_bytes:]
+                if flags[flag_idx]:
+                    res.append(StructDeserializer.Unpack(self, struct_blob, elem_path, collection_data_id))
+                else:
+                    res.append(None)
+
+                flag_idx += 1
 
         return res
 
