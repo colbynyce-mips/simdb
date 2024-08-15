@@ -60,11 +60,31 @@ class Collections:
 
             enums_by_name[enum_name].AddEntry(enum_str, enum_blob)
 
+        cursor.execute('SELECT Name FROM Collections WHERE IsContainer=1')
+        container_collections = set()
+        for collection_name in cursor.fetchall():
+            container_collections.add(collection_name[0])
+
+        cursor.execute('SELECT PathID,Capacity,IsSparse FROM ContainerMeta')
+        container_meta_by_path_id = {}
+        for path_id,capacity,is_sparse in cursor.fetchall():
+            container_meta_by_path_id[path_id] = {'Capacity':capacity, 'IsSparse':is_sparse}
+
+        cursor.execute('SELECT Id,SimPath FROM CollectionElems')
+        container_meta_by_simpath = {}
+        for path_id,simpath in cursor.fetchall():
+            if path_id in container_meta_by_path_id:
+                container_meta_by_simpath[simpath] = container_meta_by_path_id[path_id]
+
         cursor.execute('SELECT CollectionName,FieldName,FieldType,FormatCode FROM StructFields')
         self._deserializers_by_collection_name = {}
         for collection_name,field_name,field_type,format_code in cursor.fetchall():
             if collection_name not in self._deserializers_by_collection_name:
-                deserializer = StructDeserializer(strings_by_int, enums_by_name)
+                if collection_name not in container_collections:
+                    deserializer = StructDeserializer(strings_by_int, enums_by_name, self._offsets_by_simpath)
+                else:
+                    deserializer = IterableDeserializer(strings_by_int, enums_by_name, container_meta_by_simpath, self._offsets_by_simpath)
+
                 self._deserializers_by_collection_name[collection_name] = deserializer
 
             deserializer = self._deserializers_by_collection_name[collection_name]
@@ -77,7 +97,7 @@ class Collections:
 
         for collection_name,data_type in cursor.fetchall():
             assert collection_name not in self._deserializers_by_collection_name
-            self._deserializers_by_collection_name[collection_name] = StatsDeserializer(data_type)
+            self._deserializers_by_collection_name[collection_name] = StatsDeserializer(data_type, self._offsets_by_simpath)
 
     def cursor(self):
         return self._conn.cursor()
@@ -104,12 +124,14 @@ class Collections:
 
         collection_name = self._collection_names_by_simpath[elem_path]
         deserializer = self._deserializers_by_collection_name[collection_name]
-        offset = self._offsets_by_simpath[elem_path]
 
         for time_val, data_blob in cursor.fetchall():
             time_vals.append(self._FormatTimeVal(time_val))
-            data_blob = zlib.decompress(data_blob)
-            data_vals.append(deserializer.Unpack(data_blob, offset))
+            if data_blob is None or len(data_blob) == 0:
+                data_vals.append(None)
+            else:
+                data_blob = zlib.decompress(data_blob)
+                data_vals.append(deserializer.Unpack(data_blob, elem_path))
 
         return {'TimeVals': time_vals, 'DataVals': data_vals}
 
@@ -183,12 +205,14 @@ class StatsDeserializer:
         'double'  :'d'
     }
 
-    def __init__(self, data_type):
+    def __init__(self, data_type, offsets_by_simpath):
         self._scalar_num_bytes = StatsDeserializer.NUM_BYTES_MAP[data_type]
         self._format = StatsDeserializer.FORMAT_CODES_MAP[data_type]
         self._cast = float if data_type in ('float','double') else int
+        self._offsets_by_simpath = offsets_by_simpath
 
-    def Unpack(self, data_blob, elem_offset):
+    def Unpack(self, data_blob, elem_path):
+        elem_offset = self._offsets_by_simpath[elem_path]
         start = elem_offset*self._scalar_num_bytes
         end = start + self._scalar_num_bytes
         raw_bytes = data_blob[start:end]
@@ -196,9 +220,10 @@ class StatsDeserializer:
         return self._cast(val)
 
 class StructDeserializer:
-    def __init__(self, strings_by_int, enums_by_name):
+    def __init__(self, strings_by_int, enums_by_name, offsets_by_simpath):
         self._strings_by_int = strings_by_int
         self._enums_by_name = enums_by_name
+        self._offsets_by_simpath = offsets_by_simpath
         self._field_formatters = []
         self._format = ''
 
@@ -229,8 +254,9 @@ class StructDeserializer:
 
         self._field_formatters.append(formatter)
 
-    def Unpack(self, data_blob, elem_offset):
-        struct_num_bytes = self.__GetStructNumBytes()
+    def Unpack(self, data_blob, elem_path):
+        struct_num_bytes = self.GetStructNumBytes()
+        elem_offset = self._offsets_by_simpath[elem_path]
         data_blob = data_blob[struct_num_bytes*elem_offset:struct_num_bytes*(elem_offset+1)]
 
         num_bytes_by_format_code = {
@@ -259,7 +285,7 @@ class StructDeserializer:
         assert len(data_blob) == 0
         return res
 
-    def __GetStructNumBytes(self):
+    def GetStructNumBytes(self):
         num_bytes_by_format_code = {
             'c':1,
             'b':1,
@@ -279,6 +305,27 @@ class StructDeserializer:
             num_bytes += num_bytes_by_format_code[code]
 
         return num_bytes
+
+class IterableDeserializer(StructDeserializer):
+    def __init__(self, strings_by_int, enums_by_name, container_meta_by_simpath, offsets_by_simpath):
+        StructDeserializer.__init__(self, strings_by_int, enums_by_name, offsets_by_simpath)
+        self._container_meta_by_simpath = container_meta_by_simpath
+        self._offsets_by_simpath = offsets_by_simpath
+        # TODO: Sparse containers
+
+    def Unpack(self, data_blob, elem_path):
+        offset = self._offsets_by_simpath[elem_path]
+        capacity = self._container_meta_by_simpath[elem_path]['Capacity']
+        sparse = self._container_meta_by_simpath[elem_path]['IsSparse']
+        struct_num_bytes = self.GetStructNumBytes()
+
+        res = []
+        while len(data_blob) > 0:
+            struct_blob = data_blob[:struct_num_bytes]
+            data_blob = data_blob[struct_num_bytes:]
+            res.append(StructDeserializer.Unpack(self, struct_blob, elem_path))
+
+        return res
 
 class Formatter:
     def __init__(self, field_name):
