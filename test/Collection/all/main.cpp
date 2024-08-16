@@ -508,7 +508,7 @@ private:
         auto s1 = generateRandomStruct("structs.scalar");
         scalar_struct_ = *s1;
         auto s2 = generateRandomStruct("structs.second.scalar");
-        scalar_struct_ = *s2;
+        second_scalar_struct_ = *s2;
     }
 
     void generateRandomStructGroups_()

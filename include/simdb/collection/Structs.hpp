@@ -384,7 +384,7 @@ public:
     }
 
     template <typename StructT>
-    void writeStruct(const StructT* s, char*& dest)
+    void writeStruct(const StructT* s, char*& dest) const
     {
         StructFieldSerializer<StructT> field_serializer(fields_, dest);
         field_serializer.writeFields(s);
@@ -424,7 +424,7 @@ public:
     }
 
     template <typename FieldT>
-    typename std::enable_if<std::is_enum<FieldT>::value && !std::is_same<FieldT, std::string>::value, void>::type
+    typename std::enable_if<std::is_enum<FieldT>::value, void>::type
     addField(const char* name)
     {
         fields_.emplace_back(new EnumField<FieldT>(name));
