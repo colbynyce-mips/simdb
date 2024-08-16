@@ -488,8 +488,9 @@ private:
 /**
  * \def DB_INIT
  * \brief Clears all *.db files from previous test runs.
+ *        For some collections test, also deletes any dump files.
  */
-#define DB_INIT { auto __rc = system("rm -f *.db"); (void)__rc; }
+#define DB_INIT { auto __rc = system("rm -f *.db"); __rc = system("rm -f structs.*"); __rc = system("rm -f stats.*"); (void)__rc; }
 
 /**
  * \def EXPECT_REACHED()

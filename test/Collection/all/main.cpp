@@ -14,41 +14,41 @@
 
 TEST_INIT;
 
-#define INT8_COLLECTION     1
-#define UINT8_COLLECTION    1 
-#define INT16_COLLECTION    1 
-#define UINT16_COLLECTION   1
-#define INT32_COLLECTION    1
-#define UINT32_COLLECTION   1
-#define INT64_COLLECTION    1
-#define UINT64_COLLECTION   1
-#define FLOAT_COLLECTION    1
-#define DOUBLE_COLLECTION   1
-#define STRUCT_COLLECTION   1
-#define ITERABLE_COLLECTION 1
-#define SPARSE_COLLECTION   1
-
-#define PRINT_STRUCTS       0
+std::unordered_map<std::string, std::unique_ptr<std::ofstream>> print_fouts;
 
 std::random_device rd;  // a seed source for the random number engine
 std::mt19937 gen(rd()); // mersenne_twister_engine seeded with rd()
 
 template <typename T>
-T generateRandomInt()
+T generateRandomInt(const char* elem_path = "")
 {
     constexpr auto minval = std::numeric_limits<T>::min();
     constexpr auto maxval = std::numeric_limits<T>::max();
     std::uniform_int_distribution<T> distrib(minval, maxval);
-    return distrib(gen);
+    auto val = distrib(gen);
+
+    auto iter = print_fouts.find(elem_path);
+    if (iter != print_fouts.end()) {
+        *iter->second << val << ", ";
+    }
+
+    return val;
 }
 
 template <typename T>
-T generateRandomReal()
+T generateRandomReal(const char* elem_path = "")
 {
     constexpr auto minval = std::numeric_limits<T>::min();
     constexpr auto maxval = std::numeric_limits<T>::max();
     std::uniform_real_distribution<T> distrib(minval, maxval);
-    return distrib(gen);
+    auto val = distrib(gen);
+
+    auto iter = print_fouts.find(elem_path);
+    if (iter != print_fouts.end()) {
+        *iter->second << val << ", ";
+    }
+
+    return val;
 }
 
 char generateRandomChar()
@@ -344,7 +344,7 @@ std::ostream& operator<<(std::ostream& os, const AllTypes all)
     return os;
 }
 
-std::shared_ptr<AllTypes> generateRandomStruct()
+std::shared_ptr<AllTypes> generateRandomStruct(const char* elem_path = "")
 {
     auto s = std::make_shared<AllTypes>();
 
@@ -373,9 +373,10 @@ std::shared_ptr<AllTypes> generateRandomStruct()
     s->uint32_hex = generateRandomInt<uint32_t>();
     s->uint64_hex = generateRandomInt<uint64_t>();
 
-#if PRINT_STRUCTS
-    std::cout << "Struct:\n" << *s << "\n";
-#endif
+    auto iter = print_fouts.find(elem_path);
+    if (iter != print_fouts.end()) {
+        *iter->second << *s << "\n\n";
+    }
 
     return s;
 }
@@ -409,107 +410,125 @@ private:
         auto collection_mgr = db_mgr_->getCollectionMgr();
         collection_mgr->useTimestampsFrom(&time_);
 
-#if INT8_COLLECTION
         std::unique_ptr<StatCollectionInt8> int8_collection(new StatCollectionInt8("Int8Collection"));
         int8_collection->addStat("stats.int8", &stat_int8_);
+        int8_collection->addStat("stats.second.int8", &second_stat_int8_);
         collection_mgr->addCollection(std::move(int8_collection));
-#endif
-#if INT16_COLLECTION
+
         std::unique_ptr<StatCollectionInt16> int16_collection(new StatCollectionInt16("Int16Collection"));
         int16_collection->addStat("stats.int16", &stat_int16_);
+        int16_collection->addStat("stats.second.int16", &second_stat_int16_);
         collection_mgr->addCollection(std::move(int16_collection));
-#endif
-#if INT32_COLLECTION
+
         std::unique_ptr<StatCollectionInt32> int32_collection(new StatCollectionInt32("Int32Collection"));
         int32_collection->addStat("stats.int32", &stat_int32_);
+        int32_collection->addStat("stats.second.int32", &second_stat_int32_);
         collection_mgr->addCollection(std::move(int32_collection));
-#endif
-#if INT64_COLLECTION
+
         std::unique_ptr<StatCollectionInt64> int64_collection(new StatCollectionInt64("Int64Collection"));
         int64_collection->addStat("stats.int64", &stat_int64_);
+        int64_collection->addStat("stats.second.int64", &second_stat_int64_);
         collection_mgr->addCollection(std::move(int64_collection));
-#endif
-#if UINT8_COLLECTION
+
         std::unique_ptr<StatCollectionUInt8> uint8_collection(new StatCollectionUInt8("UInt8Collection"));
         uint8_collection->addStat("stats.uint8", &stat_uint8_);
+        uint8_collection->addStat("stats.second.uint8", &second_stat_uint8_);
         collection_mgr->addCollection(std::move(uint8_collection));
-#endif
-#if UINT16_COLLECTION
+
         std::unique_ptr<StatCollectionUInt16> uint16_collection(new StatCollectionUInt16("UInt16Collection"));
         uint16_collection->addStat("stats.uint16", &stat_uint16_);
+        uint16_collection->addStat("stats.second.uint16", &second_stat_uint16_);
         collection_mgr->addCollection(std::move(uint16_collection));
-#endif
-#if UINT32_COLLECTION
+
         std::unique_ptr<StatCollectionUInt32> uint32_collection(new StatCollectionUInt32("UInt32Collection"));
         uint32_collection->addStat("stats.uint32", &stat_uint32_);
+        uint32_collection->addStat("stats.second.uint32", &second_stat_uint32_);
         collection_mgr->addCollection(std::move(uint32_collection));
-#endif
-#if UINT64_COLLECTION
+
         std::unique_ptr<StatCollectionUInt64> uint64_collection(new StatCollectionUInt64("UInt64Collection"));
         uint64_collection->addStat("stats.uint64", &stat_uint64_);
+        uint64_collection->addStat("stats.second.uint64", &second_stat_uint64_);
         collection_mgr->addCollection(std::move(uint64_collection));
-#endif
-#if FLOAT_COLLECTION
+
         std::unique_ptr<StatCollectionFloat> float_collection(new StatCollectionFloat("FloatCollection"));
         float_collection->addStat("stats.float", &stat_flt_);
+        float_collection->addStat("stats.second.float", &second_stat_flt_);
         collection_mgr->addCollection(std::move(float_collection));
-#endif
-#if DOUBLE_COLLECTION
+
         std::unique_ptr<StatCollectionDouble> double_collection(new StatCollectionDouble("DoubleCollection"));
         double_collection->addStat("stats.double", &stat_dbl_);
+        double_collection->addStat("stats.second.double", &second_stat_dbl_);
         collection_mgr->addCollection(std::move(double_collection));
-#endif
-#if STRUCT_COLLECTION
+
         std::unique_ptr<ScalarStructCollection> scalar_struct_collection(new ScalarStructCollection("StructCollection"));
         scalar_struct_collection->addStruct("structs.scalar", &scalar_struct_);
+        scalar_struct_collection->addStruct("structs.second.scalar", &second_scalar_struct_);
         collection_mgr->addCollection(std::move(scalar_struct_collection));
-#endif
-#if ITERABLE_COLLECTION
+
         std::unique_ptr<StructGroupCollection> iterable_struct_collection(new StructGroupCollection("ContigStructsCollection"));
         iterable_struct_collection->addContainer("structs.iterables.contig", &iterable_structs_, STRUCT_GROUP_CAPACITY);
+        iterable_struct_collection->addContainer("structs.second.iterables.contig", &second_iterable_structs_, STRUCT_GROUP_CAPACITY);
         collection_mgr->addCollection(std::move(iterable_struct_collection));
-#endif
-#if SPARSE_COLLECTION
+
         std::unique_ptr<SparseStructGroupCollection> sparse_iterable_struct_collection(new SparseStructGroupCollection("SparseStructsCollection"));
         sparse_iterable_struct_collection->addContainer("structs.iterables.sparse", &sparse_iterable_structs_, SPARSE_STRUCT_GROUP_CAPACITY);
+        sparse_iterable_struct_collection->addContainer("structs.second.iterables.sparse", &second_sparse_iterable_structs_, SPARSE_STRUCT_GROUP_CAPACITY);
         collection_mgr->addCollection(std::move(sparse_iterable_struct_collection));
-#endif
+
         db_mgr_->finalizeCollections();
     }
 
     void generateRandomStats_()
     {
-        stat_int8_   = generateRandomInt<int8_t>();
-        stat_int16_  = generateRandomInt<int16_t>();
-        stat_int32_  = generateRandomInt<int32_t>();
-        stat_int64_  = generateRandomInt<int64_t>();
-        stat_uint8_  = generateRandomInt<uint8_t>();
-        stat_uint16_ = generateRandomInt<uint16_t>();
-        stat_uint32_ = generateRandomInt<uint32_t>();
-        stat_uint64_ = generateRandomInt<uint64_t>();
-        stat_flt_ = generateRandomReal<float>();
-        stat_dbl_ = generateRandomReal<double>();
+        stat_int8_   = generateRandomInt<int8_t>("stats.int8");
+        stat_int16_  = generateRandomInt<int16_t>("stats.int16");
+        stat_int32_  = generateRandomInt<int32_t>("stats.int32");
+        stat_int64_  = generateRandomInt<int64_t>("stats.int64");
+        stat_uint8_  = generateRandomInt<uint8_t>("stats.uint8");
+        stat_uint16_ = generateRandomInt<uint16_t>("stats.uint16");
+        stat_uint32_ = generateRandomInt<uint32_t>("stats.uint32");
+        stat_uint64_ = generateRandomInt<uint64_t>("stats.uint64");
+        stat_flt_ = generateRandomReal<float>("stats.float");
+        stat_dbl_ = generateRandomReal<double>("stats.double");
+
+        second_stat_int8_   = generateRandomInt<int8_t>("stats.second.int8");
+        second_stat_int16_  = generateRandomInt<int16_t>("stats.second.int16");
+        second_stat_int32_  = generateRandomInt<int32_t>("stats.second.int32");
+        second_stat_int64_  = generateRandomInt<int64_t>("stats.second.int64");
+        second_stat_uint8_  = generateRandomInt<uint8_t>("stats.second.uint8");
+        second_stat_uint16_ = generateRandomInt<uint16_t>("stats.second.uint16");
+        second_stat_uint32_ = generateRandomInt<uint32_t>("stats.second.uint32");
+        second_stat_uint64_ = generateRandomInt<uint64_t>("stats.second.uint64");
+        second_stat_flt_ = generateRandomReal<float>("stats.second.float");
+        second_stat_dbl_ = generateRandomReal<double>("stats.second.double");
     }
 
     void generateRandomStructs_()
     {
-        auto s = generateRandomStruct();
-        scalar_struct_ = *s;
+        auto s1 = generateRandomStruct("structs.scalar");
+        scalar_struct_ = *s1;
+        auto s2 = generateRandomStruct("structs.second.scalar");
+        scalar_struct_ = *s2;
     }
 
     void generateRandomStructGroups_()
     {
         iterable_structs_.clear();
+        second_iterable_structs_.clear();
         auto num_contig_insts = rand() % STRUCT_GROUP_CAPACITY;
         for (size_t idx = 0; idx < num_contig_insts; ++idx) {
-            iterable_structs_.push_back(generateRandomStruct());
+            iterable_structs_.push_back(generateRandomStruct("structs.iterables.contig"));
+            second_iterable_structs_.push_back(generateRandomStruct("structs.second.iterables.contig"));
         }
 
         sparse_iterable_structs_.clear();
         sparse_iterable_structs_.resize(SPARSE_STRUCT_GROUP_CAPACITY);
+        second_sparse_iterable_structs_.clear();
+        second_sparse_iterable_structs_.resize(SPARSE_STRUCT_GROUP_CAPACITY);
         for (size_t idx = 0; idx < SPARSE_STRUCT_GROUP_CAPACITY; ++idx) {
             if (rand() % 3 == 0) {
-                sparse_iterable_structs_[idx] = generateRandomStruct();
+                sparse_iterable_structs_[idx] = generateRandomStruct("structs.iterables.sparse");
+                second_sparse_iterable_structs_[idx] = generateRandomStruct("structs.second.iterables.sparse");
             }
         }
     }
@@ -531,11 +550,62 @@ private:
     AllTypes scalar_struct_;
     StructGroup iterable_structs_;
     StructGroup sparse_iterable_structs_;
+
+    // Add a second of each collectable type to the collections.
+    // This is to ensure that the byte offset logic is correct
+    // on the python reader side.
+    int8_t second_stat_int8_;
+    int16_t second_stat_int16_;
+    int32_t second_stat_int32_;
+    int64_t second_stat_int64_;
+    uint8_t second_stat_uint8_;
+    uint16_t second_stat_uint16_;
+    uint32_t second_stat_uint32_;
+    uint64_t second_stat_uint64_;
+    float second_stat_flt_;
+    double second_stat_dbl_;
+
+    AllTypes second_scalar_struct_;
+    StructGroup second_iterable_structs_;
+    StructGroup second_sparse_iterable_structs_;
 };
 
-int main()
+int main(int argc, char** argv)
 {
     DB_INIT;
+
+    if (argc == 2 && std::string((const char*)argv[1]) == "dump") {
+        auto add_outfile = [&](const char* fname) {
+            print_fouts[fname].reset(new std::ofstream(fname));
+        };
+
+        add_outfile("stats.int8");
+        add_outfile("stats.int16");
+        add_outfile("stats.int32");
+        add_outfile("stats.int64");
+        add_outfile("stats.uint8");
+        add_outfile("stats.uint16");
+        add_outfile("stats.uint32");
+        add_outfile("stats.uint64");
+        add_outfile("stats.float");
+        add_outfile("stats.double");
+        add_outfile("stats.second.int8");
+        add_outfile("stats.second.int16");
+        add_outfile("stats.second.int32");
+        add_outfile("stats.second.int64");
+        add_outfile("stats.second.uint8");
+        add_outfile("stats.second.uint16");
+        add_outfile("stats.second.uint32");
+        add_outfile("stats.second.uint64");
+        add_outfile("stats.second.float");
+        add_outfile("stats.second.double");
+        add_outfile("structs.scalar");
+        add_outfile("structs.second.scalar");
+        add_outfile("structs.iterables.contig");
+        add_outfile("structs.second.iterables.contig");
+        add_outfile("structs.iterables.sparse");
+        add_outfile("structs.second.iterables.sparse");
+    }
 
     // Note that we only care about the collection data and have
     // no need for any other tables, aside from the tables that the
