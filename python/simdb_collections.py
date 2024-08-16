@@ -328,12 +328,10 @@ class IterableDeserializer(StructDeserializer):
         self._element_idxs_by_simpath = element_idxs_by_simpath
 
     def Unpack(self, data_blob, elem_path, collection_data_id):
-        struct_num_bytes = self.GetStructNumBytes()
-        elem_idx = self._element_idxs_by_simpath[elem_path]
-        data_blob = data_blob[struct_num_bytes*elem_idx:struct_num_bytes*(elem_idx+1)]
-
         res = []
+        struct_num_bytes = self.GetStructNumBytes()
         sparse = self._container_meta_by_simpath[elem_path]['IsSparse']
+
         if not sparse:
             while len(data_blob) > 0:
                 struct_blob = data_blob[:struct_num_bytes]
