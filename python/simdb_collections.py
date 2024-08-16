@@ -8,7 +8,7 @@
 # required that users interact directly with the internally-
 # created schema tables to support collection.
 
-import argparse, sqlite3, zlib, struct
+import argparse, sqlite3, zlib, struct, json
 
 class Collections:
     def __init__(self, db_path):
@@ -72,7 +72,9 @@ class Collections:
 
         cursor.execute('SELECT Id,SimPath FROM CollectionElems')
         container_meta_by_simpath = {}
+        self._all_element_paths = []
         for path_id,simpath in cursor.fetchall():
+            self._all_element_paths.append(simpath)
             if path_id in container_meta_by_path_id:
                 container_meta_by_simpath[simpath] = container_meta_by_path_id[path_id]
 
@@ -101,6 +103,9 @@ class Collections:
 
     def cursor(self):
         return self._conn.cursor()
+
+    def GetAllElementPaths(self):
+        return self._all_element_paths
 
     # Get all collected data for the given element by its path. These are the
     # same paths that were used in the original calls to addStat(), addStruct(),
@@ -399,27 +404,53 @@ class EnumFormatter(Formatter):
     def Format(self, val):
         return self._enum_handler.Format(val)
 
-def ParseArgs():
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--db-file', required=True, help='Path to the database file')
 
-    parser.add_argument('--element-path', help='Path of a single element to unpack')
+    parser.add_argument('--element-path', help='Path of a single element to unpack. If not ' \
+                        'given, all elements will be unpacked.')
 
     parser.add_argument('--time-range', nargs='+', type=float,
-                        help='Range of time values to print to the report(s) as ' \
+                        help='Narrow the extracted data to the given time range, given as ' \
                         '"10 400" (everything between time 10 and time 400) or ' \
                         '"-1 400" (everything up to time 400) or ' \
                         '"10 -1" (everything from time 10 onward)')
 
+    parser.add_argument('--dump-to-file', action='store_true', help='Dump all unpacked data to file(s) on disk')
+
     args = parser.parse_args()
-    return args
 
-if __name__ == '__main__':
-    args = ParseArgs()
     db_path = args.db_file
-    collections = Collections(db_path)
-
-    elem_path = args.element_path
+    element_path = args.element_path
     time_range = args.time_range
-    print (collections.Unpack(elem_path, time_range))
+    dump_to_file = args.dump_to_file
+
+    collections = Collections(db_path)
+    
+    unpacked = {}
+    bad_element_paths = []
+    if element_path is None:
+        for element_path in collections.GetAllElementPaths():
+            try:
+                unpacked[element_path] = collections.Unpack(element_path, time_range)
+            except:
+                bad_element_paths.append(element_path)
+    else:
+        try:
+            unpacked[element_path] = collections.Unpack(element_path, time_range)
+        except:
+            bad_element_paths.append(element_path)
+
+    if len(bad_element_paths) > 0:
+        print ('Errors occurred while unpacking data from the following elements:')
+        for el in bad_element_paths:
+            print ('  ' + el)
+
+    if not dump_to_file:
+        print (unpacked)
+    else:
+        for element_path, unpacked in unpacked.items():
+            with open(element_path, 'w') as fout:
+                json.dump(unpacked, fout)
