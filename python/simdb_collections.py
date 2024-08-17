@@ -358,7 +358,7 @@ class IterableDeserializer(StructDeserializer):
                 struct_blob = data_blob[:struct_num_bytes]
                 data_blob = data_blob[struct_num_bytes:]
                 if flags[flag_idx]:
-                    res.append(StructDeserializer.Unpack(self, struct_blob, elem_path, collection_data_id))
+                    res.append(StructDeserializer.Unpack(self, struct_blob, elem_path, collection_data_id, False))
                 else:
                     res.append(None)
 
@@ -453,4 +453,3 @@ if __name__ == '__main__':
         print ('Errors occurred while unpacking data from the following elements:')
         for el in bad_element_paths:
             print ('  ' + el)
-
