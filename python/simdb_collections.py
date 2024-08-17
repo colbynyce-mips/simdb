@@ -8,7 +8,7 @@
 # required that users interact directly with the internally-
 # created schema tables to support collection.
 
-import argparse, sqlite3, zlib, struct, json
+import argparse, sqlite3, zlib, struct, json, sys
 
 class Collections:
     def __init__(self, db_path):
@@ -77,6 +77,8 @@ class Collections:
             self._all_element_paths.append(simpath)
             if path_id in container_meta_by_path_id:
                 container_meta_by_simpath[simpath] = container_meta_by_path_id[path_id]
+
+        self._all_element_paths.sort()
 
         cursor.execute('SELECT CollectionName,FieldName,FieldType,FormatCode FROM StructFields')
         self._deserializers_by_collection_name = {}
@@ -417,7 +419,11 @@ if __name__ == '__main__':
                         '"-1 400" (everything up to time 400) or ' \
                         '"10 -1" (everything from time 10 onward)')
 
+    parser.add_argument('--show-element-paths', action='store_true', help='List all element paths and exit')
+
     parser.add_argument('--dump-to-file', action='store_true', help='Dump all unpacked data to file(s) on disk')
+
+    parser.add_argument('--dump-to-stdout', action='store_true', help='Dump all unpacked data to stdout')
 
     args = parser.parse_args()
 
@@ -425,31 +431,38 @@ if __name__ == '__main__':
     element_path = args.element_path
     time_range = args.time_range
     dump_to_file = args.dump_to_file
+    dump_to_stdout = args.dump_to_stdout
 
     collections = Collections(db_path)
     
+    if args.show_element_paths:
+        print ('All element paths found in database:')
+        for element_path in collections.GetAllElementPaths():
+            print ('  ' + element_path)
+        sys.exit(0)
+
     unpacked = {}
-    bad_element_paths = []
+    errmsgs_by_element_path = {}
     if element_path is None:
         for element_path in collections.GetAllElementPaths():
             try:
                 unpacked[element_path] = collections.Unpack(element_path, time_range)
-            except:
-                bad_element_paths.append(element_path)
+            except Exception as e:
+                errmsgs_by_element_path[element_path] = str(e)
     else:
         try:
             unpacked[element_path] = collections.Unpack(element_path, time_range)
-        except:
-            bad_element_paths.append(element_path)
+        except Exception as e:
+            errmsgs_by_element_path[element_path] = str(e)
 
-    if not dump_to_file:
+    if dump_to_stdout:
         print (unpacked)
-    else:
+    elif dump_to_file:
         for element_path, unpacked in unpacked.items():
             with open(element_path, 'w') as fout:
                 json.dump(unpacked, fout)
 
-    if len(bad_element_paths) > 0:
+    if len(errmsgs_by_element_path) > 0:
         print ('Errors occurred while unpacking data from the following elements:')
-        for el in bad_element_paths:
-            print ('  ' + el)
+        for element_path,errmsg in errmsgs_by_element_path.items():
+            print ('  {}: {}'.format(element_path, errmsg))
