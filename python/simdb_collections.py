@@ -269,10 +269,12 @@ class StructDeserializer(Deserializer):
 
         self._field_formatters.append(formatter)
 
-    def Unpack(self, data_blob, elem_path, collection_data_id):
+    def Unpack(self, data_blob, elem_path, collection_data_id, apply_offset=True):
         struct_num_bytes = self.GetStructNumBytes()
         elem_idx = self._element_idxs_by_simpath[elem_path]
-        data_blob = data_blob[struct_num_bytes*elem_idx:struct_num_bytes*(elem_idx+1)]
+
+        if apply_offset:
+            data_blob = data_blob[struct_num_bytes*elem_idx:struct_num_bytes*(elem_idx+1)]
 
         num_bytes_by_format_code = {
             'c':1,
@@ -336,7 +338,7 @@ class IterableDeserializer(StructDeserializer):
             while len(data_blob) > 0:
                 struct_blob = data_blob[:struct_num_bytes]
                 data_blob = data_blob[struct_num_bytes:]
-                res.append(StructDeserializer.Unpack(self, struct_blob, elem_path, collection_data_id))
+                res.append(StructDeserializer.Unpack(self, struct_blob, elem_path, collection_data_id, False))
         else:
             cmd = 'SELECT Flags FROM SparseValidFlags WHERE CollectionDataID={}'.format(collection_data_id)
             cursor = self.cursor
@@ -440,14 +442,15 @@ if __name__ == '__main__':
         except:
             bad_element_paths.append(element_path)
 
-    if len(bad_element_paths) > 0:
-        print ('Errors occurred while unpacking data from the following elements:')
-        for el in bad_element_paths:
-            print ('  ' + el)
-
     if not dump_to_file:
         print (unpacked)
     else:
         for element_path, unpacked in unpacked.items():
             with open(element_path, 'w') as fout:
                 json.dump(unpacked, fout)
+
+    if len(bad_element_paths) > 0:
+        print ('Errors occurred while unpacking data from the following elements:')
+        for el in bad_element_paths:
+            print ('  ' + el)
+
