@@ -3,9 +3,54 @@
 #pragma once
 
 #include "simdb/sqlite/ValueContainer.hpp"
+#include <rapidjson/document.h>
 
 namespace simdb
 {
+
+/// For developer use only.
+class TimestampJsonSerializer
+{
+public:
+    virtual ~TimestampJsonSerializer() = default;
+    virtual void appendTimestamp(rapidjson::Value& time_vals_array, rapidjson::Document::AllocatorType& allocator) const = 0;
+};
+
+/// For developer use only.
+class IntegralTimestampJsonSerializer : public TimestampJsonSerializer
+{
+public:
+    IntegralTimestampJsonSerializer(const int64_t time)
+        : time_(time)
+    {
+    }
+
+    void appendTimestamp(rapidjson::Value& time_vals_array, rapidjson::Document::AllocatorType& allocator) const override
+    {
+        time_vals_array.PushBack(time_, allocator);
+    }
+
+private:
+    int64_t time_;
+};
+
+/// For developer use only.
+class FloatingPointTimestampJsonSerializer : public TimestampJsonSerializer
+{
+public:
+    FloatingPointTimestampJsonSerializer(const double time)
+        : time_(time)
+    {
+    }
+
+    void appendTimestamp(rapidjson::Value& time_vals_array, rapidjson::Document::AllocatorType& allocator) const override
+    {
+        time_vals_array.PushBack(time_, allocator);
+    }
+
+private:
+    double time_;
+};
 
 /*!
  * \class TimestampBase
@@ -20,6 +65,7 @@ public:
     virtual ValueContainerBase* createBinder() const = 0;
     virtual void captureCurrentTime() = 0;
     virtual bool ensureTimeHasAdvanced() const = 0;
+    virtual TimestampJsonSerializer* createTimestampJsonSerializer() const = 0;
 };
 
 /*!
@@ -67,6 +113,11 @@ public:
     bool ensureTimeHasAdvanced() const override
     {
         return (!time_snapshot_.second || time_.getValue() > time_snapshot_.first);
+    }
+
+    TimestampJsonSerializer* createTimestampJsonSerializer() const override
+    {
+        return time_snapshot_.second ? new IntegralTimestampJsonSerializer(time_snapshot_.first) : nullptr;
     }
 
 private:
@@ -121,6 +172,11 @@ public:
         return (!time_snapshot_.second || time_.getValue() > time_snapshot_.first);
     }
 
+    TimestampJsonSerializer* createTimestampJsonSerializer() const override
+    {
+        return time_snapshot_.second ? new IntegralTimestampJsonSerializer(time_snapshot_.first) : nullptr;
+    }
+
 private:
     ScalarValueReader<TimeT> time_;
     std::pair<TimeT, bool> time_snapshot_ = std::make_pair(0, false);
@@ -171,6 +227,11 @@ public:
     bool ensureTimeHasAdvanced() const override
     {
         return (!time_snapshot_.second || time_.getValue() > time_snapshot_.first);
+    }
+
+    TimestampJsonSerializer* createTimestampJsonSerializer() const override
+    {
+        return time_snapshot_.second ? new FloatingPointTimestampJsonSerializer(time_snapshot_.first) : nullptr;
     }
 
 private:

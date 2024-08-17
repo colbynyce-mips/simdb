@@ -12,6 +12,14 @@
 namespace simdb
 {
 
+template <typename StructT>
+inline void writeStructToRapidJson(const StructT& s, rapidjson::Value& json_dict, rapidjson::Document::AllocatorType& allocator)
+{
+    (void)s;
+    (void)json_dict;
+    (void)allocator;
+}
+
 /// Data types supported by the collection system. Note that
 /// enum struct fields use the std::underlying_type of that
 /// enum, e.g. int32_t
@@ -575,7 +583,7 @@ public:
     ///         and write the blob to the database.
     ///
     /// \throws Throws an exception if finalize() was not already called first.
-    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) override
+    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp, const bool log_json = false) override
     {
         if (!finalized_) {
             throw DBException("Cannot call collect() on a collection before calling finalize()");
@@ -584,12 +592,32 @@ public:
         char* dest = structs_blob_.data();
         for (auto& pair : structs_) {
             blob_serializer_->writeStruct(pair.first, dest);
+            if (log_json) {
+                collected_structs_[pair.second].push_back(*pair.first);
+            }
         }
 
         std::unique_ptr<WorkerTask> task(new CollectableSerializer<char>(
             db_mgr, collection_pkey_, timestamp, structs_blob_));
 
         db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
+    }
+
+    /// For developer use only.
+    void addCollectedDataToJSON(rapidjson::Value& data_vals_dict, rapidjson::Document::AllocatorType& allocator) const override
+    {
+        for (const auto& kvp : collected_structs_) {
+            rapidjson::Value struct_array{rapidjson::kArrayType};
+            for (const StructT& val : kvp.second) {
+                rapidjson::Value struct_vals{rapidjson::kObjectType};
+                writeStructToRapidJson<StructT>(val, struct_vals, allocator);
+                struct_array.PushBack(struct_vals, allocator);
+            }
+
+            rapidjson::Value elem_path_json;
+            elem_path_json.SetString(kvp.first.c_str(), static_cast<rapidjson::SizeType>(kvp.first.length()), allocator);
+            data_vals_dict.AddMember(elem_path_json, struct_array, allocator);
+        }
     }
 
 private:
@@ -613,6 +641,26 @@ private:
     /// every call to collect(), which can be called very many times
     /// during the simulation.
     std::vector<char> structs_blob_;
+
+    /// Hold collected data to later be serialized to disk in JSON format.
+    /// This is for developer use only.
+    ///
+    /// {
+    ///     "TimeVals": [1, 2, 3],
+    ///     "DataVals": {
+    ///         "structs.scalar": [
+    ///             {
+    ///                 "fiz": 555,
+    ///                 "buz": "GREEN"
+    ///             },
+    ///             {
+    ///                 "fiz": 888,
+    ///                 "buz": "BLUE"
+    ///             }
+    ///         ]
+    ///     }
+    /// }
+    std::unordered_map<std::string, std::vector<StructT>> collected_structs_;
 };
 
 } // namespace simdb

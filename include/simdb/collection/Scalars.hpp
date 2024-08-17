@@ -158,7 +158,7 @@ public:
     ///         and write the values to the database.
     ///
     /// \throws Throws an exception if finalize() was not already called first.
-    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) override
+    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp, const bool log_json = false) override
     {
         if (!finalized_) {
             throw DBException("Cannot call collect() on a collection before calling finalize()");
@@ -169,12 +169,30 @@ public:
 
         for (auto& stat : stats_) {
             stats_values_.push_back(stat.getValue());
+            if (log_json) {
+                collected_data_vals_[stat.getPath()].push_back(stat.getValue());
+            }
         }
 
         std::unique_ptr<WorkerTask> task(new CollectableSerializer<DataT>(
             db_mgr, collection_pkey_, timestamp, stats_values_));
 
         db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
+    }
+
+    /// For developer use only.
+    void addCollectedDataToJSON(rapidjson::Value& data_vals_dict, rapidjson::Document::AllocatorType& allocator) const override
+    {
+        for (const auto& kvp : collected_data_vals_) {
+            rapidjson::Value data_vals{rapidjson::kArrayType};
+            for (const auto val : kvp.second) {
+                data_vals.PushBack(val, allocator);
+            }
+
+            rapidjson::Value elem_path_json;
+            elem_path_json.SetString(kvp.first.c_str(), static_cast<rapidjson::SizeType>(kvp.first.length()), allocator);
+            data_vals_dict.AddMember(elem_path_json, data_vals, allocator);
+        }
     }
 
 private:
@@ -226,6 +244,17 @@ private:
 
     /// Our primary key in the Collections table.
     int collection_pkey_ = -1;
+
+    /// Hold collected data to later be serialized to disk in JSON format.
+    /// This is for developer use only.
+    ///
+    /// {
+    ///     "TimeVals": [1, 2, 3],
+    ///     "DataVals": {
+    ///         "stats.foo": [4.4, 5.5, 6.6]
+    ///     }
+    /// }
+    std::unordered_map<std::string, std::vector<DataT>> collected_data_vals_;
 };
 
 } // namespace simdb

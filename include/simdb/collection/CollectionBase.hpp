@@ -7,12 +7,18 @@
 #include "simdb/schema/Schema.hpp"
 #include "simdb/utils/StringMap.hpp"
 
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <string>
 #include <unordered_set>
 #include <vector>
 #include <cstring>
+
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include "rapidjson/prettywriter.h"
+#include <rapidjson/stringbuffer.h>
 
 namespace simdb
 {
@@ -44,7 +50,7 @@ public:
 
     /// Collect all values in this collection into one data vector
     /// and write the values to the database.
-    virtual void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) = 0;
+    virtual void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp, const bool log_json = false) = 0;
 
     /// Allow the Collections class to verify that all simulator paths
     /// across all collections are unique.
@@ -52,6 +58,9 @@ public:
     {
         return element_paths_;
     }
+
+    /// For developer use only.
+    virtual void addCollectedDataToJSON(rapidjson::Value& data_vals_dict, rapidjson::Document::AllocatorType& allocator) const = 0;
 
 protected:
     /// Validate that the path (to a stat, struct, or container) is either a valid python 
@@ -246,9 +255,56 @@ public:
             throw DBException("Cannot perform  - time has not advanced");
         }
         for (auto& collection : collections_) {
-            collection->collect(db_mgr_, timestamp_.get());
+            collection->collect(db_mgr_, timestamp_.get(), json_logging_enabled_);
         }
         timestamp_->captureCurrentTime();
+        json_timestamps_.emplace_back(timestamp_->createTimestampJsonSerializer());
+    }
+
+    /// For developer use only.
+    void enableJsonLogging()
+    {
+        json_logging_enabled_ = true;
+    }
+
+    /// For developer use only.
+    void serializeJSON(const std::string& filename, const bool pretty = false) const
+    {
+        if (!json_logging_enabled_) {
+            return;
+        }
+
+        rapidjson::Document doc;
+        rapidjson::Value data_vals_json{rapidjson::kObjectType};
+
+        for (const auto& collection : collections_) {
+            collection->addCollectedDataToJSON(data_vals_json, doc.GetAllocator());
+        }
+
+        rapidjson::Value time_vals_json{rapidjson::kArrayType};
+        for (const auto& timestamp : json_timestamps_) {
+            timestamp->appendTimestamp(time_vals_json, doc.GetAllocator());
+        }
+
+        doc.SetObject();
+        doc.AddMember("TimeVals", time_vals_json, doc.GetAllocator());
+        doc.AddMember("DataVals", data_vals_json, doc.GetAllocator());
+
+        if (pretty) {
+            rapidjson::StringBuffer buffer;
+            rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+            doc.Accept(writer);
+
+            std::ofstream fout(filename);
+            fout << buffer.GetString() << std::endl;
+        } else {
+            rapidjson::StringBuffer buffer;
+            rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+            doc.Accept(writer);
+
+            std::ofstream fout(filename);
+            fout << buffer.GetString() << std::endl;
+        }
     }
 
 private:
@@ -323,6 +379,12 @@ private:
 
     /// Quick lookup to ensure that element paths are all unique.
     std::unordered_set<std::string> element_paths_;
+
+    /// Developer use only.
+    bool json_logging_enabled_ = false;
+
+    /// Developer use only.
+    std::vector<std::unique_ptr<TimestampJsonSerializer>> json_timestamps_;
 
     friend class DatabaseManager;
 };

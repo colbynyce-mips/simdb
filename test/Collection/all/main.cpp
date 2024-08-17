@@ -14,41 +14,25 @@
 
 TEST_INIT;
 
-std::unordered_map<std::string, std::unique_ptr<std::ofstream>> print_fouts;
-
 std::random_device rd;  // a seed source for the random number engine
 std::mt19937 gen(rd()); // mersenne_twister_engine seeded with rd()
 
 template <typename T>
-T generateRandomInt(const char* elem_path = "")
+T generateRandomInt()
 {
     constexpr auto minval = std::numeric_limits<T>::min();
     constexpr auto maxval = std::numeric_limits<T>::max();
     std::uniform_int_distribution<T> distrib(minval, maxval);
-    auto val = distrib(gen);
-
-    auto iter = print_fouts.find(elem_path);
-    if (iter != print_fouts.end()) {
-        *iter->second << val << ", ";
-    }
-
-    return val;
+    return distrib(gen);
 }
 
 template <typename T>
-T generateRandomReal(const char* elem_path = "")
+T generateRandomReal()
 {
-    constexpr auto minval = std::numeric_limits<T>::min();
-    constexpr auto maxval = std::numeric_limits<T>::max();
+    const auto minval = static_cast<T>(-3.14159 * (rand() % 10 + 1));
+    const auto maxval = static_cast<T>( 3.14159 * (rand() % 10 + 1));
     std::uniform_real_distribution<T> distrib(minval, maxval);
-    auto val = distrib(gen);
-
-    auto iter = print_fouts.find(elem_path);
-    if (iter != print_fouts.end()) {
-        *iter->second << val << ", ";
-    }
-
-    return val;
+    return distrib(gen);
 }
 
 char generateRandomChar()
@@ -242,6 +226,87 @@ namespace simdb
         serializer->writeField(all->uint32_hex);
         serializer->writeField(all->uint64_hex);
     }
+
+    // For developer use only.
+    template <typename EnumT>
+    std::string getEnumString(const std::map<std::string, typename std::underlying_type<EnumT>::type>& map, const EnumT val)
+    {
+        for (const auto& kvp : map) {
+            if (kvp.second == static_cast<typename std::underlying_type<EnumT>::type>(val)) {
+                return kvp.first;
+            }
+        }
+        return "UNKNOWN";
+    }
+
+    // For developer use only.
+    template <>
+    inline void writeStructToRapidJson<AllTypes>(const AllTypes& s, rapidjson::Value& json_dict, rapidjson::Document::AllocatorType& allocator)
+    {
+        std::string enum_name, enum_str;
+        std::map<std::string, int8_t> int8_enum_map;
+        defineEnumMap<EnumInt8>(enum_name, int8_enum_map);
+        enum_str = getEnumString<EnumInt8>(int8_enum_map, s.e_int8);
+        json_dict.AddMember("int8", rapidjson::Value(enum_str.c_str(), allocator), allocator);
+
+        std::map<std::string, int16_t> int16_enum_map;
+        defineEnumMap<EnumInt16>(enum_name, int16_enum_map);
+        enum_str = getEnumString<EnumInt16>(int16_enum_map, s.e_int16);
+        json_dict.AddMember("int16", rapidjson::Value(enum_str.c_str(), allocator), allocator);
+
+        std::map<std::string, int32_t> int32_enum_map;
+        defineEnumMap<EnumInt32>(enum_name, int32_enum_map);
+        enum_str = getEnumString<EnumInt32>(int32_enum_map, s.e_int32);
+        json_dict.AddMember("int32", rapidjson::Value(enum_str.c_str(), allocator), allocator);
+
+        std::map<std::string, int64_t> int64_enum_map;
+        defineEnumMap<EnumInt64>(enum_name, int64_enum_map);
+        enum_str = getEnumString<EnumInt64>(int64_enum_map, s.e_int64);
+        json_dict.AddMember("int64", rapidjson::Value(enum_str.c_str(), allocator), allocator);
+
+        std::map<std::string, uint8_t> uint8_enum_map;
+        defineEnumMap<EnumUInt8>(enum_name, uint8_enum_map);
+        enum_str = getEnumString<EnumUInt8>(uint8_enum_map, s.e_uint8);
+        json_dict.AddMember("uint8", rapidjson::Value(enum_str.c_str(), allocator), allocator);
+
+        std::map<std::string, uint16_t> uint16_enum_map;
+        defineEnumMap<EnumUInt16>(enum_name, uint16_enum_map);
+        enum_str = getEnumString<EnumUInt16>(uint16_enum_map, s.e_uint16);
+        json_dict.AddMember("uint16", rapidjson::Value(enum_str.c_str(), allocator), allocator);
+
+        std::map<std::string, uint32_t> uint32_enum_map;
+        defineEnumMap<EnumUInt32>(enum_name, uint32_enum_map);
+        enum_str = getEnumString<EnumUInt32>(uint32_enum_map, s.e_uint32);
+        json_dict.AddMember("uint32", rapidjson::Value(enum_str.c_str(), allocator), allocator);
+
+        std::map<std::string, uint64_t> uint64_enum_map;
+        defineEnumMap<EnumUInt64>(enum_name, uint64_enum_map);
+        enum_str = getEnumString<EnumUInt64>(uint64_enum_map, s.e_uint64);
+        json_dict.AddMember("uint64", rapidjson::Value(enum_str.c_str(), allocator), allocator);
+
+        json_dict.AddMember("ch", s.ch, allocator);
+        json_dict.AddMember("int8", s.int8, allocator);
+        json_dict.AddMember("int16", s.int16, allocator);
+        json_dict.AddMember("int32", s.int32, allocator);
+        json_dict.AddMember("int64", s.int64, allocator);
+        json_dict.AddMember("uint8", s.uint8, allocator);
+        json_dict.AddMember("uint16", s.uint16, allocator);
+        json_dict.AddMember("uint32", s.uint32, allocator);
+        json_dict.AddMember("uint64", s.uint64, allocator);
+        json_dict.AddMember("flt", s.flt, allocator);
+        json_dict.AddMember("dbl", s.dbl, allocator);
+        json_dict.AddMember("str", rapidjson::Value(s.str.c_str(), allocator), allocator);
+
+        std::ostringstream oss1;
+        oss1 << std::hex << s.uint32_hex;
+        auto uint32_hex = "0x" + oss1.str();
+        json_dict.AddMember("uint32_hex", rapidjson::Value(uint32_hex.c_str(), allocator), allocator);
+
+        std::ostringstream oss2;
+        oss2 << std::hex << s.uint64_hex;
+        auto uint64_hex = "0x" + oss2.str();
+        json_dict.AddMember("uint64_hex", rapidjson::Value(uint64_hex.c_str(), allocator), allocator);
+    }
 }
 
 using StatCollectionInt8   = simdb::StatCollection<int8_t>;
@@ -344,7 +409,7 @@ std::ostream& operator<<(std::ostream& os, const AllTypes all)
     return os;
 }
 
-std::shared_ptr<AllTypes> generateRandomStruct(const char* elem_path = "")
+std::shared_ptr<AllTypes> generateRandomStruct()
 {
     auto s = std::make_shared<AllTypes>();
 
@@ -373,11 +438,6 @@ std::shared_ptr<AllTypes> generateRandomStruct(const char* elem_path = "")
     s->uint32_hex = generateRandomInt<uint32_t>();
     s->uint64_hex = generateRandomInt<uint64_t>();
 
-    auto iter = print_fouts.find(elem_path);
-    if (iter != print_fouts.end()) {
-        *iter->second << *s << "\n\n";
-    }
-
     return s;
 }
 
@@ -394,7 +454,7 @@ public:
     {
         configCollections_();
 
-        while (time_++ < 1000) {
+        while (time_++ < 10) {
             generateRandomStats_();
             generateRandomStructs_();
             generateRandomStructGroups_();
@@ -402,6 +462,7 @@ public:
         }
 
         db_mgr_->getConnection()->getTaskQueue()->stopThread();
+        db_mgr_->getCollectionMgr()->serializeJSON("test.json", true);
     }
 
 private:
@@ -409,6 +470,7 @@ private:
     {
         auto collection_mgr = db_mgr_->getCollectionMgr();
         collection_mgr->useTimestampsFrom(&time_);
+        collection_mgr->enableJsonLogging();
 
         std::unique_ptr<StatCollectionInt8> int8_collection(new StatCollectionInt8("Int8Collection"));
         int8_collection->addStat("stats.int8", &stat_int8_);
@@ -480,34 +542,34 @@ private:
 
     void generateRandomStats_()
     {
-        stat_int8_   = generateRandomInt<int8_t>("stats.int8");
-        stat_int16_  = generateRandomInt<int16_t>("stats.int16");
-        stat_int32_  = generateRandomInt<int32_t>("stats.int32");
-        stat_int64_  = generateRandomInt<int64_t>("stats.int64");
-        stat_uint8_  = generateRandomInt<uint8_t>("stats.uint8");
-        stat_uint16_ = generateRandomInt<uint16_t>("stats.uint16");
-        stat_uint32_ = generateRandomInt<uint32_t>("stats.uint32");
-        stat_uint64_ = generateRandomInt<uint64_t>("stats.uint64");
-        stat_flt_ = generateRandomReal<float>("stats.float");
-        stat_dbl_ = generateRandomReal<double>("stats.double");
+        stat_int8_   = generateRandomInt<int8_t>();
+        stat_int16_  = generateRandomInt<int16_t>();
+        stat_int32_  = generateRandomInt<int32_t>();
+        stat_int64_  = generateRandomInt<int64_t>();
+        stat_uint8_  = generateRandomInt<uint8_t>();
+        stat_uint16_ = generateRandomInt<uint16_t>();
+        stat_uint32_ = generateRandomInt<uint32_t>();
+        stat_uint64_ = generateRandomInt<uint64_t>();
+        stat_flt_ = generateRandomReal<float>();
+        stat_dbl_ = generateRandomReal<double>();
 
-        second_stat_int8_   = generateRandomInt<int8_t>("stats.second.int8");
-        second_stat_int16_  = generateRandomInt<int16_t>("stats.second.int16");
-        second_stat_int32_  = generateRandomInt<int32_t>("stats.second.int32");
-        second_stat_int64_  = generateRandomInt<int64_t>("stats.second.int64");
-        second_stat_uint8_  = generateRandomInt<uint8_t>("stats.second.uint8");
-        second_stat_uint16_ = generateRandomInt<uint16_t>("stats.second.uint16");
-        second_stat_uint32_ = generateRandomInt<uint32_t>("stats.second.uint32");
-        second_stat_uint64_ = generateRandomInt<uint64_t>("stats.second.uint64");
-        second_stat_flt_ = generateRandomReal<float>("stats.second.float");
-        second_stat_dbl_ = generateRandomReal<double>("stats.second.double");
+        second_stat_int8_   = generateRandomInt<int8_t>();
+        second_stat_int16_  = generateRandomInt<int16_t>();
+        second_stat_int32_  = generateRandomInt<int32_t>();
+        second_stat_int64_  = generateRandomInt<int64_t>();
+        second_stat_uint8_  = generateRandomInt<uint8_t>();
+        second_stat_uint16_ = generateRandomInt<uint16_t>();
+        second_stat_uint32_ = generateRandomInt<uint32_t>();
+        second_stat_uint64_ = generateRandomInt<uint64_t>();
+        second_stat_flt_ = generateRandomReal<float>();
+        second_stat_dbl_ = generateRandomReal<double>();
     }
 
     void generateRandomStructs_()
     {
-        auto s1 = generateRandomStruct("structs.scalar");
+        auto s1 = generateRandomStruct();
         scalar_struct_ = *s1;
-        auto s2 = generateRandomStruct("structs.second.scalar");
+        auto s2 = generateRandomStruct();
         second_scalar_struct_ = *s2;
     }
 
@@ -517,8 +579,8 @@ private:
         second_iterable_structs_.clear();
         auto num_contig_insts = rand() % STRUCT_GROUP_CAPACITY;
         for (size_t idx = 0; idx < num_contig_insts; ++idx) {
-            iterable_structs_.push_back(generateRandomStruct("structs.iterables.contig"));
-            second_iterable_structs_.push_back(generateRandomStruct("structs.second.iterables.contig"));
+            iterable_structs_.push_back(generateRandomStruct());
+            second_iterable_structs_.push_back(generateRandomStruct());
         }
 
         sparse_iterable_structs_.clear();
@@ -527,8 +589,8 @@ private:
         second_sparse_iterable_structs_.resize(SPARSE_STRUCT_GROUP_CAPACITY);
         for (size_t idx = 0; idx < SPARSE_STRUCT_GROUP_CAPACITY; ++idx) {
             if (rand() % 3 == 0) {
-                sparse_iterable_structs_[idx] = generateRandomStruct("structs.iterables.sparse");
-                second_sparse_iterable_structs_[idx] = generateRandomStruct("structs.second.iterables.sparse");
+                sparse_iterable_structs_[idx] = generateRandomStruct();
+                second_sparse_iterable_structs_[idx] = generateRandomStruct();
             }
         }
     }
@@ -570,42 +632,9 @@ private:
     StructGroup second_sparse_iterable_structs_;
 };
 
-int main(int argc, char** argv)
+int main()
 {
     DB_INIT;
-
-    if (argc == 2 && std::string((const char*)argv[1]) == "dump") {
-        auto add_outfile = [&](const char* fname) {
-            print_fouts[fname].reset(new std::ofstream(fname));
-        };
-
-        add_outfile("stats.int8");
-        add_outfile("stats.int16");
-        add_outfile("stats.int32");
-        add_outfile("stats.int64");
-        add_outfile("stats.uint8");
-        add_outfile("stats.uint16");
-        add_outfile("stats.uint32");
-        add_outfile("stats.uint64");
-        add_outfile("stats.float");
-        add_outfile("stats.double");
-        add_outfile("stats.second.int8");
-        add_outfile("stats.second.int16");
-        add_outfile("stats.second.int32");
-        add_outfile("stats.second.int64");
-        add_outfile("stats.second.uint8");
-        add_outfile("stats.second.uint16");
-        add_outfile("stats.second.uint32");
-        add_outfile("stats.second.uint64");
-        add_outfile("stats.second.float");
-        add_outfile("stats.second.double");
-        add_outfile("structs.scalar");
-        add_outfile("structs.second.scalar");
-        add_outfile("structs.iterables.contig");
-        add_outfile("structs.second.iterables.contig");
-        add_outfile("structs.iterables.sparse");
-        add_outfile("structs.second.iterables.sparse");
-    }
 
     // Note that we only care about the collection data and have
     // no need for any other tables, aside from the tables that the
