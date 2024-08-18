@@ -7,6 +7,7 @@
 #include "simdb/collection/BlobSerializer.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/utils/Compress.hpp"
+#include "simdb/utils/TreeSerializer.hpp"
 
 namespace simdb
 {
@@ -104,11 +105,13 @@ public:
 
     /// \brief  Write metadata about this collection to the database.
     /// \throws Throws an exception if called more than once.
-    void finalize(DatabaseManager* db_mgr) override
+    void finalize(DatabaseManager* db_mgr, TreeNode* root) override
     {
         if (finalized_) {
             throw DBException("Cannot call finalize() on a collection more than once");
         }
+
+        serializeElementTree(db_mgr, root);
 
         std::string data_type;
         if (std::is_same<DataT, uint8_t>::value) {

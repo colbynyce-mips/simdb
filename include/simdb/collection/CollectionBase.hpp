@@ -6,6 +6,7 @@
 #include "simdb/sqlite/Timestamps.hpp"
 #include "simdb/schema/Schema.hpp"
 #include "simdb/utils/StringMap.hpp"
+#include "simdb/utils/TreeBuilder.hpp"
 
 #include <fstream>
 #include <functional>
@@ -46,7 +47,7 @@ public:
     virtual std::string getName() const = 0;
 
     /// Write metadata about this collection to the database.
-    virtual void finalize(DatabaseManager* db_mgr) = 0;
+    virtual void finalize(DatabaseManager* db_mgr, TreeNode* root) = 0;
 
     /// Collect all values in this collection into one data vector
     /// and write the values to the database.
@@ -72,6 +73,10 @@ protected:
     ///   stats.counters?.foo      INVALID 
     void validatePath_(std::string stat_path)
     {
+        if (!element_paths_.insert(stat_path).second) {
+            throw DBException("Cannot add stat to collection - already have a stat with this path: ") << stat_path;
+        }
+
         auto validate_python_var = [&](const std::string& varname) {
             if (varname.empty() || !isalpha(varname[0]) && varname[0] != '_') {
                 return false;
@@ -101,10 +106,6 @@ protected:
                 oss << "Not a valid python variable name: " << varname;
                 throw DBException(oss.str());
             }
-        }
-
-        if (!element_paths_.insert(stat_path).second) {
-            throw DBException("Cannot add stat to collection - already have a stat with this path: ") << stat_path;
         }
 
         if (finalized_) {
@@ -224,6 +225,10 @@ public:
         schema.addTable("FormatOpts")
             .addColumn("ScalarElemID", dt::int32_t)
             .addColumn("FormatCode", dt::int32_t);
+
+        schema.addTable("ElementTreeNodes")
+            .addColumn("Name", dt::string_t)
+            .addColumn("ParentID", dt::int32_t);
     }
 
     /// \brief  Add a user-configured collection.
@@ -354,11 +359,25 @@ private:
     void finalizeCollections_()
     {
         db_conn_->safeTransaction([&]() {
+            auto root = createElementTree_();
             for (auto& collection : collections_) {
-                collection->finalize(db_mgr_);
+                collection->finalize(db_mgr_, root.get());
+                root.reset();
             }
             return true;
         });
+    }
+
+    std::unique_ptr<TreeNode> createElementTree_()
+    {
+        std::vector<std::string> all_element_paths;
+        for (const auto& collection : collections_) {
+            for (const auto& path : collection->getElemPaths()) {
+                all_element_paths.push_back(path);
+            }
+        }
+
+        return buildTree(all_element_paths);
     }
 
     /// DatabaseManager. Needed so we can call finalize() and collect() on the

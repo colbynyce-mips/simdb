@@ -7,6 +7,7 @@
 #include "simdb/collection/BlobSerializer.hpp"
 #include "simdb/sqlite/DatabaseManager.hpp"
 #include "simdb/utils/PointerUtils.hpp"
+#include "simdb/utils/TreeSerializer.hpp"
 #include <cstring>
 
 namespace simdb
@@ -552,11 +553,13 @@ public:
 
     /// \brief  Write metadata about this collection to the database.
     /// \throws Throws an exception if called more than once.
-    void finalize(DatabaseManager* db_mgr) override
+    void finalize(DatabaseManager* db_mgr, TreeNode* root) override
     {
         if (finalized_) {
             throw DBException("Cannot call finalize() on a collection more than once");
         }
+
+        serializeElementTree(db_mgr, root);
 
         auto record = db_mgr->INSERT(SQL_TABLE("Collections"),
                                      SQL_COLUMNS("Name", "DataType", "IsContainer"),
