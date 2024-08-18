@@ -17,6 +17,8 @@ TEST_INIT;
 std::random_device rd;  // a seed source for the random number engine
 std::mt19937 gen(rd()); // mersenne_twister_engine seeded with rd()
 
+#define DOUBLEUP 0
+
 template <typename T>
 T generateRandomInt()
 {
@@ -474,67 +476,93 @@ private:
 
         std::unique_ptr<StatCollectionInt8> int8_collection(new StatCollectionInt8("Int8Collection"));
         int8_collection->addStat("stats.int8", &stat_int8_);
+#if DOUBLEUP
         int8_collection->addStat("stats.second.int8", &second_stat_int8_);
+#endif
         collection_mgr->addCollection(std::move(int8_collection));
 
         std::unique_ptr<StatCollectionInt16> int16_collection(new StatCollectionInt16("Int16Collection"));
         int16_collection->addStat("stats.int16", &stat_int16_);
+#if DOUBLEUP
         int16_collection->addStat("stats.second.int16", &second_stat_int16_);
+#endif
         collection_mgr->addCollection(std::move(int16_collection));
 
         std::unique_ptr<StatCollectionInt32> int32_collection(new StatCollectionInt32("Int32Collection"));
         int32_collection->addStat("stats.int32", &stat_int32_);
+#if DOUBLEUP
         int32_collection->addStat("stats.second.int32", &second_stat_int32_);
+#endif
         collection_mgr->addCollection(std::move(int32_collection));
 
         std::unique_ptr<StatCollectionInt64> int64_collection(new StatCollectionInt64("Int64Collection"));
         int64_collection->addStat("stats.int64", &stat_int64_);
+#if DOUBLEUP
         int64_collection->addStat("stats.second.int64", &second_stat_int64_);
+#endif
         collection_mgr->addCollection(std::move(int64_collection));
 
         std::unique_ptr<StatCollectionUInt8> uint8_collection(new StatCollectionUInt8("UInt8Collection"));
         uint8_collection->addStat("stats.uint8", &stat_uint8_);
+#if DOUBLEUP
         uint8_collection->addStat("stats.second.uint8", &second_stat_uint8_);
+#endif
         collection_mgr->addCollection(std::move(uint8_collection));
 
         std::unique_ptr<StatCollectionUInt16> uint16_collection(new StatCollectionUInt16("UInt16Collection"));
         uint16_collection->addStat("stats.uint16", &stat_uint16_);
+#if DOUBLEUP
         uint16_collection->addStat("stats.second.uint16", &second_stat_uint16_);
+#endif
         collection_mgr->addCollection(std::move(uint16_collection));
 
         std::unique_ptr<StatCollectionUInt32> uint32_collection(new StatCollectionUInt32("UInt32Collection"));
         uint32_collection->addStat("stats.uint32", &stat_uint32_);
+#if DOUBLEUP
         uint32_collection->addStat("stats.second.uint32", &second_stat_uint32_);
+#endif
         collection_mgr->addCollection(std::move(uint32_collection));
 
         std::unique_ptr<StatCollectionUInt64> uint64_collection(new StatCollectionUInt64("UInt64Collection"));
         uint64_collection->addStat("stats.uint64", &stat_uint64_);
+#if DOUBLEUP
         uint64_collection->addStat("stats.second.uint64", &second_stat_uint64_);
+#endif
         collection_mgr->addCollection(std::move(uint64_collection));
 
         std::unique_ptr<StatCollectionFloat> float_collection(new StatCollectionFloat("FloatCollection"));
         float_collection->addStat("stats.float", &stat_flt_);
+#if DOUBLEUP
         float_collection->addStat("stats.second.float", &second_stat_flt_);
+#endif
         collection_mgr->addCollection(std::move(float_collection));
 
         std::unique_ptr<StatCollectionDouble> double_collection(new StatCollectionDouble("DoubleCollection"));
         double_collection->addStat("stats.double", &stat_dbl_);
+#if DOUBLEUP
         double_collection->addStat("stats.second.double", &second_stat_dbl_);
+#endif
         collection_mgr->addCollection(std::move(double_collection));
 
         std::unique_ptr<ScalarStructCollection> scalar_struct_collection(new ScalarStructCollection("StructCollection"));
         scalar_struct_collection->addStruct("structs.scalar", &scalar_struct_);
+#if DOUBLEUP
         scalar_struct_collection->addStruct("structs.second.scalar", &second_scalar_struct_);
+#endif
         collection_mgr->addCollection(std::move(scalar_struct_collection));
 
         std::unique_ptr<StructGroupCollection> iterable_struct_collection(new StructGroupCollection("ContigStructsCollection"));
         iterable_struct_collection->addContainer("structs.iterables.contig", &iterable_structs_, STRUCT_GROUP_CAPACITY);
+#if DOUBLEUP
         iterable_struct_collection->addContainer("structs.second.iterables.contig", &second_iterable_structs_, STRUCT_GROUP_CAPACITY);
+#endif
         collection_mgr->addCollection(std::move(iterable_struct_collection));
 
         std::unique_ptr<SparseStructGroupCollection> sparse_iterable_struct_collection(new SparseStructGroupCollection("SparseStructsCollection"));
         sparse_iterable_struct_collection->addContainer("structs.iterables.sparse", &sparse_iterable_structs_, SPARSE_STRUCT_GROUP_CAPACITY);
+#if DOUBLEUP
         sparse_iterable_struct_collection->addContainer("structs.second.iterables.sparse", &second_sparse_iterable_structs_, SPARSE_STRUCT_GROUP_CAPACITY);
+#endif
         collection_mgr->addCollection(std::move(sparse_iterable_struct_collection));
 
         db_mgr_->finalizeCollections();

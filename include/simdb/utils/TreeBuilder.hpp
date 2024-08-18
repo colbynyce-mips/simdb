@@ -14,11 +14,9 @@ namespace simdb
 struct TreeNode {
     std::string name;
     std::vector<std::unique_ptr<TreeNode>> children;
-    TreeNode* parent = nullptr;
 
     TreeNode(const std::string& name, TreeNode* parent = nullptr)
         : name(name)
-        , parent(parent)
     {
     }
 };
