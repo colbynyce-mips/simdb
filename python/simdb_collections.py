@@ -118,6 +118,9 @@ class Collections:
         cmd = 'SELECT Id,TimeVal,DataVals FROM CollectionData WHERE CollectionID={} '.format(collection_id)
 
         if time_range is not None:
+            if type(time_range) in (int,float):
+                time_range = (time_range, time_range)
+
             assert type(time_range) in (list,tuple) and len(time_range) == 2
             if time_range[0] >= 0:
                 cmd += 'AND TimeVal>={} '.format(time_range[0])
