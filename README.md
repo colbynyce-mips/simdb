@@ -167,7 +167,8 @@ directories (test/Collection/**).
     collection_mgr->addCollection(std::move(collection));
     db_mgr.finalizeCollections();
 
-    // Later in the sim loop...
+// Later in the sim loop...
+
     void Scheduler::run()
     {
         while (++time_ < 1000) {
