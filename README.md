@@ -121,10 +121,6 @@ encouraged for maximum performance.
         task_queue->addTask(std::move(task)));
     }
 
-    // Flush any pending writes and stops the worker thread. Note that simulations
-    // typically involve more computation in the main thread than it takes to write
-    // to SQLite on the background thread, but SimDB will automatically flush to disk
-    // periodically if it needs to catch up with the simulation.
     db_mgr.closeDatabase();
 
 ## Automatic collection
@@ -171,12 +167,14 @@ directories (test/Collection/**).
     collection_mgr->addCollection(std::move(collection));
     db_mgr.finalizeCollections();
 
-    // Later in the sim loop (Scheduler::step()) we only have one API call to make:
-    void Scheduler::step()
+    // Later in the sim loop...
+    void Scheduler::run()
     {
-         ...
-         db_mgr_.getCollectionMgr()->collectAll();
-     }
+        while (++time_ < 1000) {
+            step();
+            db_mgr_.getCollectionMgr()->collectAll();
+        }
+    }
 
 # Python deserializer
 
