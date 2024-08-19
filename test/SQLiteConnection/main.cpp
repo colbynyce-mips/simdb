@@ -891,6 +891,36 @@ int main()
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
+    // Ensure that we can execute queries with OR clauses. Here we will test:
+    //   SELECT COUNT(Id) FROM MixAndMatch WHERE (SomeInt32 = 10 AND SomeString = 'foo') OR (SomeString = 'foo')
+    auto query10 = db_mgr.createQuery("MixAndMatch");
+
+    query10->select("SomeInt32", i32);
+    query10->select("SomeString", str);
+
+    query10->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 10);
+    query10->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    auto clause1 = query10->releaseConstraintClauses();
+
+    query10->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    auto clause2 = query10->releaseConstraintClauses();
+
+    query10->addCompoundConstraint(clause1, simdb::QueryOperator::OR, clause2);
+    EXPECT_EQUAL(query10->count(), 2);
+
+    {
+        auto result_set = query10->getResultSet();
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 10);
+        EXPECT_EQUAL(str, "foo");
+
+        EXPECT_TRUE(result_set.getNextRecord());
+        EXPECT_EQUAL(i32, 20);
+        EXPECT_EQUAL(str, "foo");
+
+        EXPECT_FALSE(result_set.getNextRecord());
+    }
+
     // Verify that we cannot open a database connection for an invalid file
     EXPECT_THROW(simdb::DatabaseManager db_mgr3(__FILE__));
 

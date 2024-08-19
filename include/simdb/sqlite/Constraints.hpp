@@ -35,6 +35,13 @@ enum class SetConstraints {
     __NUM_CONSTRAINTS__
 };
 
+/// This enum holds all the comparators for WHERE clauses in queries (string target values).
+enum class QueryOperator {
+    AND,
+    OR,
+    __NUM_CONSTRAINTS__
+};
+
 /// Stringifier for the Constraints enum
 inline std::string stringify(const simdb::Constraints constraint)
 {

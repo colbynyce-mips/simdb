@@ -259,6 +259,54 @@ public:
         constraint_clauses_.emplace_back(oss.str());
     }
 
+    /// After one or more calls to addConstraint*(), this function can be called to
+    /// create a compound constraint using AND or OR.
+    ///
+    ///     // SELECT ... (WHERE ColA = 1 AND ColB = 2) OR (ColC = 3)
+    ///     query->addConstraintForInt("ColA", Constraints::EQUAL, 1);
+    ///     query->addConstraintForInt("ColB", Constraints::EQUAL, 2);
+    ///     auto clause1 = query->releaseConstraintClauses();
+    ///
+    ///     query->addConstraintForInt("ColC", Constraints::EQUAL, 3);
+    ///     auto clause2 = query->releaseConstraintClauses();
+    ///
+    ///     query->addCompoundConstraint(clause1, QueryOperator::OR, clause2);
+    void addCompoundConstraint(const std::vector<std::string>& clause1,
+                               const QueryOperator compound_constraint,
+                               const std::vector<std::string>& clause2)
+    {
+        std::ostringstream oss;
+        oss << "(";
+        for (size_t idx = 0; idx < clause1.size(); ++idx) {
+            oss << clause1[idx];
+            if (idx != clause1.size() - 1) {
+                oss << " AND ";
+            }
+        }
+
+        if (compound_constraint == QueryOperator::AND) {
+            oss << ") AND (";
+        } else {
+            oss << ") OR (";
+        }
+
+        for (size_t idx = 0; idx < clause2.size(); ++idx) {
+            oss << clause2[idx];
+            if (idx != clause2.size() - 1) {
+                oss << " AND ";
+            }
+        }
+
+        oss << ")";
+        constraint_clauses_.emplace_back(oss.str());
+    }
+
+    /// Release the current constraint clauses.
+    std::vector<std::string> releaseConstraintClauses()
+    {
+        return std::move(constraint_clauses_);
+    }
+
     /// Reset the query constraints.
     void resetConstraints()
     {
