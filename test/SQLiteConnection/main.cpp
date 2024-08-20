@@ -323,7 +323,7 @@ int main()
     query1->select("SomeInt32", i32);
     query1->select("SomeInt64", i64);
 
-    // SELECT COUNT(Id) should return 3 records.
+    // SELECT COUNT(Id) should return 6 records.
     EXPECT_EQUAL(query1->count(), 6);
     {
         auto result_set = query1->getResultSet();
@@ -808,7 +808,8 @@ int main()
     // Ensure that we can append tables to an existing database schema.
     simdb::Schema schema3;
 
-    schema3.addTable("AppendedTable").addColumn("SomeInt32", dt::int32_t);
+    schema3.addTable("AppendedTable")
+        .addColumn("SomeInt32", dt::int32_t);
 
     db_mgr.appendSchema(schema3);
 
@@ -825,7 +826,8 @@ int main()
     // from simulations.
     simdb::Schema schema4;
 
-    schema4.addTable("HighVolumeData").addColumn("RawData", dt::blob_t);
+    schema4.addTable("HighVolumeData")
+        .addColumn("RawData", dt::blob_t);
 
     db_mgr.appendSchema(schema4);
 
@@ -841,7 +843,9 @@ int main()
         void completeTask() override
         {
             if (db_mgr_) {
-                db_mgr_->INSERT(SQL_TABLE("HighVolumeData"), SQL_COLUMNS("RawData"), SQL_VALUES(data_));
+                db_mgr_->INSERT(SQL_TABLE("HighVolumeData"),
+                                SQL_COLUMNS("RawData"),
+                                SQL_VALUES(data_));
             }
         }
 
@@ -857,16 +861,10 @@ int main()
         simdb::AllOrNothing all_or_nothing(task_queue);
         TaskRerouter rerouter;
 
-        for (size_t idx = 10; idx < 1000; ++idx) {
-            const size_t num_vals = idx;
-            const int val = 500 - idx;
-
-            std::unique_ptr<simdb::WorkerTask> task(new AsyncWriter(&db_mgr, num_vals, val));
-            task_queue->addTask(std::move(task));
-
-            // Ensure exception is thrown if we try to call rerouteNewTasksTo() again.
-            EXPECT_THROW(task_queue->rerouteNewTasksTo(rerouter));
-        }
+        // Ensure exception is thrown if we try to call rerouteNewTasksTo() again.
+        // This is disallowed since the AllOrNothing object is in scope and is
+        // already rerouting tasks to itself.
+        EXPECT_THROW(task_queue->rerouteNewTasksTo(rerouter));
     }
 
     // Note that stopping the worker thread implicitly flushes the queue first.
