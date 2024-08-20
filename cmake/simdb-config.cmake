@@ -17,6 +17,6 @@ find_package(ZLIB REQUIRED)
 include_directories(SYSTEM ${ZLIB_INCLUDE_DIRS})
 message (STATUS "Using zlib ${ZLIB_VERSION_STRING}")
 
-# Populate the Sparta_LIBS variable with the required libraries for
-# basic Sparta linking
+# Populate the SimDB_LIBS variable with the required libraries for
+# basic SimDB linking
 set (SimDB_LIBS sqlite3 ZLIB::ZLIB pthread)
