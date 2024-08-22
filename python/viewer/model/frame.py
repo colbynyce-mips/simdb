@@ -2,6 +2,9 @@ import wx
 from viewer.gui.widgets.playback_bar import PlaybackBar
 from viewer.gui.explorer import DataExplorer
 from viewer.gui.inspector import DataInspector
+from viewer.gui.widgets.queue_utiliz import QueueUtilizTool
+from viewer.gui.widgets.packet_tracker import PacketTrackerTool
+from viewer.gui.widgets.live_editor import LiveEditorTool
 
 class ArgosFrame(wx.Frame):
     def __init__(self, view_settings, db):
@@ -15,8 +18,8 @@ class ArgosFrame(wx.Frame):
         self.inspector = DataInspector(frame_splitter, self)
         self.playback_bar = PlaybackBar(self)
 
-        frame_splitter.SplitVertically(self.explorer, self.inspector, sashPosition=250)
-        frame_splitter.SetMinimumPaneSize(250)
+        frame_splitter.SplitVertically(self.explorer, self.inspector, sashPosition=300)
+        frame_splitter.SetMinimumPaneSize(300)
 
         # Layout
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -25,3 +28,8 @@ class ArgosFrame(wx.Frame):
         self.SetSizer(sizer)
         self.Layout()
         self.Maximize()
+
+    def PostLoad(self):
+        self.explorer.navtree.AddTool(QueueUtilizTool())
+        self.explorer.navtree.AddTool(PacketTrackerTool())
+        self.explorer.navtree.AddTool(LiveEditorTool())

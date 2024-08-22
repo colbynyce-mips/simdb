@@ -1,5 +1,6 @@
 import wx
 from functools import partial
+from viewer.gui.widgets.toolbase import ToolBase
 
 class NavTree(wx.TreeCtrl):
     def __init__(self, parent, frame):
@@ -8,7 +9,8 @@ class NavTree(wx.TreeCtrl):
         cursor = frame.db.cursor
 
         self._root = self.AddRoot("root")
-        self._tree_ids_by_id = {1: self._root}
+        self._sim_hier_root = self.AppendItem(self._root, "Sim Hierarchy")
+        self._tree_ids_by_id = {1: self._sim_hier_root }
         self.__RecurseBuildTree(1, cursor)
 
         # Find all the wx.TreeCtrl leaves
@@ -44,6 +46,8 @@ class NavTree(wx.TreeCtrl):
             self._is_container_by_collection_id[row[0]] = row[2]
 
         self.Bind(wx.EVT_RIGHT_DOWN, self.__OnRightClick)
+        self._tools_by_name = {}
+        self._tools_by_item = {}
 
     def GetSelectionWidgetInfo(self):
         item = self.GetSelection()
@@ -63,6 +67,46 @@ class NavTree(wx.TreeCtrl):
                 leaves.append(tree_id)
 
         return [self._leaf_element_paths_by_tree_id[leaf] for leaf in leaves]
+    
+    def AddTool(self, tool: ToolBase):
+        # Find the 'Tools' node under the root
+        tools_node = None
+        item, cookie = self.GetFirstChild(self.GetRootItem())
+        while item.IsOk():
+            if self.GetItemText(item) == "Tools":
+                tools_node = item
+                break
+
+            item, cookie = self.GetNextChild(self.GetRootItem(), cookie)
+
+        if not tools_node:
+            tools_node = self.AppendItem(self.GetRootItem(), "Tools")
+
+        # Now look for the tool with the given name under the 'Tools' node
+        name = tool.GetToolName()
+        tool_node = None
+        item, cookie = self.GetFirstChild(tools_node)
+        while item.IsOk():
+            if self.GetItemText(item) == name:
+                tool_node = item
+                break
+
+            item, cookie = self.GetNextChild(tools_node, cookie)
+
+        if not tool_node:
+            self.AppendItem(tools_node, name)
+            self._tools_by_name[name] = tool
+        elif name in self._tools_by_name:
+            if type(self._tools_by_name[name]) != type(tool):
+                raise ValueError("Tool with name '%s' already exists and is of a different type" % name)
+        else:
+            self._tools_by_name[name] = tool
+
+        self._tools_by_item = {}
+        item, cookie = self.GetFirstChild(tools_node)
+        while item.IsOk():
+            self._tools_by_item[item] = self._tools_by_name[self.GetItemText(item)]
+            item, cookie = self.GetNextChild(tools_node, cookie)
 
     def __RecurseBuildTree(self, parent_id, cursor):
         cursor.execute("SELECT Id,Name FROM ElementTreeNodes WHERE ParentID = ?", (parent_id,))
@@ -90,6 +134,25 @@ class NavTree(wx.TreeCtrl):
         self.SelectItem(item)
 
         menu = wx.Menu()
+
+        item_name = self.GetItemText(item)
+        if item_name in self._tools_by_name:
+            # Ensure that the item parent is the root.Tools node
+            parent = self.GetItemParent(item)
+            if self.GetItemText(parent) == 'Tools':
+                parent = self.GetItemParent(parent)
+                if parent == self.GetRootItem():
+                    tool = self._tools_by_name[item_name]
+                    help_text = tool.GetToolHelpText()
+                    if help_text:
+                        def OnHelp(event, **kwargs):
+                            kwargs['tool'].ShowHelpDialog(kwargs['help_text'])
+
+                        help_item = menu.Append(-1, 'See doc for {} tool'.format(item_name))
+                        self.Bind(wx.EVT_MENU, partial(OnHelp, tool=tool, help_text=help_text), help_item)
+                        self.PopupMenu(menu)
+                        menu.Destroy()
+                        return
 
         def ExpandAll(event, **kwargs):
             kwargs['navtree'].ExpandAll()

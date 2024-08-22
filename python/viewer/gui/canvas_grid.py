@@ -1,11 +1,5 @@
 import wx
 
-class Colors:
-    @staticmethod
-    def GetRandomColor():
-        import random
-        return wx.Colour((random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
-
 class CanvasGrid(wx.Panel):
     def __init__(self, parent, rows=1, cols=1):
         super(CanvasGrid, self).__init__(parent)
@@ -15,7 +9,7 @@ class CanvasGrid(wx.Panel):
             self.Bind(wx.EVT_CONTEXT_MENU, self.__OnContextMenu)
         else:
             self.container = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
-            self.container.SetMinimumPaneSize(250)
+            self.container.SetMinimumPaneSize(300)
             self.__BuildGrid(self.container, rows, cols)
             if not self.container.GetSizer():
                 sizer = wx.BoxSizer(wx.VERTICAL)
@@ -41,8 +35,8 @@ class CanvasGrid(wx.Panel):
         if rows > 1 and cols > 1:
             top_splitter = wx.SplitterWindow(splitter, style=wx.SP_LIVE_UPDATE)
             bottom_splitter = wx.SplitterWindow(splitter, style=wx.SP_LIVE_UPDATE)
-            top_splitter.SetMinimumPaneSize(250)
-            bottom_splitter.SetMinimumPaneSize(250)
+            top_splitter.SetMinimumPaneSize(300)
+            bottom_splitter.SetMinimumPaneSize(300)
 
             top_grid = CanvasGrid(top_splitter, rows=rows // 2, cols=cols)
             top_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -111,7 +105,6 @@ class CanvasGrid(wx.Panel):
 class WidgetContainer(wx.Panel):
     def __init__(self, parent):
         super(WidgetContainer, self).__init__(parent)
-        self.SetBackgroundColour(Colors.GetRandomColor())
 
     @property
     def frame(self):

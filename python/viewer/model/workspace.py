@@ -7,6 +7,7 @@ class Workspace:
         self._db = SimDB(db_path)
         self._view_settings = ViewSettings()
         self._frame = ArgosFrame(self._view_settings, self._db)
+        self._frame.PostLoad()
         self._frame.Show()
 
     def Cleanup(self):
