@@ -1,5 +1,5 @@
 import wx
-from viewer.gui.inspector_tab import InspectorTab
+from viewer.gui.canvas_grid import CanvasGrid
 from functools import partial
 
 class DataInspector(wx.Notebook):
@@ -7,7 +7,7 @@ class DataInspector(wx.Notebook):
         super(DataInspector, self).__init__(parent, style=wx.NB_TOP)
 
         self.frame = frame
-        self.inspector_tabs = []
+        self.canvas_grids = []
         self.__AddPlusTab()
         self.__AddInspectorTab("Tab 1")
         self.SetSelection(0)
@@ -20,9 +20,9 @@ class DataInspector(wx.Notebook):
         super(DataInspector, self).AddPage(wx.Panel(self), "Add Tab")
 
     def __AddInspectorTab(self, name):
-        page = InspectorTab(self)
-        super(DataInspector, self).InsertPage(self.GetPageCount() - 1, page, name)
-        self.inspector_tabs.append(page)
+        canvas_grid = CanvasGrid(self)
+        super(DataInspector, self).InsertPage(self.GetPageCount() - 1, canvas_grid, name)
+        self.canvas_grids.append(canvas_grid)
         self.SetSelection(self.GetPageCount() - 2)
 
     def __OnPageChanged(self, event):
@@ -33,7 +33,7 @@ class DataInspector(wx.Notebook):
         event.Skip()
 
     def __ShowAddTabDialog(self):
-        dlg = wx.TextEntryDialog(self, "Enter name for the new tab:", "New Tab", value="Tab %d" % (len(self.inspector_tabs) + 1))
+        dlg = wx.TextEntryDialog(self, "Enter name for the new tab:", "New Tab", value="Tab %d" % (len(self.canvas_grids) + 1))
 
         if dlg.ShowModal() == wx.ID_OK:
             new_tab_name = dlg.GetValue().strip()
@@ -64,7 +64,7 @@ class DataInspector(wx.Notebook):
         rename_item = menu.Append(wx.ID_ANY, "Rename tab")
         self.Bind(wx.EVT_MENU, partial(self.__OnRenameTab, tab_idx=hit[0]), rename_item)
 
-        if len(self.inspector_tabs) > 1:
+        if len(self.canvas_grids) > 1:
             delete_item = menu.Append(wx.ID_ANY, "Delete tab")        
             self.Bind(wx.EVT_MENU, partial(self.__OnDeleteTab, tab_idx=hit[0]), delete_item)
 
@@ -77,7 +77,7 @@ class DataInspector(wx.Notebook):
     def __OnRenameTab(self, event, tab_idx):
         # Show a dialog to enter the new name
         dlg = wx.TextEntryDialog(self, "Enter new name:", "Rename Tab", 
-                                 "Tab %d" % (len(self.inspector_tabs) + 1))
+                                 "Tab %d" % (len(self.canvas_grids) + 1))
         
         if dlg.ShowModal() == wx.ID_OK:
             new_name = dlg.GetValue().strip()
@@ -98,6 +98,6 @@ class DataInspector(wx.Notebook):
         if dlg.ShowModal() == wx.ID_YES:
             # Delete the selected tab
             self.DeletePage(tab_idx)
-            self.inspector_tabs.pop(tab_idx)
+            self.canvas_grids.pop(tab_idx)
         
         dlg.Destroy()
