@@ -14,7 +14,7 @@ class QueueUtilizTool(ToolBase):
     def SetToolSettings(self, settings):
         pass
 
-    def CreateToolWidget(self, parent, frame):
+    def CreateWidget(self, parent, frame):
         return QueueUtilizWidget(parent, frame)
     
     def GetToolHelpText(self):

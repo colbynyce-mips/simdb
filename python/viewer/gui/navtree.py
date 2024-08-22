@@ -27,7 +27,7 @@ class NavTree(wx.TreeCtrl):
             while node != self._root:
                 path.insert(0, self.GetItemText(node))
                 node = self.GetItemParent(node)
-            self._leaf_element_paths_by_tree_id[leaf] = '.'.join(path)
+            self._leaf_element_paths_by_tree_id[leaf] = '.'.join(path).replace('Sim Hierarchy.', '')
 
         # Get a mapping from the SimPath to the CollectionID from the CollectionElems table
         self._collection_id_by_sim_path = {}
@@ -49,9 +49,13 @@ class NavTree(wx.TreeCtrl):
         self.Bind(wx.EVT_TREE_BEGIN_DRAG, self.__OnBeginDrag)
         self._tools_by_name = {}
         self._tools_by_item = {}
+        self._widget_names_by_item = {}
+        self._widget_factories_by_widget_name = {}
 
-    def GetSelectionWidgetInfo(self):
-        item = self.GetSelection()
+    def GetSelectionWidgetInfo(self, item=None):
+        if item is None:
+            item = self.GetSelection()
+        
         if item in self._leaf_element_paths_by_tree_id:
             elem_path = self._leaf_element_paths_by_tree_id[item]
             collection_id = self._collection_id_by_sim_path[elem_path]
@@ -69,7 +73,7 @@ class NavTree(wx.TreeCtrl):
 
         return [self._leaf_element_paths_by_tree_id[leaf] for leaf in leaves]
     
-    def AddTool(self, tool: ToolBase):
+    def AddSystemWideTool(self, tool: ToolBase):
         # Find the 'Tools' node under the root
         tools_node = None
         item, cookie = self.GetFirstChild(self.GetRootItem())
@@ -108,6 +112,21 @@ class NavTree(wx.TreeCtrl):
         while item.IsOk():
             self._tools_by_item[item] = self._tools_by_name[self.GetItemText(item)]
             item, cookie = self.GetNextChild(tools_node, cookie)
+
+    def SetTreeNodeWidgetName(self, item, widget_name):
+        self._widget_names_by_item[item] = widget_name
+
+    def SetWidgetFactory(self, widget_name, factory):
+        self._widget_factories_by_widget_name[widget_name] = factory
+
+    def CreateWidget(self, widget_name, elem_path, parent):
+        if widget_name in self._widget_factories_by_widget_name:
+            return self._widget_factories_by_widget_name[widget_name](parent, self.frame, elem_path)
+        else:
+            return None
+        
+    def GetTool(self, tool_name):
+        return self._tools_by_name.get(tool_name, None)
 
     def __RecurseBuildTree(self, parent_id, cursor):
         cursor.execute("SELECT Id,Name FROM ElementTreeNodes WHERE ParentID = ?", (parent_id,))
@@ -201,6 +220,13 @@ class NavTree(wx.TreeCtrl):
         if item in self._tools_by_item:
             tool_name = self.GetItemText(item)
             data = wx.TextDataObject(tool_name)
+            drop_source = wx.DropSource(self)
+            drop_source.SetData(data)
+            drop_source.DoDragDrop()
+        elif item in self._widget_names_by_item:
+            widget_name = self._widget_names_by_item[item]
+            elem_path = self._leaf_element_paths_by_tree_id[item]
+            data = wx.TextDataObject('{}${}'.format(widget_name, elem_path))
             drop_source = wx.DropSource(self)
             drop_source.SetData(data)
             drop_source.DoDragDrop()

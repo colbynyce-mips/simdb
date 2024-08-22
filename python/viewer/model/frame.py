@@ -5,6 +5,9 @@ from viewer.gui.inspector import DataInspector
 from viewer.gui.widgets.queue_utiliz import QueueUtilizTool
 from viewer.gui.widgets.packet_tracker import PacketTrackerTool
 from viewer.gui.widgets.live_editor import LiveEditorTool
+from viewer.gui.widgets.scalar_statistic import ScalarStatistic
+from viewer.gui.widgets.scalar_struct import ScalarStruct
+from viewer.gui.widgets.iterable_struct import IterableStruct
 
 class ArgosFrame(wx.Frame):
     def __init__(self, view_settings, db):
@@ -30,6 +33,24 @@ class ArgosFrame(wx.Frame):
         self.Maximize()
 
     def PostLoad(self):
-        self.explorer.navtree.AddTool(QueueUtilizTool())
-        self.explorer.navtree.AddTool(PacketTrackerTool())
-        self.explorer.navtree.AddTool(LiveEditorTool())
+        self.explorer.navtree.AddSystemWideTool(QueueUtilizTool())
+        self.explorer.navtree.AddSystemWideTool(PacketTrackerTool())
+        self.explorer.navtree.AddSystemWideTool(LiveEditorTool())
+
+        self.explorer.navtree.SetWidgetFactory('ScalarStatistic', ScalarStatistic.CreateWidget)
+        self.explorer.navtree.SetWidgetFactory('ScalarStruct', ScalarStruct.CreateWidget)
+        self.explorer.navtree.SetWidgetFactory('IterableStruct', IterableStruct.CreateWidget)
+
+        leaves = []
+        for node_id, tree_id in self.explorer.navtree._tree_ids_by_id.items():
+            if not self.explorer.navtree.GetChildrenCount(tree_id):
+                leaves.append(tree_id)
+
+        for leaf in leaves:
+            _, _, data_type, is_container = self.explorer.navtree.GetSelectionWidgetInfo(leaf)
+            if data_type in ('int8_t', 'int16_t', 'int32_t', 'int64_t', 'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'float', 'double'):
+                self.explorer.navtree.SetTreeNodeWidgetName(leaf, 'ScalarStatistic')
+            elif not is_container:
+                self.explorer.navtree.SetTreeNodeWidgetName(leaf, 'ScalarStruct')
+            else:
+                self.explorer.navtree.SetTreeNodeWidgetName(leaf, 'IterableStruct')

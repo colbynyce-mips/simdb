@@ -14,7 +14,7 @@ class LiveEditorTool(ToolBase):
     def SetToolSettings(self, settings):
         pass
 
-    def CreateToolWidget(self, parent, frame):
+    def CreateWidget(self, parent, frame):
         return LiveEditorWidget(parent, frame)
     
     def GetToolHelpText(self):
