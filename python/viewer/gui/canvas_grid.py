@@ -105,6 +105,16 @@ class CanvasGrid(wx.Panel):
 class WidgetContainer(wx.Panel):
     def __init__(self, parent):
         super(WidgetContainer, self).__init__(parent)
+        self._widget = None
+
+        frame = parent 
+        while frame and not isinstance(frame, wx.Frame):
+            frame = frame.GetParent()
+
+        self.SetDropTarget(ToolWidgetDropTarget(self, frame.explorer.navtree))
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(sizer)
 
     @property
     def frame(self):
@@ -113,3 +123,28 @@ class WidgetContainer(wx.Panel):
             frame = frame.GetParent()
 
         return frame
+    
+    def SetToolWidget(self, tool_widget):
+        self.GetSizer().Clear()
+        sizer = self.GetSizer()
+        sizer.Add(tool_widget, 1, wx.EXPAND)
+        self.Layout()
+        self._widget = tool_widget
+
+class ToolWidgetDropTarget(wx.TextDropTarget):
+    def __init__(self, widget_container, navtree):
+        super(ToolWidgetDropTarget, self).__init__()
+        self.widget_container = widget_container
+        self.navtree = navtree
+    
+    def OnDropText(self, x, y, text):
+        tool = self.navtree._tools_by_name.get(text, None)
+        if not tool:
+            return False
+        
+        tool_widget = tool.CreateToolWidget(self.widget_container, self.widget_container.frame)
+        if not tool_widget:
+            return False
+        
+        self.widget_container.SetToolWidget(tool_widget)
+        return True

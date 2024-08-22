@@ -46,6 +46,7 @@ class NavTree(wx.TreeCtrl):
             self._is_container_by_collection_id[row[0]] = row[2]
 
         self.Bind(wx.EVT_RIGHT_DOWN, self.__OnRightClick)
+        self.Bind(wx.EVT_TREE_BEGIN_DRAG, self.__OnBeginDrag)
         self._tools_by_name = {}
         self._tools_by_item = {}
 
@@ -194,3 +195,12 @@ class NavTree(wx.TreeCtrl):
 
         self.PopupMenu(menu)
         menu.Destroy()
+
+    def __OnBeginDrag(self, event):
+        item = event.GetItem()
+        if item in self._tools_by_item:
+            tool_name = self.GetItemText(item)
+            data = wx.TextDataObject(tool_name)
+            drop_source = wx.DropSource(self)
+            drop_source.SetData(data)
+            drop_source.DoDragDrop()
