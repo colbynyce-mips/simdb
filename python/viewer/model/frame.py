@@ -16,17 +16,17 @@ class ArgosFrame(wx.Frame):
         self.view_settings = view_settings
         self.db = db
 
-        frame_splitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
-        self.explorer = DataExplorer(frame_splitter, self)
-        self.inspector = DataInspector(frame_splitter, self)
+        self.frame_splitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
+        self.explorer = DataExplorer(self.frame_splitter, self)
+        self.inspector = DataInspector(self.frame_splitter, self)
         self.playback_bar = PlaybackBar(self)
 
-        frame_splitter.SplitVertically(self.explorer, self.inspector, sashPosition=300)
-        frame_splitter.SetMinimumPaneSize(300)
+        self.frame_splitter.SplitVertically(self.explorer, self.inspector, sashPosition=300)
+        self.frame_splitter.SetMinimumPaneSize(300)
 
         # Layout
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(frame_splitter, 1, wx.EXPAND)
+        sizer.Add(self.frame_splitter, 1, wx.EXPAND)
         sizer.Add(self.playback_bar, 0, wx.EXPAND)
         self.SetSizer(sizer)
         self.Layout()

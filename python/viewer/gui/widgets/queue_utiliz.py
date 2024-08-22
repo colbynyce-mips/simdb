@@ -28,9 +28,9 @@ class QueueUtilizTool(ToolBase):
 class QueueUtilizWidget(wx.Panel):
     def __init__(self, parent, frame):
         super().__init__(parent)
-        self.SetBackgroundColour('red')
         self.frame = frame
 
         self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.sizer.Add(wx.StaticText(self, label='Queue Utilization'), 0, wx.EXPAND)
         self.SetSizer(self.sizer)
         self.Layout()

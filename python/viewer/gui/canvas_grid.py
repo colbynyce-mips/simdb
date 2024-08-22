@@ -28,6 +28,14 @@ class CanvasGrid(wx.Panel):
             frame = frame.GetParent()
 
         return frame
+    
+    def DestroyAllWidgets(self):
+        if isinstance(self.container, WidgetContainer):
+            self.container.DestroyAllWidgets()
+        else:
+            for child in self.container.GetChildren():
+                if isinstance(child, CanvasGrid):
+                    child.DestroyAllWidgets()
 
     def __BuildGrid(self, splitter, rows, cols):
         assert rows > 0 and cols > 0
@@ -77,12 +85,18 @@ class CanvasGrid(wx.Panel):
         self.PopupMenu(menu, pos)
 
     def __OnSplitVertically(self, event):
+        if self.container:
+            self.container.DestroyAllWidgets()
+
         self.GetSizer().Clear()
         self.container = CanvasGrid(self, rows=1, cols=2)
         self.GetSizer().Add(self.container, 1, wx.EXPAND)
         self.Layout()
 
     def __OnSplitHorizontally(self, event):
+        if self.container:
+            self.container.DestroyAllWidgets()
+
         self.GetSizer().Clear()
         self.container = CanvasGrid(self, rows=2, cols=1)
         self.GetSizer().Add(self.container, 1, wx.EXPAND)
@@ -95,6 +109,10 @@ class CanvasGrid(wx.Panel):
             rows, cols = dlg.GetValue().strip().split(',')
             rows = int(rows)
             cols = int(cols)
+
+            if self.container:
+                self.container.DestroyAllWidgets()
+
             self.GetSizer().Clear()
             self.container = CanvasGrid(self, rows=rows, cols=cols)
             self.GetSizer().Add(self.container, 1, wx.EXPAND)
@@ -111,7 +129,7 @@ class WidgetContainer(wx.Panel):
         while frame and not isinstance(frame, wx.Frame):
             frame = frame.GetParent()
 
-        self.SetDropTarget(ToolWidgetDropTarget(self, frame.explorer.navtree))
+        self.SetDropTarget(WidgetContainerDropTarget(self, frame.explorer.navtree))
 
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(sizer)
@@ -125,18 +143,31 @@ class WidgetContainer(wx.Panel):
         return frame
     
     def SetWidget(self, widget):
+        if self._widget:
+            self.GetSizer().Detach(self._widget)
+            self._widget.Destroy()
+
         self._widget = widget
-        self.GetSizer().Clear()
         sizer = self.GetSizer()
         sizer.Add(widget, 1, wx.EXPAND)
         self.Layout()
 
-class ToolWidgetDropTarget(wx.TextDropTarget):
+    def SetWidgetFocus(self):
+        if self._widget:
+            self._widget.SetFocus()
+
+    def DestroyAllWidgets(self):
+        if self._widget:
+            self.GetSizer().Detach(self._widget)
+            self._widget.Destroy()
+            self._widget = None
+
+class WidgetContainerDropTarget(wx.TextDropTarget):
     def __init__(self, widget_container, navtree):
-        super(ToolWidgetDropTarget, self).__init__()
+        super(WidgetContainerDropTarget, self).__init__()
         self.widget_container = widget_container
         self.navtree = navtree
-    
+
     def OnDropText(self, x, y, text):
         return self.__CreateWidget(text) or self.__CreateTool(text)
 
@@ -150,6 +181,7 @@ class ToolWidgetDropTarget(wx.TextDropTarget):
             return False
         
         self.widget_container.SetWidget(widget)
+        wx.CallAfter(self.__SetFocus)
         return True
         
     def __CreateTool(self, tool_name):
@@ -162,4 +194,8 @@ class ToolWidgetDropTarget(wx.TextDropTarget):
             return False
         
         self.widget_container.SetWidget(widget)
+        wx.CallAfter(self.__SetFocus)
         return True
+
+    def __SetFocus(self):
+        self.widget_container.SetWidgetFocus()

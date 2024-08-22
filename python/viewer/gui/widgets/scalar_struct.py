@@ -10,7 +10,7 @@ class ScalarStruct(wx.Panel):
         self.frame = frame
         self.elem_path = elem_path
 
-        self.SetBackgroundColour('blue')
         self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.sizer.Add(wx.StaticText(self, label='Scalar Struct:\n%s' % elem_path), 0, wx.EXPAND)
         self.SetSizer(self.sizer)
         self.Layout()
