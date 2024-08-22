@@ -5,3 +5,5 @@ debug/**
 build.log
 .editorconfig
 python/__pycache__
+__pycache__/
+build/
