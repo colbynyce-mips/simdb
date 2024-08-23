@@ -178,7 +178,7 @@ public:
         }
 
         std::unique_ptr<WorkerTask> task(new CollectableSerializer<DataT>(
-            db_mgr, collection_pkey_, timestamp, stats_values_));
+            db_mgr, collection_pkey_, timestamp, stats_values_, stats_.size()));
 
         db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
     }

@@ -39,18 +39,31 @@ class NavTree(wx.TreeCtrl):
         # Iterate over the Collections table and find the DataType and IsContainer for each CollectionID
         self._data_type_by_collection_id = {}
         self._is_container_by_collection_id = {}
+        container_collection_ids = []
         cursor.execute("SELECT Id,DataType,IsContainer FROM Collections")
         rows = cursor.fetchall()
         for row in rows:
             self._data_type_by_collection_id[row[0]] = row[1]
             self._is_container_by_collection_id[row[0]] = row[2]
+            if row[2]:
+                container_collection_ids.append(row[0])
+
+        self._container_sim_paths = set()
+        for sim_path, collection_id in self._collection_id_by_sim_path.items():
+            if collection_id in container_collection_ids:
+                self._container_sim_paths.add(sim_path)
 
         self.Bind(wx.EVT_RIGHT_DOWN, self.__OnRightClick)
         self.Bind(wx.EVT_TREE_BEGIN_DRAG, self.__OnBeginDrag)
+        self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
+
         self._tools_by_name = {}
         self._tools_by_item = {}
         self._widget_names_by_item = {}
         self._widget_factories_by_widget_name = {}
+
+        self.__utiliz_image_list = frame.widget_renderer.utiliz_handler.CreateUtilizImageList()
+        self.SetImageList(self.__utiliz_image_list)
 
     def GetSelectionWidgetInfo(self, item=None):
         if item is None:
@@ -129,7 +142,17 @@ class NavTree(wx.TreeCtrl):
         return self._tools_by_name.get(tool_name, None)
     
     def UpdateUtilizBitmaps(self):
-        print ("UpdateUtilizBitmaps (navtree)")
+        for item,sim_path in self._leaf_element_paths_by_tree_id.items():
+            if sim_path in self._container_sim_paths:
+                utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(sim_path)
+                image_idx = int(utiliz_pct * 100)
+                self.SetItemImage(item, image_idx)
+
+    def ExpandAll(self):
+        self.Unbind(wx.EVT_TREE_ITEM_EXPANDED)
+        super(NavTree, self).ExpandAll()
+        self.UpdateUtilizBitmaps()
+        self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
 
     def __RecurseBuildTree(self, parent_id, cursor):
         cursor.execute("SELECT Id,Name FROM ElementTreeNodes WHERE ParentID = ?", (parent_id,))
@@ -233,3 +256,6 @@ class NavTree(wx.TreeCtrl):
             drop_source = wx.DropSource(self)
             drop_source.SetData(data)
             drop_source.DoDragDrop()
+
+    def __OnItemExpanded(self, event):
+        self.UpdateUtilizBitmaps()

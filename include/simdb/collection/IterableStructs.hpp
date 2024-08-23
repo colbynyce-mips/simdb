@@ -54,6 +54,10 @@ public:
     ///          the form "abc123-def456").
     void addContainer(const std::string& container_path, const ContainerT* container_ptr, size_t capacity)
     {
+        if (!containers_.empty()) {
+            throw DBException("Cannot add more than one container to an IterableStructCollection");
+        }
+
         validatePath_(container_path);
         containers_.emplace_back(container_ptr, container_path, capacity);
     }
@@ -155,7 +159,7 @@ public:
             }
 
             std::unique_ptr<WorkerTask> task(new IterableStructSerializer<char>(
-                db_mgr, collection_pkey_, timestamp, container_blob_, sparse_container_valid_flags_));
+                db_mgr, collection_pkey_, timestamp, container_blob_, sparse_container_valid_flags_, num_structs_written));
 
             db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
         }

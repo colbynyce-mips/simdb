@@ -14,6 +14,9 @@ class Watchlist(wx.TreeCtrl):
         self.Bind(wx.EVT_TREE_ITEM_GETTOOLTIP, self.__ProcessTooltip)
         self.Bind(wx.EVT_RIGHT_DOWN, self.__OnRightClick)
 
+        utiliz_image_list = frame.widget_renderer.utiliz_handler.CreateUtilizImageList()
+        self.SetImageList(utiliz_image_list)
+
     def GetWatchedSimElems(self):
         return self._watched_sim_elems
     
@@ -23,7 +26,7 @@ class Watchlist(wx.TreeCtrl):
         self.GetParent().ChangeSelection(1)
 
     def UpdateUtilizBitmaps(self):
-        print("UpdateUtilizBitmaps (watchlist)")
+        print("TODO: UpdateUtilizBitmaps (watchlist)")
 
     def __RenderFlatView(self, *args, **kwargs):
         self.DeleteAllItems()

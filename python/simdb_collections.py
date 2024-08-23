@@ -345,7 +345,7 @@ class IterableDeserializer(StructDeserializer):
                 data_blob = data_blob[struct_num_bytes:]
                 res.append(StructDeserializer.Unpack(self, struct_blob, elem_path, collection_data_id, False))
         else:
-            cmd = 'SELECT Flags FROM SparseValidFlags WHERE CollectionDataID={}'.format(collection_data_id)
+            cmd = 'SELECT Flags FROM IterableBlobMeta WHERE CollectionDataID={}'.format(collection_data_id)
             cursor = self.cursor
             cursor.execute(cmd)
 

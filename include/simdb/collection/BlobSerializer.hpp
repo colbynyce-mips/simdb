@@ -21,11 +21,12 @@ class CollectableSerializer : public WorkerTask
 public:
     /// Construct with a timestamp and the data values, whether compressed or not.
     CollectableSerializer(
-        DatabaseManager* db_mgr, const int collection_id, const TimestampBase* timestamp, const std::vector<DataT>& data, const bool compress = true)
+        DatabaseManager* db_mgr, const int collection_id, const TimestampBase* timestamp, const std::vector<DataT>& data, const size_t num_elements_in_blob, const bool compress = true)
         : db_mgr_(db_mgr)
         , collection_id_(collection_id)
         , timestamp_binder_(timestamp->createBinder())
         , data_vals_(data)
+        , num_elems_in_blob_(num_elements_in_blob)
         , unserialized_map_(StringMap::instance()->getUnserializedMap())
         , compress_(compress)
     {
@@ -40,14 +41,14 @@ public:
             compressDataVec(data_vals_, compressed_data);
 
             auto record = db_mgr_->INSERT(SQL_TABLE("CollectionData"),
-                                          SQL_COLUMNS("CollectionID", "TimeVal", "DataVals"),
-                                          SQL_VALUES(collection_id_, timestamp_binder_, compressed_data));
+                                          SQL_COLUMNS("CollectionID", "TimeVal", "DataVals", "NumElems"),
+                                          SQL_VALUES(collection_id_, timestamp_binder_, compressed_data, num_elems_in_blob_));
 
             collection_data_id_ = record->getId();
         } else {
             auto record = db_mgr_->INSERT(SQL_TABLE("CollectionData"),
-                                          SQL_COLUMNS("CollectionID", "TimeVal", "DataVals"),
-                                          SQL_VALUES(collection_id_, timestamp_binder_, data_vals_));
+                                          SQL_COLUMNS("CollectionID", "TimeVal", "DataVals", "NumElems"),
+                                          SQL_VALUES(collection_id_, timestamp_binder_, data_vals_, num_elems_in_blob_));
 
             collection_data_id_ = record->getId();
         }
@@ -79,6 +80,9 @@ private:
     /// Data values.
     std::vector<DataT> data_vals_;
 
+    /// Total number of elements written in this blob.
+    size_t num_elems_in_blob_;
+
     /// Map of uint32_t->string pairs that need to be written to the database.
     StringMap::unserialized_string_map_t unserialized_map_;
 };
@@ -93,8 +97,8 @@ class IterableStructSerializer : public CollectableSerializer<DataT>
 public:
     /// Construct with a timestamp and the data values, whether compressed or not.
     IterableStructSerializer(
-        DatabaseManager* db_mgr, const int collection_id, const TimestampBase* timestamp, const std::vector<DataT>& data, const std::vector<int>& valid_flags, const bool compress = true)
-        : CollectableSerializer<DataT>(db_mgr, collection_id, timestamp, data, compress)
+        DatabaseManager* db_mgr, const int collection_id, const TimestampBase* timestamp, const std::vector<DataT>& data, const std::vector<int>& valid_flags, const size_t num_structs_written, const bool compress = true)
+        : CollectableSerializer<DataT>(db_mgr, collection_id, timestamp, data, num_structs_written, compress)
         , valid_flags_(valid_flags)
     {
     }
@@ -112,12 +116,12 @@ public:
             std::vector<char> compressed_data;
             compressDataVec(valid_flags_, compressed_data);
 
-            this->db_mgr_->INSERT(SQL_TABLE("SparseValidFlags"),
-                                  SQL_COLUMNS("CollectionDataID", "Flags"),
+            this->db_mgr_->INSERT(SQL_TABLE("IterableBlobMeta"),
+                                  SQL_COLUMNS("CollectionDataID", "SparseValidFlags"),
                                   SQL_VALUES(this->collection_data_id_, compressed_data));
         } else {
-            this->db_mgr_->INSERT(SQL_TABLE("SparseValidFlags"),
-                                  SQL_COLUMNS("CollectionDataID", "Flags"),
+            this->db_mgr_->INSERT(SQL_TABLE("IterableBlobMeta"),
+                                  SQL_COLUMNS("CollectionDataID", "SparseValidFlags"),
                                   SQL_VALUES(this->collection_data_id_, valid_flags_));
         }
     }

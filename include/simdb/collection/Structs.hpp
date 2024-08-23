@@ -601,7 +601,7 @@ public:
         }
 
         std::unique_ptr<WorkerTask> task(new CollectableSerializer<char>(
-            db_mgr, collection_pkey_, timestamp, structs_blob_));
+            db_mgr, collection_pkey_, timestamp, structs_blob_, structs_.size()));
 
         db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
     }

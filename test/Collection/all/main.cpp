@@ -17,7 +17,7 @@ TEST_INIT;
 std::random_device rd;  // a seed source for the random number engine
 std::mt19937 gen(rd()); // mersenne_twister_engine seeded with rd()
 
-#define DOUBLEUP 0
+#define DOUBLEUP 1
 
 template <typename T>
 T generateRandomInt()
@@ -553,17 +553,23 @@ private:
 
         std::unique_ptr<StructGroupCollection> iterable_struct_collection(new StructGroupCollection("ContigStructsCollection"));
         iterable_struct_collection->addContainer("structs.iterables.contig", &iterable_structs_, STRUCT_GROUP_CAPACITY);
-#if DOUBLEUP
-        iterable_struct_collection->addContainer("structs.second.iterables.contig", &second_iterable_structs_, STRUCT_GROUP_CAPACITY);
-#endif
         collection_mgr->addCollection(std::move(iterable_struct_collection));
+
+#if DOUBLEUP
+        std::unique_ptr<StructGroupCollection> second_iterable_struct_collection(new StructGroupCollection("SecondContigStructsCollection"));
+        second_iterable_struct_collection->addContainer("structs.second.iterables.contig", &second_iterable_structs_, STRUCT_GROUP_CAPACITY);
+        collection_mgr->addCollection(std::move(second_iterable_struct_collection));
+#endif
 
         std::unique_ptr<SparseStructGroupCollection> sparse_iterable_struct_collection(new SparseStructGroupCollection("SparseStructsCollection"));
         sparse_iterable_struct_collection->addContainer("structs.iterables.sparse", &sparse_iterable_structs_, SPARSE_STRUCT_GROUP_CAPACITY);
-#if DOUBLEUP
-        sparse_iterable_struct_collection->addContainer("structs.second.iterables.sparse", &second_sparse_iterable_structs_, SPARSE_STRUCT_GROUP_CAPACITY);
-#endif
         collection_mgr->addCollection(std::move(sparse_iterable_struct_collection));
+
+#if DOUBLEUP
+        std::unique_ptr<SparseStructGroupCollection> second_sparse_iterable_struct_collection(new SparseStructGroupCollection("SecondSparseStructsCollection"));
+        second_sparse_iterable_struct_collection->addContainer("structs.second.iterables.sparse", &second_sparse_iterable_structs_, SPARSE_STRUCT_GROUP_CAPACITY);
+        collection_mgr->addCollection(std::move(second_sparse_iterable_struct_collection));
+#endif
 
         db_mgr_->finalizeCollections();
     }
@@ -604,10 +610,14 @@ private:
     void generateRandomStructGroups_()
     {
         iterable_structs_.clear();
-        second_iterable_structs_.clear();
         auto num_contig_insts = rand() % STRUCT_GROUP_CAPACITY;
         for (size_t idx = 0; idx < num_contig_insts; ++idx) {
             iterable_structs_.push_back(generateRandomStruct());
+        }
+
+        second_iterable_structs_.clear();
+        auto second_num_contig_insts = rand() % STRUCT_GROUP_CAPACITY;
+        for (size_t idx = 0; idx < second_num_contig_insts; ++idx) {
             second_iterable_structs_.push_back(generateRandomStruct());
         }
 
@@ -615,9 +625,13 @@ private:
         sparse_iterable_structs_.resize(SPARSE_STRUCT_GROUP_CAPACITY);
         second_sparse_iterable_structs_.clear();
         second_sparse_iterable_structs_.resize(SPARSE_STRUCT_GROUP_CAPACITY);
+
         for (size_t idx = 0; idx < SPARSE_STRUCT_GROUP_CAPACITY; ++idx) {
-            if (rand() % 3 == 0) {
+            if (rand() % 2 == 0) {
                 sparse_iterable_structs_[idx] = generateRandomStruct();
+            }
+
+            if (rand() % 8 == 0) {
                 second_sparse_iterable_structs_[idx] = generateRandomStruct();
             }
         }

@@ -195,6 +195,7 @@ public:
             .addColumn("CollectionID", dt::int32_t)
             .addColumn("TimeVal", timestamp_->getDataType())
             .addColumn("DataVals", dt::blob_t)
+            .addColumn("NumElems", dt::int32_t)
             .createCompoundIndexOn({"CollectionID", "TimeVal"});
 
         schema.addTable("StructFields")
@@ -218,9 +219,9 @@ public:
             .addColumn("Capacity", dt::int32_t)
             .addColumn("IsSparse", dt::int32_t);
 
-        schema.addTable("SparseValidFlags")
+        schema.addTable("IterableBlobMeta")
             .addColumn("CollectionDataID", dt::int32_t)
-            .addColumn("Flags", dt::blob_t);
+            .addColumn("SparseValidFlags", dt::blob_t);
 
         schema.addTable("FormatOpts")
             .addColumn("ScalarElemID", dt::int32_t)
