@@ -32,3 +32,6 @@ class LiveEditorWidget(wx.Panel):
         self.sizer.Add(wx.StaticText(self, label='Live Editor'), 0, wx.EXPAND)
         self.SetSizer(self.sizer)
         self.Layout()
+
+    def UpdateWidgetData(self):
+        pass

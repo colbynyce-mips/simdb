@@ -8,6 +8,7 @@ from viewer.gui.widgets.live_editor import LiveEditorTool
 from viewer.gui.widgets.scalar_statistic import ScalarStatistic
 from viewer.gui.widgets.scalar_struct import ScalarStruct
 from viewer.gui.widgets.iterable_struct import IterableStruct
+from viewer.gui.widgets.widget_updater import WidgetUpdater
 
 class ArgosFrame(wx.Frame):
     def __init__(self, view_settings, db):
@@ -15,6 +16,7 @@ class ArgosFrame(wx.Frame):
         
         self.view_settings = view_settings
         self.db = db
+        self.widget_updater = WidgetUpdater(self)
 
         self.frame_splitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
         self.explorer = DataExplorer(self.frame_splitter, self)
@@ -54,3 +56,6 @@ class ArgosFrame(wx.Frame):
                 self.explorer.navtree.SetTreeNodeWidgetName(leaf, 'ScalarStruct')
             else:
                 self.explorer.navtree.SetTreeNodeWidgetName(leaf, 'IterableStruct')
+
+    def GetWidgetRenderer(self):
+        return self.widget_updater

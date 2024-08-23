@@ -14,3 +14,6 @@ class IterableStruct(wx.Panel):
         self.sizer.Add(wx.StaticText(self, label='Iterable Struct:\n%s' % elem_path), 0, wx.EXPAND)
         self.SetSizer(self.sizer)
         self.Layout()
+
+    def UpdateWidgetData(self):
+        pass

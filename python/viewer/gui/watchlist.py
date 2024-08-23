@@ -22,6 +22,9 @@ class Watchlist(wx.TreeCtrl):
         self.__RenderFlatView()
         self.GetParent().ChangeSelection(1)
 
+    def UpdateUtilizBitmaps(self):
+        print("UpdateUtilizBitmaps (watchlist)")
+
     def __RenderFlatView(self, *args, **kwargs):
         self.DeleteAllItems()
         if len(self._watched_sim_elems) > 0:

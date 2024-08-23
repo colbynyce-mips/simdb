@@ -34,3 +34,6 @@ class QueueUtilizWidget(wx.Panel):
         self.sizer.Add(wx.StaticText(self, label='Queue Utilization'), 0, wx.EXPAND)
         self.SetSizer(self.sizer)
         self.Layout()
+
+    def UpdateWidgetData(self):
+        pass

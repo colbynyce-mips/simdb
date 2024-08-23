@@ -127,6 +127,9 @@ class NavTree(wx.TreeCtrl):
         
     def GetTool(self, tool_name):
         return self._tools_by_name.get(tool_name, None)
+    
+    def UpdateUtilizBitmaps(self):
+        print ("UpdateUtilizBitmaps (navtree)")
 
     def __RecurseBuildTree(self, parent_id, cursor):
         cursor.execute("SELECT Id,Name FROM ElementTreeNodes WHERE ParentID = ?", (parent_id,))

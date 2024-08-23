@@ -37,6 +37,14 @@ class CanvasGrid(wx.Panel):
                 if isinstance(child, CanvasGrid):
                     child.DestroyAllWidgets()
 
+    def UpdateWidgets(self):
+        if isinstance(self.container, WidgetContainer):
+            self.container.UpdateWidgets()
+        else:
+            for child in self.container.GetChildren():
+                if isinstance(child, CanvasGrid):
+                    child.UpdateWidgets()
+
     def __BuildGrid(self, splitter, rows, cols):
         assert rows > 0 and cols > 0
 
@@ -161,6 +169,10 @@ class WidgetContainer(wx.Panel):
             self.GetSizer().Detach(self._widget)
             self._widget.Destroy()
             self._widget = None
+
+    def UpdateWidgets(self):
+        if self._widget:
+            self._widget.UpdateWidgetData()
 
 class WidgetContainerDropTarget(wx.TextDropTarget):
     def __init__(self, widget_container, navtree):

@@ -14,3 +14,7 @@ class ScalarStatistic(wx.Panel):
         self.sizer.Add(wx.StaticText(self, label='Scalar Statistic:\n%s' % elem_path), 0, wx.EXPAND)
         self.SetSizer(self.sizer)
         self.Layout()
+
+    def UpdateWidgetData(self):
+        widget_updater = self.frame.GetWidgetRenderer()
+        print ("QueueUtilizWidget UpdateWidgetData called at tick %d" % widget_updater.GetCurTick())

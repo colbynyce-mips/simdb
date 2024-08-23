@@ -32,3 +32,6 @@ class PacketTrackerWidget(wx.Panel):
         self.sizer.Add(wx.StaticText(self, label='Packet Tracker'), 0, wx.EXPAND)
         self.SetSizer(self.sizer)
         self.Layout()
+
+    def UpdateWidgetData(self):
+        pass
