@@ -37,6 +37,10 @@ class ArgosFrame(wx.Frame):
     @property
     def widget_renderer(self):
         return self._widget_renderer
+    
+    @property
+    def simhier(self):
+        return self.explorer.navtree.simhier
 
     def PostLoad(self):
         self.explorer.navtree.AddSystemWideTool(QueueUtilizTool())
@@ -48,7 +52,7 @@ class ArgosFrame(wx.Frame):
         self.explorer.navtree.SetWidgetFactory('IterableStruct', IterableStruct.CreateWidget)
 
         leaves = []
-        for node_id, tree_id in self.explorer.navtree._tree_ids_by_id.items():
+        for node_id, tree_id in self.explorer.navtree._tree_items_by_db_id.items():
             if not self.explorer.navtree.GetChildrenCount(tree_id):
                 leaves.append(tree_id)
 

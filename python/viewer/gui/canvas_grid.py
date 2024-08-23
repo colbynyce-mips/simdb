@@ -193,7 +193,7 @@ class WidgetContainerDropTarget(wx.TextDropTarget):
             return False
         
         self.widget_container.SetWidget(widget)
-        wx.CallAfter(self.__SetFocus)
+        wx.CallAfter(self.__RenderWidget)
         return True
         
     def __CreateTool(self, tool_name):
@@ -206,8 +206,9 @@ class WidgetContainerDropTarget(wx.TextDropTarget):
             return False
         
         self.widget_container.SetWidget(widget)
-        wx.CallAfter(self.__SetFocus)
+        wx.CallAfter(self.__RenderWidget)
         return True
 
-    def __SetFocus(self):
+    def __RenderWidget(self):
+        self.widget_container.UpdateWidgets()
         self.widget_container.SetWidgetFocus()

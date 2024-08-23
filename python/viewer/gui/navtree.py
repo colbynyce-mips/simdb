@@ -1,6 +1,7 @@
 import wx
 from functools import partial
 from viewer.gui.widgets.toolbase import ToolBase
+from viewer.model.simhier import SimHierarchy
 
 class NavTree(wx.TreeCtrl):
     def __init__(self, parent, frame):
@@ -10,24 +11,47 @@ class NavTree(wx.TreeCtrl):
 
         self._root = self.AddRoot("root")
         self._sim_hier_root = self.AppendItem(self._root, "Sim Hierarchy")
-        self._tree_ids_by_id = {1: self._sim_hier_root }
+        self._tree_items_by_db_id = {1: self._sim_hier_root }
         self.__RecurseBuildTree(1, cursor)
 
         # Find all the wx.TreeCtrl leaves
         leaves = []
-        for node_id, tree_id in self._tree_ids_by_id.items():
+        for node_id, tree_id in self._tree_items_by_db_id.items():
             if not self.GetChildrenCount(tree_id):
                 leaves.append(tree_id)
 
         # Get a mapping from the leaves to their full dot-delimited paths
-        self._leaf_element_paths_by_tree_id = {}
+        self._leaf_element_paths_by_tree_item = {}
         for leaf in leaves:
             path = []
             node = leaf
             while node != self._root:
                 path.insert(0, self.GetItemText(node))
                 node = self.GetItemParent(node)
-            self._leaf_element_paths_by_tree_id[leaf] = '.'.join(path).replace('Sim Hierarchy.', '')
+            self._leaf_element_paths_by_tree_item[leaf] = '.'.join(path).replace('Sim Hierarchy.', '')
+
+        # Get a flat list of all tree items 
+        all_tree_items = [self._sim_hier_root]
+        item, cookie = self.GetFirstChild(self._sim_hier_root)
+        while item.IsOk():
+            all_tree_items.append(item)
+            item, cookie = self.GetNextChild(self._sim_hier_root, cookie)
+
+        # Get a mapping from all items to their full dot-delimited paths
+        element_paths_by_tree_item = {}
+        for item in all_tree_items:
+            path = []
+            node = item
+            while node != self._root:
+                path.insert(0, self.GetItemText(node))
+                node = self.GetItemParent(node)
+            element_paths_by_tree_item[item] = '.'.join(path).replace('Sim Hierarchy.', '')
+
+        # Start with a reversed map of self._tree_items_by_db_id, then get a mapping from
+        # the full dot-delimited paths to the db ids
+        db_ids_by_tree_item = {v: k for k, v in self._tree_items_by_db_id.items()}
+        db_ids_by_sim_path = {element_paths_by_tree_item[item]: db_ids_by_tree_item[item] for item in all_tree_items}
+        self._simhier = SimHierarchy(frame.db, db_ids_by_sim_path)
 
         # Get a mapping from the SimPath to the CollectionID from the CollectionElems table
         self._collection_id_by_sim_path = {}
@@ -65,12 +89,16 @@ class NavTree(wx.TreeCtrl):
         self.__utiliz_image_list = frame.widget_renderer.utiliz_handler.CreateUtilizImageList()
         self.SetImageList(self.__utiliz_image_list)
 
+    @property
+    def simhier(self):
+        return self._simhier
+
     def GetSelectionWidgetInfo(self, item=None):
         if item is None:
             item = self.GetSelection()
         
-        if item in self._leaf_element_paths_by_tree_id:
-            elem_path = self._leaf_element_paths_by_tree_id[item]
+        if item in self._leaf_element_paths_by_tree_item:
+            elem_path = self._leaf_element_paths_by_tree_item[item]
             collection_id = self._collection_id_by_sim_path[elem_path]
             data_type = self._data_type_by_collection_id[collection_id]
             is_container = self._is_container_by_collection_id[collection_id]
@@ -80,11 +108,11 @@ class NavTree(wx.TreeCtrl):
         
     def GetLeafElementPaths(self):
         leaves = []
-        for node_id, tree_id in self._tree_ids_by_id.items():
+        for node_id, tree_id in self._tree_items_by_db_id.items():
             if not self.GetChildrenCount(tree_id):
                 leaves.append(tree_id)
 
-        return [self._leaf_element_paths_by_tree_id[leaf] for leaf in leaves]
+        return [self._leaf_element_paths_by_tree_item[leaf] for leaf in leaves]
     
     def AddSystemWideTool(self, tool: ToolBase):
         # Find the 'Tools' node under the root
@@ -142,7 +170,7 @@ class NavTree(wx.TreeCtrl):
         return self._tools_by_name.get(tool_name, None)
     
     def UpdateUtilizBitmaps(self):
-        for item,sim_path in self._leaf_element_paths_by_tree_id.items():
+        for item,sim_path in self._leaf_element_paths_by_tree_item.items():
             if sim_path in self._container_sim_paths:
                 utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(sim_path)
                 image_idx = int(utiliz_pct * 100)
@@ -165,9 +193,9 @@ class NavTree(wx.TreeCtrl):
 
             node = child_tree_ids_by_name.get(node_name, None)
             if not node:
-                node = self.AppendItem(self._tree_ids_by_id[parent_id], node_name)
+                node = self.AppendItem(self._tree_items_by_db_id[parent_id], node_name)
 
-            self._tree_ids_by_id[node_id] = node
+            self._tree_items_by_db_id[node_id] = node
 
             self.__RecurseBuildTree(node_id, cursor)
 
@@ -226,8 +254,8 @@ class NavTree(wx.TreeCtrl):
 
         menu.AppendSeparator()
 
-        if item in self._leaf_element_paths_by_tree_id:
-            elem_path = self._leaf_element_paths_by_tree_id[item]
+        if item in self._leaf_element_paths_by_tree_item:
+            elem_path = self._leaf_element_paths_by_tree_item[item]
             if elem_path not in self.frame.explorer.watchlist.GetWatchedSimElems():
                 add_to_watchlist = menu.Append(-1, "Add to Watchlist")
                 self.Bind(wx.EVT_MENU, partial(AddToWatchlist, navtree=self, elem_path=elem_path), add_to_watchlist)
@@ -251,7 +279,7 @@ class NavTree(wx.TreeCtrl):
             drop_source.DoDragDrop()
         elif item in self._widget_names_by_item:
             widget_name = self._widget_names_by_item[item]
-            elem_path = self._leaf_element_paths_by_tree_id[item]
+            elem_path = self._leaf_element_paths_by_tree_item[item]
             data = wx.TextDataObject('{}${}'.format(widget_name, elem_path))
             drop_source = wx.DropSource(self)
             drop_source.SetData(data)

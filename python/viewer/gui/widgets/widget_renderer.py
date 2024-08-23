@@ -83,6 +83,9 @@ class IterableUtiliz:
         self.__CacheUtilizValues()
         utiliz_pct = self._utiliz_pcts_by_sim_path[sim_path]
         return self.__GetColorForUtilizPct(utiliz_pct)
+    
+    def ConvertUtilizPctToColor(self, utiliz_pct):
+        return self.__GetColorForUtilizPct(utiliz_pct)
 
     def CreateUtilizImageList(self):
         image_list = wx.ImageList(16, 16)
