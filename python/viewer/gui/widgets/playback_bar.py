@@ -5,14 +5,14 @@ class PlaybackBar(wx.Panel):
     def __init__(self, frame):
         super(PlaybackBar, self).__init__(frame, size=(frame.GetSize().width, 100))
         self.SetBackgroundColour('light gray')
-        widget_updater = self.frame.GetWidgetRenderer()
+        widget_renderer = self.frame.GetWidgetRenderer()
 
         self.clock_combobox = wx.ComboBox(self, choices=['<any clk edge>'], value='<any clk edge>', style=wx.CB_READONLY)
-        self.current_cyc_text = wx.StaticText(self, label='cycle:{}'.format(widget_updater.GetCurTick()))
+        self.current_cyc_text = wx.StaticText(self, label='cycle:{}'.format(widget_renderer.GetCurTick()))
         font = self.current_cyc_text.GetFont()
         font.SetWeight(wx.FONTWEIGHT_BOLD)
         self.current_cyc_text.SetFont(font)
-        self.current_tick_text = wx.StaticText(self, label='tick:{}'.format(widget_updater.GetCurTick()))
+        self.current_tick_text = wx.StaticText(self, label='tick:{}'.format(widget_renderer.GetCurTick()))
 
         self.minus_30_button = wx.Button(self, label='-30')
         self.minus_10_button = wx.Button(self, label='-10')
@@ -23,7 +23,7 @@ class PlaybackBar(wx.Panel):
         self.plus_10_button = wx.Button(self, label='+10')
         self.plus_30_button = wx.Button(self, label='+30')
 
-        self.cyc_slider = wx.Slider(self, minValue=widget_updater.GetStartTick(), maxValue=widget_updater.GetEndTick(), style=wx.SL_HORIZONTAL)
+        self.cyc_slider = wx.Slider(self, minValue=widget_renderer.GetStartTick(), maxValue=widget_renderer.GetEndTick(), style=wx.SL_HORIZONTAL)
 
         self.minus_30_button.Bind(wx.EVT_BUTTON, partial(self.__OnStep, step=-30))
         self.minus_10_button.Bind(wx.EVT_BUTTON, partial(self.__OnStep, step=-10))
@@ -36,11 +36,11 @@ class PlaybackBar(wx.Panel):
 
         self.cyc_slider.Bind(wx.EVT_SCROLL, self.__OnCycSlider)
 
-        self.cyc_start_text = wx.StaticText(self, label='cyc-start:{}'.format(widget_updater.GetStartTick()))
+        self.cyc_start_text = wx.StaticText(self, label='cyc-start:{}'.format(widget_renderer.GetStartTick()))
         self.cyc_start_text.SetForegroundColour(wx.BLUE)
         self.cyc_start_text.Bind(wx.EVT_LEFT_DOWN, self.__OnCycStart)
 
-        self.cyc_end_text = wx.StaticText(self, label='cyc-end:{}'.format(widget_updater.GetEndTick()))
+        self.cyc_end_text = wx.StaticText(self, label='cyc-end:{}'.format(widget_renderer.GetEndTick()))
         self.cyc_end_text.SetForegroundColour(wx.BLUE)
         self.cyc_end_text.Bind(wx.EVT_LEFT_DOWN, self.__OnCycEnd)
 
@@ -87,21 +87,21 @@ class PlaybackBar(wx.Panel):
         self.current_cyc_text.SetLabel('tick:{}'.format(tick))
 
     def __OnStep(self, event, step):
-        widget_updater = self.frame.GetWidgetRenderer()
-        cur_tick = widget_updater.GetCurTick()
-        widget_updater.GoToTick(cur_tick + step)
+        widget_renderer = self.frame.GetWidgetRenderer()
+        cur_tick = widget_renderer.GetCurTick()
+        widget_renderer.GoToTick(cur_tick + step)
 
     def __OnCycSlider(self, event):
-        widget_updater = self.frame.GetWidgetRenderer()
-        widget_updater.GoToTick(self.cyc_slider.GetValue())
+        widget_renderer = self.frame.GetWidgetRenderer()
+        widget_renderer.GoToTick(self.cyc_slider.GetValue())
 
     def __OnCycStart(self, event):
-        widget_updater = self.frame.GetWidgetRenderer()
-        widget_updater.GoToStart()
+        widget_renderer = self.frame.GetWidgetRenderer()
+        widget_renderer.GoToStart()
 
     def __OnCycEnd(self, event):
-        widget_updater = self.frame.GetWidgetRenderer()
-        widget_updater.GoToEnd()
+        widget_renderer = self.frame.GetWidgetRenderer()
+        widget_renderer.GoToEnd()
 
     @property
     def frame(self):
