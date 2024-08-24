@@ -1,3 +1,5 @@
+import copy
+
 class SimHierarchy:
     def __init__(self, db, db_ids_by_sim_path):
         self._db_ids_by_sim_path = db_ids_by_sim_path
@@ -81,10 +83,10 @@ class SimHierarchy:
         return self._db_ids_by_sim_path.keys()
 
     def GetScalarStatsSimPaths(self):
-        return self._scalar_stats_sim_paths
+        return copy.deepcopy(self._scalar_stats_sim_paths)
     
     def GetScalarStructsSimPaths(self):
-        return self._scalar_structs_sim_paths
+        return copy.deepcopy(self._scalar_structs_sim_paths)
     
     def GetContainerSimPaths(self):
-        return self._container_sim_paths
+        return copy.deepcopy(self._container_sim_paths)

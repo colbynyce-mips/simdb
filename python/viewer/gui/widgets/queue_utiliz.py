@@ -32,6 +32,7 @@ class QueueUtilizWidget(wx.Panel):
 
         # Get all container sim paths from the simhier
         self.container_sim_paths = self.frame.simhier.GetContainerSimPaths()
+        self.container_sim_paths.sort()
 
         # The layout of this widget is like a barchart:
         #
