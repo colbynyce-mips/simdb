@@ -75,6 +75,9 @@ class IterableUtiliz:
 
         self._utiliz_pcts_by_sim_path = None
 
+    def GetCapacity(self, sim_path):
+        return self._capacities_by_sim_path[sim_path]
+
     def GetUtilizPct(self, sim_path):
         self.__CacheUtilizValues()
         return self._utiliz_pcts_by_sim_path[sim_path]

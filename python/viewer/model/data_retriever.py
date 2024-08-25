@@ -1,9 +1,9 @@
-import sqlite3, zlib, struct, json, sys
+import zlib, struct, copy
 
 class DataRetriever:
-    def __init__(self, db_path):
-        self._conn = sqlite3.connect(db_path)
-        cursor = self.cursor()
+    def __init__(self, db):
+        self._conn = db
+        cursor = db.cursor
 
         cursor.execute('SELECT TimeType FROM CollectionGlobals LIMIT 1')
         for row in cursor.fetchall():
@@ -97,13 +97,17 @@ class DataRetriever:
         return self._conn.cursor()
 
     def GetAllElementPaths(self):
-        return self._all_element_paths
+        return copy.deepcopy(self._all_element_paths)
+
+    def GetDeserializer(self, sim_path):
+        collection_name = self._collection_names_by_simpath[sim_path]
+        return self._deserializers_by_collection_name[collection_name]    
 
     # Get all collected data for the given element by its path. These are the
     # same paths that were used in the original calls to addStat(), addStruct(),
     # and addContainer().
     def Unpack(self, elem_path, time_range=None):
-        cursor = self.cursor()
+        cursor = self.cursor
         collection_id = self._collection_ids_by_simpath[elem_path]
         cmd = 'SELECT Id,TimeVal,DataVals FROM CollectionData WHERE CollectionID={} '.format(collection_id)
 
@@ -263,6 +267,9 @@ class StructDeserializer(Deserializer):
             self._format += self._enums_by_name[field_type].format
 
         self._field_formatters.append(formatter)
+
+    def GetFieldNames(self):
+        return [formatter.field_name for formatter in self._field_formatters]
 
     def Unpack(self, data_blob, elem_path, collection_data_id, apply_offset=True):
         struct_num_bytes = self.GetStructNumBytes()

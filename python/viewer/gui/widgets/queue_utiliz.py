@@ -1,5 +1,6 @@
 import wx, random, math
 from viewer.gui.widgets.toolbase import ToolBase
+from viewer.gui.widgets.utils.hyperlink_location import HyperlinkLocation
 
 class QueueUtilizTool(ToolBase):
     def __init__(self):
@@ -44,7 +45,7 @@ class QueueUtilizWidget(wx.Panel):
         #
         # Where the X's above are shown as a colored heatmap based on the
         # utilization percentage of each queue.
-        self._sim_path_text_elems = [wx.StaticText(self, label=sim_path) for sim_path in self.container_sim_paths]
+        self._sim_path_text_elems = [HyperlinkLocation(self, frame, sim_path) for sim_path in self.container_sim_paths]
         self._utiliz_bars = [UtilizBar(self, frame) for _ in range(len(self.container_sim_paths))]
 
         # Change the font to 8-point monospace.

@@ -166,6 +166,13 @@ class NavTree(wx.TreeCtrl):
         else:
             return None
         
+    def GetWidgetName(self, sim_path):
+        for item, path in self._leaf_element_paths_by_tree_item.items():
+            if path == sim_path:
+                return self._widget_names_by_item[item]
+            
+        return None
+        
     def GetTool(self, tool_name):
         return self._tools_by_name.get(tool_name, None)
     

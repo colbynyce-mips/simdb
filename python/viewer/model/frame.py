@@ -9,6 +9,7 @@ from viewer.gui.widgets.scalar_statistic import ScalarStatistic
 from viewer.gui.widgets.scalar_struct import ScalarStruct
 from viewer.gui.widgets.iterable_struct import IterableStruct
 from viewer.gui.widgets.widget_renderer import WidgetRenderer
+from viewer.model.data_retriever import DataRetriever
 
 class ArgosFrame(wx.Frame):
     def __init__(self, view_settings, db):
@@ -16,7 +17,8 @@ class ArgosFrame(wx.Frame):
         
         self.view_settings = view_settings
         self.db = db
-        self._widget_renderer = WidgetRenderer(self)
+        self.widget_renderer = WidgetRenderer(self)
+        self.data_retriever = DataRetriever(db)
 
         self.frame_splitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
         self.explorer = DataExplorer(self.frame_splitter, self)
@@ -34,10 +36,6 @@ class ArgosFrame(wx.Frame):
         self.Layout()
         self.Maximize()
 
-    @property
-    def widget_renderer(self):
-        return self._widget_renderer
-    
     @property
     def simhier(self):
         return self.explorer.navtree.simhier
