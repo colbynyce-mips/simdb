@@ -188,7 +188,8 @@ class WidgetContainerDropTarget(wx.TextDropTarget):
             return False
 
         factory_name, elem_path = text.split('$')
-        widget = self.navtree.CreateWidget(factory_name, elem_path, self.widget_container)
+        widget_renderer = self.navtree.frame.widget_renderer
+        widget = widget_renderer.CreateWidget(factory_name, elem_path, self.widget_container)
         if not widget:
             return False
         

@@ -63,13 +63,9 @@ class DataRetriever:
 
         cursor.execute('SELECT Id,SimPath FROM CollectionElems')
         container_meta_by_simpath = {}
-        self._all_element_paths = []
         for path_id,simpath in cursor.fetchall():
-            self._all_element_paths.append(simpath)
             if path_id in container_meta_by_path_id:
                 container_meta_by_simpath[simpath] = container_meta_by_path_id[path_id]
-
-        self._all_element_paths.sort()
 
         cursor.execute('SELECT CollectionName,FieldName,FieldType,FormatCode FROM StructFields')
         self._deserializers_by_collection_name = {}
@@ -93,9 +89,6 @@ class DataRetriever:
         for collection_name,data_type in cursor.fetchall():
             assert collection_name not in self._deserializers_by_collection_name
             self._deserializers_by_collection_name[collection_name] = StatsDeserializer(data_type, self._element_idxs_by_simpath, cursor)
-
-    def GetAllElementPaths(self):
-        return copy.deepcopy(self._all_element_paths)
 
     def GetDeserializer(self, sim_path):
         collection_name = self._collection_names_by_simpath[sim_path]

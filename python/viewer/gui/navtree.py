@@ -38,20 +38,20 @@ class NavTree(wx.TreeCtrl):
             item, cookie = self.GetNextChild(self._sim_hier_root, cookie)
 
         # Get a mapping from all items to their full dot-delimited paths
-        element_paths_by_tree_item = {}
+        self._element_paths_by_tree_item = {}
         for item in all_tree_items:
             path = []
             node = item
             while node != self._root:
                 path.insert(0, self.GetItemText(node))
                 node = self.GetItemParent(node)
-            element_paths_by_tree_item[item] = '.'.join(path).replace('Sim Hierarchy.', '')
+            self._element_paths_by_tree_item[item] = '.'.join(path).replace('Sim Hierarchy.', '')
 
         # Start with a reversed map of self._tree_items_by_db_id, then get a mapping from
         # the full dot-delimited paths to the db ids
         db_ids_by_tree_item = {v: k for k, v in self._tree_items_by_db_id.items()}
-        db_ids_by_sim_path = {element_paths_by_tree_item[item]: db_ids_by_tree_item[item] for item in all_tree_items}
-        self._simhier = SimHierarchy(frame.db, db_ids_by_sim_path)
+        db_ids_by_sim_path = {self._element_paths_by_tree_item[item]: db_ids_by_tree_item[item] for item in all_tree_items}
+        self.simhier = SimHierarchy(frame.db, db_ids_by_sim_path)
 
         # Get a mapping from the SimPath to the CollectionID from the CollectionElems table
         self._collection_id_by_sim_path = {}
@@ -89,11 +89,11 @@ class NavTree(wx.TreeCtrl):
         self.__utiliz_image_list = frame.widget_renderer.utiliz_handler.CreateUtilizImageList()
         self.SetImageList(self.__utiliz_image_list)
 
-    @property
-    def simhier(self):
-        return self._simhier
+    def GetSelectedNodeSimPath(self):#yyy
+        item = self.GetSelection()
+        return self._element_paths_by_tree_item.get(item, None)
 
-    def GetSelectionWidgetInfo(self, item=None):
+    def GetSelectionWidgetInfo(self, item=None):#yyy
         if item is None:
             item = self.GetSelection()
         
@@ -106,14 +106,6 @@ class NavTree(wx.TreeCtrl):
         else:
             return None
         
-    def GetLeafElementPaths(self):
-        leaves = []
-        for node_id, tree_id in self._tree_items_by_db_id.items():
-            if not self.GetChildrenCount(tree_id):
-                leaves.append(tree_id)
-
-        return [self._leaf_element_paths_by_tree_item[leaf] for leaf in leaves]
-    
     def AddSystemWideTool(self, tool: ToolBase):
         # Find the 'Tools' node under the root
         tools_node = None
@@ -156,22 +148,6 @@ class NavTree(wx.TreeCtrl):
 
     def SetTreeNodeWidgetName(self, item, widget_name):
         self._widget_names_by_item[item] = widget_name
-
-    def SetWidgetFactory(self, widget_name, factory):
-        self._widget_factories_by_widget_name[widget_name] = factory
-
-    def CreateWidget(self, widget_name, elem_path, parent):
-        if widget_name in self._widget_factories_by_widget_name:
-            return self._widget_factories_by_widget_name[widget_name](parent, self.frame, elem_path)
-        else:
-            return None
-        
-    def GetWidgetName(self, sim_path):
-        for item, path in self._leaf_element_paths_by_tree_item.items():
-            if path == sim_path:
-                return self._widget_names_by_item[item]
-            
-        return None
         
     def GetTool(self, tool_name):
         return self._tools_by_name.get(tool_name, None)

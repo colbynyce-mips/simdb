@@ -91,3 +91,8 @@ class SimHierarchy:
     
     def GetContainerSimPaths(self):
         return copy.deepcopy(self._container_sim_paths)
+
+    def GetLeafSimPaths(self):
+        sim_paths = self.GetScalarStatsSimPaths() + self.GetScalarStructsSimPaths() + self.GetContainerSimPaths()
+        sim_paths.sort()
+        return sim_paths

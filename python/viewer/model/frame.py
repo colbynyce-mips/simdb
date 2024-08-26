@@ -46,9 +46,9 @@ class ArgosFrame(wx.Frame):
         self.explorer.navtree.AddSystemWideTool(PacketTrackerTool())
         self.explorer.navtree.AddSystemWideTool(LiveEditorTool())
 
-        self.explorer.navtree.SetWidgetFactory('ScalarStatistic', ScalarStatistic.CreateWidget)
-        self.explorer.navtree.SetWidgetFactory('ScalarStruct', ScalarStruct.CreateWidget)
-        self.explorer.navtree.SetWidgetFactory('IterableStruct', IterableStruct.CreateWidget)
+        self.widget_renderer.SetWidgetFactory('ScalarStatistic', ScalarStatistic.CreateWidget)
+        self.widget_renderer.SetWidgetFactory('ScalarStruct', ScalarStruct.CreateWidget)
+        self.widget_renderer.SetWidgetFactory('IterableStruct', IterableStruct.CreateWidget)
 
         leaves = []
         for node_id, tree_id in self.explorer.navtree._tree_items_by_db_id.items():

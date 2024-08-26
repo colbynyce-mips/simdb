@@ -8,6 +8,7 @@ class WidgetRenderer:
         self._start_tick, self._end_tick = cursor.fetchone()
         self._current_tick = self._start_tick
         self._utiliz_handler = IterableUtiliz(self)
+        self._widget_factories_by_widget_name = {}
 
     @property
     def tick(self):
@@ -24,6 +25,15 @@ class WidgetRenderer:
     @property
     def utiliz_handler(self):
         return self._utiliz_handler
+    
+    def SetWidgetFactory(self, widget_name, factory):
+        self._widget_factories_by_widget_name[widget_name] = factory
+
+    def CreateWidget(self, widget_name, elem_path, parent):
+        if widget_name in self._widget_factories_by_widget_name:
+            return self._widget_factories_by_widget_name[widget_name](parent, self.frame, elem_path)
+        else:
+            return None
 
     def GoToTick(self, tick):
         tick = min(max(tick, self._start_tick), self._end_tick)

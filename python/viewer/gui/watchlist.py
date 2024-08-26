@@ -75,7 +75,7 @@ class Watchlist(wx.TreeCtrl):
             items_by_path["Root"] = self.GetRootItem()
 
             # Honor the same hierarchy as the NavTree
-            navtree_leaf_paths = self.frame.explorer.navtree.GetLeafElementPaths()
+            navtree_leaf_paths = self.frame.explorer.navtree.simhier.GetLeafSimPaths()
 
             for path in navtree_leaf_paths:
                 if path not in self._watched_sim_elems:
