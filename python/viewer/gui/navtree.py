@@ -7,7 +7,7 @@ class NavTree(wx.TreeCtrl):
     def __init__(self, parent, frame):
         super(NavTree, self).__init__(parent, style=wx.TR_DEFAULT_STYLE | wx.TR_HIDE_ROOT | wx.TR_LINES_AT_ROOT)
         self.frame = frame
-        cursor = frame.db.cursor
+        cursor = frame.db.cursor()
 
         self._root = self.AddRoot("root")
         self._sim_hier_root = self.AppendItem(self._root, "Sim Hierarchy")

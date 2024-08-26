@@ -2,8 +2,9 @@ import zlib, struct, copy
 
 class DataRetriever:
     def __init__(self, db):
-        self._conn = db
-        cursor = db.cursor
+        self._db = db
+        self.cursor = db.cursor()
+        cursor = self.cursor
 
         cursor.execute('SELECT TimeType FROM CollectionGlobals LIMIT 1')
         for row in cursor.fetchall():
@@ -92,9 +93,6 @@ class DataRetriever:
         for collection_name,data_type in cursor.fetchall():
             assert collection_name not in self._deserializers_by_collection_name
             self._deserializers_by_collection_name[collection_name] = StatsDeserializer(data_type, self._element_idxs_by_simpath, cursor)
-
-    def cursor(self):
-        return self._conn.cursor()
 
     def GetAllElementPaths(self):
         return copy.deepcopy(self._all_element_paths)

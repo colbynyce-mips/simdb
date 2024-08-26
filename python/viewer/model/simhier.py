@@ -4,15 +4,16 @@ class SimHierarchy:
     def __init__(self, db, db_ids_by_sim_path):
         self._db_ids_by_sim_path = db_ids_by_sim_path
         self._sim_paths_by_db_id = {v: k for k, v in db_ids_by_sim_path.items()}
+        cursor = db.cursor()
 
         cmd = 'SELECT Id,ParentID,Name FROM ElementTreeNodes'
-        db.cursor.execute(cmd)
+        cursor.execute(cmd)
 
         self._parent_db_id_map = {}
         self._name_map = {}
         self._root_id = None
 
-        for db_id, parent_db_id, name in db.cursor.fetchall():
+        for db_id, parent_db_id, name in cursor.fetchall():
             self._parent_db_id_map[db_id] = parent_db_id
             self._name_map[db_id] = name
 
@@ -21,10 +22,10 @@ class SimHierarchy:
                 self._root_id = db_id
 
         cmd = 'SELECT CollectionID,SimPath FROM CollectionElems'
-        db.cursor.execute(cmd)
+        cursor.execute(cmd)
 
         collection_ids_by_sim_path = {}
-        for collection_id, sim_path in db.cursor.fetchall():
+        for collection_id, sim_path in cursor.fetchall():
             collection_ids_by_sim_path[sim_path] = collection_id
 
         sim_paths_by_collection_id = {}
@@ -34,13 +35,13 @@ class SimHierarchy:
             sim_paths_by_collection_id[collection_id] = sim_paths
 
         cmd = 'SELECT Id,DataType,IsContainer FROM Collections'
-        db.cursor.execute(cmd)
+        cursor.execute(cmd)
 
         self._scalar_stats_sim_paths = []
         self._scalar_structs_sim_paths = []
         self._container_sim_paths = []
 
-        for collection_id, data_type, is_container in db.cursor.fetchall():
+        for collection_id, data_type, is_container in cursor.fetchall():
             for sim_path in sim_paths_by_collection_id[collection_id]:
                 if data_type in ('int8_t', 'int16_t', 'int32_t', 'int64_t', 'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'float', 'double'):
                     self._scalar_stats_sim_paths.append(sim_path)

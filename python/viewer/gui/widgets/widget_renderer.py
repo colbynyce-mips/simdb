@@ -3,7 +3,7 @@ import wx
 class WidgetRenderer:
     def __init__(self, frame):
         self.frame = frame
-        cursor = frame.db.cursor
+        cursor = frame.db.cursor()
         cursor.execute('SELECT MIN(TimeVal), MAX(TimeVal) FROM CollectionData')
         self._start_tick, self._end_tick = cursor.fetchone()
         self._current_tick = self._start_tick
@@ -52,7 +52,7 @@ class IterableUtiliz:
         self._utiliz_pcts_by_sim_path = {}
         self._cached_utiliz_tick = None
 
-        cursor = self.widget_renderer.frame.db.cursor
+        cursor = self.widget_renderer.frame.db.cursor()
 
         cursor.execute('SELECT PathID,Capacity FROM ContainerMeta')
         self._capacities_by_path_id = {}
@@ -106,7 +106,7 @@ class IterableUtiliz:
         self._cached_utiliz_tick = self.widget_renderer.tick
 
         # We need to get the number of data elements in each simpath blob at this time step.
-        cursor = self.widget_renderer.frame.db.cursor
+        cursor = self.widget_renderer.frame.db.cursor()
         cmd = 'SELECT CollectionID,NumElems FROM CollectionData WHERE TimeVal={}'.format(self._cached_utiliz_tick)
 
         collection_ids = list(self._capacities_by_collection_id.keys())

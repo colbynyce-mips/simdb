@@ -1,4 +1,4 @@
-import wx
+import wx, sqlite3
 from viewer.gui.widgets.playback_bar import PlaybackBar
 from viewer.gui.explorer import DataExplorer
 from viewer.gui.inspector import DataInspector
@@ -10,15 +10,16 @@ from viewer.gui.widgets.scalar_struct import ScalarStruct
 from viewer.gui.widgets.iterable_struct import IterableStruct
 from viewer.gui.widgets.widget_renderer import WidgetRenderer
 from viewer.model.data_retriever import DataRetriever
+from viewer.gui.view_settings import ViewSettings
 
 class ArgosFrame(wx.Frame):
-    def __init__(self, view_settings, db):
-        super().__init__(None, title=db.path)
+    def __init__(self, db_path, view_settings):
+        super().__init__(None, title=db_path)
         
+        self.db = sqlite3.connect(db_path)
         self.view_settings = view_settings
-        self.db = db
         self.widget_renderer = WidgetRenderer(self)
-        self.data_retriever = DataRetriever(db)
+        self.data_retriever = DataRetriever(self.db)
 
         self.frame_splitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
         self.explorer = DataExplorer(self.frame_splitter, self)
