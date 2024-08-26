@@ -50,16 +50,4 @@ class ArgosFrame(wx.Frame):
         self.widget_renderer.SetWidgetFactory('ScalarStruct', ScalarStruct.CreateWidget)
         self.widget_renderer.SetWidgetFactory('IterableStruct', IterableStruct.CreateWidget)
 
-        leaves = []
-        for node_id, tree_id in self.explorer.navtree._tree_items_by_db_id.items():
-            if not self.explorer.navtree.GetChildrenCount(tree_id):
-                leaves.append(tree_id)
-
-        for leaf in leaves:
-            _, _, data_type, is_container = self.explorer.navtree.GetSelectionWidgetInfo(leaf)
-            if data_type in ('int8_t', 'int16_t', 'int32_t', 'int64_t', 'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'float', 'double'):
-                self.explorer.navtree.SetTreeNodeWidgetName(leaf, 'ScalarStatistic')
-            elif not is_container:
-                self.explorer.navtree.SetTreeNodeWidgetName(leaf, 'ScalarStruct')
-            else:
-                self.explorer.navtree.SetTreeNodeWidgetName(leaf, 'IterableStruct')
+        self.explorer.navtree.PostLoad()

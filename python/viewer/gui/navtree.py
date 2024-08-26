@@ -7,75 +7,21 @@ class NavTree(wx.TreeCtrl):
     def __init__(self, parent, frame):
         super(NavTree, self).__init__(parent, style=wx.TR_DEFAULT_STYLE | wx.TR_HIDE_ROOT | wx.TR_LINES_AT_ROOT)
         self.frame = frame
+        self.simhier = SimHierarchy(frame.db)
         cursor = frame.db.cursor()
 
         self._root = self.AddRoot("root")
         self._sim_hier_root = self.AppendItem(self._root, "Sim Hierarchy")
-        self._tree_items_by_db_id = {1: self._sim_hier_root }
-        self.__RecurseBuildTree(1, cursor)
+        self._tree_items_by_db_id = {self.simhier.GetRootID(): self._sim_hier_root }
+        self.__RecurseBuildTree(self.simhier.GetRootID())
 
-        # Find all the wx.TreeCtrl leaves
-        leaves = []
-        for node_id, tree_id in self._tree_items_by_db_id.items():
-            if not self.GetChildrenCount(tree_id):
-                leaves.append(tree_id)
-
-        # Get a mapping from the leaves to their full dot-delimited paths
+        self._container_sim_paths = self.simhier.GetContainerSimPaths()
         self._leaf_element_paths_by_tree_item = {}
-        for leaf in leaves:
-            path = []
-            node = leaf
-            while node != self._root:
-                path.insert(0, self.GetItemText(node))
-                node = self.GetItemParent(node)
-            self._leaf_element_paths_by_tree_item[leaf] = '.'.join(path).replace('Sim Hierarchy.', '')
+        for db_id, tree_item in self._tree_items_by_db_id.items():
+            if not self.GetChildrenCount(tree_item):
+                self._leaf_element_paths_by_tree_item[tree_item] = self.simhier.GetSimPath(db_id).replace('root.','')
 
-        # Get a flat list of all tree items 
-        all_tree_items = [self._sim_hier_root]
-        item, cookie = self.GetFirstChild(self._sim_hier_root)
-        while item.IsOk():
-            all_tree_items.append(item)
-            item, cookie = self.GetNextChild(self._sim_hier_root, cookie)
-
-        # Get a mapping from all items to their full dot-delimited paths
-        self._element_paths_by_tree_item = {}
-        for item in all_tree_items:
-            path = []
-            node = item
-            while node != self._root:
-                path.insert(0, self.GetItemText(node))
-                node = self.GetItemParent(node)
-            self._element_paths_by_tree_item[item] = '.'.join(path).replace('Sim Hierarchy.', '')
-
-        # Start with a reversed map of self._tree_items_by_db_id, then get a mapping from
-        # the full dot-delimited paths to the db ids
-        db_ids_by_tree_item = {v: k for k, v in self._tree_items_by_db_id.items()}
-        db_ids_by_sim_path = {self._element_paths_by_tree_item[item]: db_ids_by_tree_item[item] for item in all_tree_items}
-        self.simhier = SimHierarchy(frame.db, db_ids_by_sim_path)
-
-        # Get a mapping from the SimPath to the CollectionID from the CollectionElems table
-        self._collection_id_by_sim_path = {}
-        cursor.execute("SELECT CollectionID,SimPath FROM CollectionElems")
-        rows = cursor.fetchall()
-        for row in rows:
-            self._collection_id_by_sim_path[row[1]] = row[0]
-
-        # Iterate over the Collections table and find the DataType and IsContainer for each CollectionID
-        self._data_type_by_collection_id = {}
-        self._is_container_by_collection_id = {}
-        container_collection_ids = []
-        cursor.execute("SELECT Id,DataType,IsContainer FROM Collections")
-        rows = cursor.fetchall()
-        for row in rows:
-            self._data_type_by_collection_id[row[0]] = row[1]
-            self._is_container_by_collection_id[row[0]] = row[2]
-            if row[2]:
-                container_collection_ids.append(row[0])
-
-        self._container_sim_paths = set()
-        for sim_path, collection_id in self._collection_id_by_sim_path.items():
-            if collection_id in container_collection_ids:
-                self._container_sim_paths.add(sim_path)
+        self._tree_items_by_sim_path = {v: k for k, v in self._leaf_element_paths_by_tree_item.items()}
 
         self.Bind(wx.EVT_RIGHT_DOWN, self.__OnRightClick)
         self.Bind(wx.EVT_TREE_BEGIN_DRAG, self.__OnBeginDrag)
@@ -89,23 +35,19 @@ class NavTree(wx.TreeCtrl):
         self.__utiliz_image_list = frame.widget_renderer.utiliz_handler.CreateUtilizImageList()
         self.SetImageList(self.__utiliz_image_list)
 
-    def GetSelectedNodeSimPath(self):#yyy
-        item = self.GetSelection()
-        return self._element_paths_by_tree_item.get(item, None)
+    def PostLoad(self):
+        for sim_path in self.simhier.GetScalarStatsSimPaths():
+            item = self._tree_items_by_sim_path[sim_path]
+            self.SetTreeNodeWidgetName(item, 'ScalarStatistic')
 
-    def GetSelectionWidgetInfo(self, item=None):#yyy
-        if item is None:
-            item = self.GetSelection()
-        
-        if item in self._leaf_element_paths_by_tree_item:
-            elem_path = self._leaf_element_paths_by_tree_item[item]
-            collection_id = self._collection_id_by_sim_path[elem_path]
-            data_type = self._data_type_by_collection_id[collection_id]
-            is_container = self._is_container_by_collection_id[collection_id]
-            return (elem_path, collection_id, data_type, is_container)
-        else:
-            return None
-        
+        for sim_path in self.simhier.GetScalarStructsSimPaths():
+            item = self._tree_items_by_sim_path[sim_path]
+            self.SetTreeNodeWidgetName(item, 'ScalarStruct')
+
+        for sim_path in self.simhier.GetContainerSimPaths():
+            item = self._tree_items_by_sim_path[sim_path]
+            self.SetTreeNodeWidgetName(item, 'IterableStruct')
+
     def AddSystemWideTool(self, tool: ToolBase):
         # Find the 'Tools' node under the root
         tools_node = None
@@ -153,11 +95,11 @@ class NavTree(wx.TreeCtrl):
         return self._tools_by_name.get(tool_name, None)
     
     def UpdateUtilizBitmaps(self):
-        for item,sim_path in self._leaf_element_paths_by_tree_item.items():
-            if sim_path in self._container_sim_paths:
-                utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(sim_path)
-                image_idx = int(utiliz_pct * 100)
-                self.SetItemImage(item, image_idx)
+        for sim_path in self._container_sim_paths:
+            utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(sim_path)
+            image_idx = int(utiliz_pct * 100)
+            item = self._tree_items_by_sim_path[sim_path]
+            self.SetItemImage(item, image_idx)
 
     def ExpandAll(self):
         self.Unbind(wx.EVT_TREE_ITEM_EXPANDED)
@@ -165,22 +107,12 @@ class NavTree(wx.TreeCtrl):
         self.UpdateUtilizBitmaps()
         self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
 
-    def __RecurseBuildTree(self, parent_id, cursor):
-        cursor.execute("SELECT Id,Name FROM ElementTreeNodes WHERE ParentID = ?", (parent_id,))
-        rows = cursor.fetchall()
-
-        child_tree_ids_by_name = {}
-        for row in rows:
-            node_id = row[0]
-            node_name = row[1]
-
-            node = child_tree_ids_by_name.get(node_name, None)
-            if not node:
-                node = self.AppendItem(self._tree_items_by_db_id[parent_id], node_name)
-
-            self._tree_items_by_db_id[node_id] = node
-
-            self.__RecurseBuildTree(node_id, cursor)
+    def __RecurseBuildTree(self, parent_id):
+        for child_id in self.simhier.GetChildIDs(parent_id):
+            child_name = self.simhier.GetName(child_id)
+            child = self.AppendItem(self._tree_items_by_db_id[parent_id], child_name)
+            self._tree_items_by_db_id[child_id] = child
+            self.__RecurseBuildTree(child_id)
 
     def __OnRightClick(self, event):
         item = self.HitTest(event.GetPosition())
