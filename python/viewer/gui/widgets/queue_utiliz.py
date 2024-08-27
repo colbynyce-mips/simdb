@@ -37,6 +37,25 @@ class QueueUtilizWidget(wx.Panel):
         self.SetSizer(sizer)
         self.Layout()
 
+        for text_elem in self._sim_path_text_elems:
+            text_elem.Bind(wx.EVT_LEFT_DOWN, self.__OnSimElemInitDrag)
+
+    def __OnSimElemInitDrag(self, event):
+        text_elem = event.GetEventObject()
+
+        if text_elem in self._sim_path_text_elems:
+            if text_elem.HasCapture():
+                text_elem.ReleaseMouse()
+            else:
+                text_elem.CaptureMouse()
+                data = wx.TextDataObject('IterableStruct$' + text_elem.GetLabel())
+                drag_source = wx.DropSource(text_elem)
+                drag_source.SetData(data)
+                drag_source.DoDragDrop(wx.Drag_DefaultMove)
+                text_elem.ReleaseMouse()
+
+            event.Skip()
+
     def GetWidgetCreationString(self):
         return 'Queue Utilization'
 
