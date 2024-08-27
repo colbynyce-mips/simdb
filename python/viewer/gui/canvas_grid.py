@@ -30,32 +30,10 @@ class CanvasGrid(wx.Panel):
         return frame
     
     def DestroyAllWidgets(self):
-        if isinstance(self.container, WidgetContainer):
-            self.container.DestroyAllWidgets()
-        elif isinstance(self.container, wx.SplitterWindow):
-            win1 = self.container.GetWindow1()
-            win2 = self.container.GetWindow2()
-
-            if win1:
-                win1.DestroyAllWidgets()
-            if win2:
-                win2.DestroyAllWidgets()
-        elif isinstance(self.container, CanvasGrid):
-            self.container.DestroyAllWidgets()
+        self.__DestroyAllWidgets(self.container)
 
     def UpdateWidgets(self):
-        if isinstance(self.container, WidgetContainer):
-            self.container.UpdateWidgets()
-        elif isinstance(self.container, wx.SplitterWindow):
-            win1 = self.container.GetWindow1()
-            win2 = self.container.GetWindow2()
-
-            if win1:
-                win1.UpdateWidgets()
-            if win2:
-                win2.UpdateWidgets()
-        elif isinstance(self.container, CanvasGrid):
-            self.container.UpdateWidgets()
+        self.__UpdateWidgets(self.container)
 
     def GetWidgetContainers(self):
         widget_containers = []
@@ -118,7 +96,7 @@ class CanvasGrid(wx.Panel):
 
         split_vertically = menu.Append(-1, "Split left/right")
         split_horizontally = menu.Append(-1, "Split top/bottom")
-        split_custom = menu.Append(-1, "Split custom")
+        #split_custom = menu.Append(-1, "Split custom")
 
         if isinstance(self.GetParent(), wx.SplitterWindow):
             menu.AppendSeparator()
@@ -127,11 +105,16 @@ class CanvasGrid(wx.Panel):
 
         self.Bind(wx.EVT_MENU, self.__OnSplitVertically, split_vertically)
         self.Bind(wx.EVT_MENU, self.__OnSplitHorizontally, split_horizontally)
-        self.Bind(wx.EVT_MENU, self.__OnSplitCustom, split_custom)
+        #self.Bind(wx.EVT_MENU, self.__OnSplitCustom, split_custom)
 
         self.PopupMenu(menu, pos)
 
     def __OnSplitVertically(self, event):
+        widget_creation_str = None
+        if self.container:
+            widget = self.container.GetWidget()
+            widget_creation_str = widget.GetWidgetCreationString() if widget else None
+
         if self.container:
             self.container.DestroyAllWidgets()
 
@@ -140,7 +123,18 @@ class CanvasGrid(wx.Panel):
         self.GetSizer().Add(self.container, 1, wx.EXPAND)
         self.Layout()
 
+        if widget_creation_str:
+            win1 = self.container.container.GetWindow1()
+            widget_container = win1.container
+            widget = self.container.frame.widget_creator.CreateWidget(widget_creation_str, widget_container)
+            widget_container.SetWidget(widget)
+
     def __OnSplitHorizontally(self, event):
+        widget_creation_str = None
+        if self.container:
+            widget = self.container.GetWidget()
+            widget_creation_str = widget.GetWidgetCreationString() if widget else None
+
         if self.container:
             self.container.DestroyAllWidgets()
 
@@ -149,10 +143,21 @@ class CanvasGrid(wx.Panel):
         self.GetSizer().Add(self.container, 1, wx.EXPAND)
         self.Layout()
 
+        if widget_creation_str:
+            win1 = self.container.container.GetWindow1()
+            widget_container = win1.container
+            widget = self.container.frame.widget_creator.CreateWidget(widget_creation_str, widget_container)
+            widget_container.SetWidget(widget)
+
     def __OnSplitCustom(self, event):
         dlg = wx.TextEntryDialog(self, "Enter number of rows and columns separated by a comma:", "Custom Split", value="2,2")
 
         if dlg.ShowModal() == wx.ID_OK:
+            widget_creation_str = None
+            if self.container:
+                widget = self.container.GetWidget()
+                widget_creation_str = widget.GetWidgetCreationString() if widget else None
+
             rows, cols = dlg.GetValue().strip().split(',')
             rows = int(rows)
             cols = int(cols)
@@ -165,7 +170,21 @@ class CanvasGrid(wx.Panel):
             self.GetSizer().Add(self.container, 1, wx.EXPAND)
             self.Layout()
 
+            if widget_creation_str:
+                widget_container = self.__FindFirstWidgetContainer(self.container)
+                widget = self.container.frame.widget_creator.CreateWidget(widget_creation_str, widget_container)
+                widget_container.SetWidget(widget)
+
         dlg.Destroy()
+
+    def __FindFirstWidgetContainer(self, container):
+        if isinstance(container, WidgetContainer):
+            return container
+        else:
+            for child in container.GetChildren():
+                return self.__FindFirstWidgetContainer(child)
+            
+        return None
 
     def __Explode(self, event):
         widget = self.container.GetWidget()
@@ -179,6 +198,20 @@ class CanvasGrid(wx.Panel):
             containers = inspector.GetCurrentTabWidgetContainers()
             widget = frame.widget_creator.CreateWidget(widget_creation_str, containers[0])
             containers[0].SetWidget(widget)
+
+    def __DestroyAllWidgets(self, container):
+        if isinstance(container, WidgetContainer):
+            container.DestroyAllWidgets()
+        else:
+            for child in container.GetChildren():
+                self.__DestroyAllWidgets(child)
+
+    def __UpdateWidgets(self, container):
+        if isinstance(container, WidgetContainer):
+            container.UpdateWidgets()
+        else:
+            for child in container.GetChildren():
+                self.__UpdateWidgets(child)
 
 class WidgetContainer(wx.Panel):
     def __init__(self, parent):
