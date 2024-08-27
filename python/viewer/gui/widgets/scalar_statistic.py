@@ -1,10 +1,6 @@
 import wx
 
 class ScalarStatistic(wx.Panel):
-    @classmethod
-    def CreateWidget(cls, parent, frame, elem_path):
-        return cls(parent, frame, elem_path)
-
     def __init__(self, parent, frame, elem_path):
         super(ScalarStatistic, self).__init__(parent)
         self.frame = frame

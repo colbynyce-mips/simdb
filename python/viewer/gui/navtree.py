@@ -1,6 +1,5 @@
 import wx
 from functools import partial
-from viewer.gui.widgets.toolbase import ToolBase
 from viewer.model.simhier import SimHierarchy
 
 class NavTree(wx.TreeCtrl):
@@ -15,6 +14,11 @@ class NavTree(wx.TreeCtrl):
         self._tree_items_by_db_id = {self.simhier.GetRootID(): self._sim_hier_root }
         self.__RecurseBuildTree(self.simhier.GetRootID())
 
+        tools_node = self.AppendItem(self.GetRootItem(), "Systemwide Tools")
+        self.AppendItem(tools_node, "Queue Utilization")
+        self.AppendItem(tools_node, "Packet Tracker")
+        self.AppendItem(tools_node, "Live Editor")
+
         self._container_sim_paths = self.simhier.GetContainerSimPaths()
         self._leaf_element_paths_by_tree_item = {}
         for db_id, tree_item in self._tree_items_by_db_id.items():
@@ -24,76 +28,11 @@ class NavTree(wx.TreeCtrl):
         self._tree_items_by_sim_path = {v: k for k, v in self._leaf_element_paths_by_tree_item.items()}
 
         self.Bind(wx.EVT_RIGHT_DOWN, self.__OnRightClick)
-        self.Bind(wx.EVT_TREE_BEGIN_DRAG, self.__OnBeginDrag)
         self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
-
-        self._tools_by_name = {}
-        self._tools_by_item = {}
-        self._widget_names_by_item = {}
-        self._widget_factories_by_widget_name = {}
 
         self.__utiliz_image_list = frame.widget_renderer.utiliz_handler.CreateUtilizImageList()
         self.SetImageList(self.__utiliz_image_list)
 
-    def PostLoad(self):
-        for sim_path in self.simhier.GetScalarStatsSimPaths():
-            item = self._tree_items_by_sim_path[sim_path]
-            self.SetTreeNodeWidgetName(item, 'ScalarStatistic')
-
-        for sim_path in self.simhier.GetScalarStructsSimPaths():
-            item = self._tree_items_by_sim_path[sim_path]
-            self.SetTreeNodeWidgetName(item, 'ScalarStruct')
-
-        for sim_path in self.simhier.GetContainerSimPaths():
-            item = self._tree_items_by_sim_path[sim_path]
-            self.SetTreeNodeWidgetName(item, 'IterableStruct')
-
-    def AddSystemWideTool(self, tool: ToolBase):
-        # Find the 'Tools' node under the root
-        tools_node = None
-        item, cookie = self.GetFirstChild(self.GetRootItem())
-        while item.IsOk():
-            if self.GetItemText(item) == "Tools":
-                tools_node = item
-                break
-
-            item, cookie = self.GetNextChild(self.GetRootItem(), cookie)
-
-        if not tools_node:
-            tools_node = self.AppendItem(self.GetRootItem(), "Tools")
-
-        # Now look for the tool with the given name under the 'Tools' node
-        name = tool.GetToolName()
-        tool_node = None
-        item, cookie = self.GetFirstChild(tools_node)
-        while item.IsOk():
-            if self.GetItemText(item) == name:
-                tool_node = item
-                break
-
-            item, cookie = self.GetNextChild(tools_node, cookie)
-
-        if not tool_node:
-            self.AppendItem(tools_node, name)
-            self._tools_by_name[name] = tool
-        elif name in self._tools_by_name:
-            if type(self._tools_by_name[name]) != type(tool):
-                raise ValueError("Tool with name '%s' already exists and is of a different type" % name)
-        else:
-            self._tools_by_name[name] = tool
-
-        self._tools_by_item = {}
-        item, cookie = self.GetFirstChild(tools_node)
-        while item.IsOk():
-            self._tools_by_item[item] = self._tools_by_name[self.GetItemText(item)]
-            item, cookie = self.GetNextChild(tools_node, cookie)
-
-    def SetTreeNodeWidgetName(self, item, widget_name):
-        self._widget_names_by_item[item] = widget_name
-        
-    def GetTool(self, tool_name):
-        return self._tools_by_name.get(tool_name, None)
-    
     def UpdateUtilizBitmaps(self):
         for sim_path in self._container_sim_paths:
             utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(sim_path)
@@ -106,6 +45,9 @@ class NavTree(wx.TreeCtrl):
         super(NavTree, self).ExpandAll()
         self.UpdateUtilizBitmaps()
         self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
+
+    def GetLeafSimPath(self, item):
+        return self._leaf_element_paths_by_tree_item.get(item, None)
 
     def __RecurseBuildTree(self, parent_id):
         for child_id in self.simhier.GetChildIDs(parent_id):
@@ -123,25 +65,6 @@ class NavTree(wx.TreeCtrl):
         self.SelectItem(item)
 
         menu = wx.Menu()
-
-        item_name = self.GetItemText(item)
-        if item_name in self._tools_by_name:
-            # Ensure that the item parent is the root.Tools node
-            parent = self.GetItemParent(item)
-            if self.GetItemText(parent) == 'Tools':
-                parent = self.GetItemParent(parent)
-                if parent == self.GetRootItem():
-                    tool = self._tools_by_name[item_name]
-                    help_text = tool.GetToolHelpText()
-                    if help_text:
-                        def OnHelp(event, **kwargs):
-                            kwargs['tool'].ShowHelpDialog(kwargs['help_text'])
-
-                        help_item = menu.Append(-1, 'See doc for {} tool'.format(item_name))
-                        self.Bind(wx.EVT_MENU, partial(OnHelp, tool=tool, help_text=help_text), help_item)
-                        self.PopupMenu(menu)
-                        menu.Destroy()
-                        return
 
         def ExpandAll(event, **kwargs):
             kwargs['navtree'].ExpandAll()
@@ -183,22 +106,6 @@ class NavTree(wx.TreeCtrl):
 
         self.PopupMenu(menu)
         menu.Destroy()
-
-    def __OnBeginDrag(self, event):
-        item = event.GetItem()
-        if item in self._tools_by_item:
-            tool_name = self.GetItemText(item)
-            data = wx.TextDataObject(tool_name)
-            drop_source = wx.DropSource(self)
-            drop_source.SetData(data)
-            drop_source.DoDragDrop()
-        elif item in self._widget_names_by_item:
-            widget_name = self._widget_names_by_item[item]
-            elem_path = self._leaf_element_paths_by_tree_item[item]
-            data = wx.TextDataObject('{}${}'.format(widget_name, elem_path))
-            drop_source = wx.DropSource(self)
-            drop_source.SetData(data)
-            drop_source.DoDragDrop()
 
     def __OnItemExpanded(self, event):
         self.UpdateUtilizBitmaps()

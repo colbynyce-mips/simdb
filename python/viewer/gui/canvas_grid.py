@@ -137,7 +137,7 @@ class WidgetContainer(wx.Panel):
         while frame and not isinstance(frame, wx.Frame):
             frame = frame.GetParent()
 
-        self.SetDropTarget(WidgetContainerDropTarget(self, frame.explorer.navtree))
+        self.SetDropTarget(WidgetContainerDropTarget(self, self.frame.widget_creator))
 
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(sizer)
@@ -175,34 +175,13 @@ class WidgetContainer(wx.Panel):
             self._widget.UpdateWidgetData()
 
 class WidgetContainerDropTarget(wx.TextDropTarget):
-    def __init__(self, widget_container, navtree):
+    def __init__(self, widget_container, widget_creator):
         super(WidgetContainerDropTarget, self).__init__()
         self.widget_container = widget_container
-        self.navtree = navtree
+        self.widget_creator = widget_creator
 
     def OnDropText(self, x, y, text):
-        return self.__CreateWidget(text) or self.__CreateTool(text)
-
-    def __CreateWidget(self, text):
-        if text.find('$') == -1:
-            return False
-
-        factory_name, elem_path = text.split('$')
-        widget_renderer = self.navtree.frame.widget_renderer
-        widget = widget_renderer.CreateWidget(factory_name, elem_path, self.widget_container)
-        if not widget:
-            return False
-        
-        self.widget_container.SetWidget(widget)
-        wx.CallAfter(self.__RenderWidget)
-        return True
-        
-    def __CreateTool(self, tool_name):
-        tool = self.navtree.GetTool(tool_name)
-        if not tool:
-            return False
-        
-        widget = tool.CreateWidget(self.widget_container, self.widget_container.frame)
+        widget = self.widget_creator.CreateWidget(text, self.widget_container)
         if not widget:
             return False
         

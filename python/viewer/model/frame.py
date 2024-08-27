@@ -2,15 +2,9 @@ import wx, sqlite3
 from viewer.gui.widgets.playback_bar import PlaybackBar
 from viewer.gui.explorer import DataExplorer
 from viewer.gui.inspector import DataInspector
-from viewer.gui.widgets.queue_utiliz import QueueUtilizTool
-from viewer.gui.widgets.packet_tracker import PacketTrackerTool
-from viewer.gui.widgets.live_editor import LiveEditorTool
-from viewer.gui.widgets.scalar_statistic import ScalarStatistic
-from viewer.gui.widgets.scalar_struct import ScalarStruct
-from viewer.gui.widgets.iterable_struct import IterableStruct
 from viewer.gui.widgets.widget_renderer import WidgetRenderer
+from viewer.gui.widgets.widget_creator import WidgetCreator
 from viewer.model.data_retriever import DataRetriever
-from viewer.gui.view_settings import ViewSettings
 
 class ArgosFrame(wx.Frame):
     def __init__(self, db_path, view_settings):
@@ -19,6 +13,7 @@ class ArgosFrame(wx.Frame):
         self.db = sqlite3.connect(db_path)
         self.view_settings = view_settings
         self.widget_renderer = WidgetRenderer(self)
+        self.widget_creator = WidgetCreator(self)
         self.data_retriever = DataRetriever(self.db)
 
         self.frame_splitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
@@ -42,12 +37,5 @@ class ArgosFrame(wx.Frame):
         return self.explorer.navtree.simhier
 
     def PostLoad(self):
-        self.explorer.navtree.AddSystemWideTool(QueueUtilizTool())
-        self.explorer.navtree.AddSystemWideTool(PacketTrackerTool())
-        self.explorer.navtree.AddSystemWideTool(LiveEditorTool())
-
-        self.widget_renderer.SetWidgetFactory('ScalarStatistic', ScalarStatistic.CreateWidget)
-        self.widget_renderer.SetWidgetFactory('ScalarStruct', ScalarStruct.CreateWidget)
-        self.widget_renderer.SetWidgetFactory('IterableStruct', IterableStruct.CreateWidget)
-
-        self.explorer.navtree.PostLoad()
+        self.widget_creator.BindToWidgetSource(self.explorer.navtree)
+        self.widget_creator.BindToWidgetSource(self.explorer.watchlist)
