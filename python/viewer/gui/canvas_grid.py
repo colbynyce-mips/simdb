@@ -9,7 +9,6 @@ class CanvasGrid(wx.Panel):
             self.Bind(wx.EVT_CONTEXT_MENU, self.__OnContextMenu)
         else:
             self.container = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
-            self.container.SetMinimumPaneSize(300)
             self.__BuildGrid(self.container, rows, cols)
             if not self.container.GetSizer():
                 sizer = wx.BoxSizer(wx.VERTICAL)
@@ -63,8 +62,6 @@ class CanvasGrid(wx.Panel):
         if rows > 1 and cols > 1:
             top_splitter = wx.SplitterWindow(splitter, style=wx.SP_LIVE_UPDATE)
             bottom_splitter = wx.SplitterWindow(splitter, style=wx.SP_LIVE_UPDATE)
-            top_splitter.SetMinimumPaneSize(300)
-            bottom_splitter.SetMinimumPaneSize(300)
 
             top_grid = CanvasGrid(top_splitter, rows=rows // 2, cols=cols)
             top_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -129,6 +126,9 @@ class CanvasGrid(wx.Panel):
             widget = self.container.frame.widget_creator.CreateWidget(widget_creation_str, widget_container)
             widget_container.SetWidget(widget)
 
+        splitter = self.container.container
+        splitter.SetSashPosition(splitter.GetSize().GetWidth() // 2)
+
     def __OnSplitHorizontally(self, event):
         widget_creation_str = None
         if self.container:
@@ -148,6 +148,9 @@ class CanvasGrid(wx.Panel):
             widget_container = win1.container
             widget = self.container.frame.widget_creator.CreateWidget(widget_creation_str, widget_container)
             widget_container.SetWidget(widget)
+
+        splitter = self.container.container
+        splitter.SetSashPosition(splitter.GetSize().GetHeight() // 2)
 
     def __OnSplitCustom(self, event):
         dlg = wx.TextEntryDialog(self, "Enter number of rows and columns separated by a comma:", "Custom Split", value="2,2")
