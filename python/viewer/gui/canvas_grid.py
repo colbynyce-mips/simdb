@@ -32,18 +32,30 @@ class CanvasGrid(wx.Panel):
     def DestroyAllWidgets(self):
         if isinstance(self.container, WidgetContainer):
             self.container.DestroyAllWidgets()
-        else:
-            for child in self.container.GetChildren():
-                if isinstance(child, CanvasGrid):
-                    child.DestroyAllWidgets()
+        elif isinstance(self.container, wx.SplitterWindow):
+            win1 = self.container.GetWindow1()
+            win2 = self.container.GetWindow2()
+
+            if win1:
+                win1.DestroyAllWidgets()
+            if win2:
+                win2.DestroyAllWidgets()
+        elif isinstance(self.container, CanvasGrid):
+            self.container.DestroyAllWidgets()
 
     def UpdateWidgets(self):
         if isinstance(self.container, WidgetContainer):
             self.container.UpdateWidgets()
-        else:
-            for child in self.container.GetChildren():
-                if isinstance(child, CanvasGrid):
-                    child.UpdateWidgets()
+        elif isinstance(self.container, wx.SplitterWindow):
+            win1 = self.container.GetWindow1()
+            win2 = self.container.GetWindow2()
+
+            if win1:
+                win1.UpdateWidgets()
+            if win2:
+                win2.UpdateWidgets()
+        elif isinstance(self.container, CanvasGrid):
+            self.container.UpdateWidgets()
 
     def GetWidgetContainers(self):
         widget_containers = []
