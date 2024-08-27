@@ -14,6 +14,7 @@ class Watchlist(wx.TreeCtrl):
 
         self.Bind(wx.EVT_TREE_ITEM_GETTOOLTIP, self.__ProcessTooltip)
         self.Bind(wx.EVT_RIGHT_DOWN, self.__OnRightClick)
+        self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
 
         self._utiliz_image_list = frame.widget_renderer.utiliz_handler.CreateUtilizImageList()
         self.SetImageList(self._utiliz_image_list)
@@ -22,6 +23,9 @@ class Watchlist(wx.TreeCtrl):
         return self._watched_sim_elems
     
     def GetItemSimPath(self, item):
+        if not item.IsOk():
+            return None
+
         path_parts = []
         while item and item != self.GetRootItem():
             item_text = self.GetItemText(item)
@@ -42,12 +46,23 @@ class Watchlist(wx.TreeCtrl):
     def UpdateUtilizBitmaps(self):
         self.__UpdateUtilizBitmaps(self.GetRootItem())
 
+    def ExpandAll(self):
+        self.Unbind(wx.EVT_TREE_ITEM_EXPANDED)
+        super(Watchlist, self).ExpandAll()
+        self.UpdateUtilizBitmaps()
+        self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
+
     def __UpdateUtilizBitmaps(self, item):
         item_path = self.GetItemSimPath(item)
+        if item_path is None:
+            return
+
         if item_path in self._watched_sim_elems:
-            utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(item_path)
-            image_idx = int(utiliz_pct * 100)
-            self.SetItemImage(item, image_idx)
+            simhier = self.frame.explorer.navtree.simhier
+            if item_path in simhier.GetContainerSimPaths():
+                utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(item_path)
+                image_idx = int(utiliz_pct * 100)
+                self.SetItemImage(item, image_idx)
 
         child, cookie = self.GetFirstChild(item)
         while child.IsOk():
@@ -237,3 +252,6 @@ class Watchlist(wx.TreeCtrl):
         while child.IsOk():
             self.__RecurseGetWatchedSimElems(child, watched_sim_elems)
             child, cookie = self.GetNextChild(item, cookie)
+
+    def __OnItemExpanded(self, event):
+        self.__UpdateUtilizBitmaps(event.GetItem())
