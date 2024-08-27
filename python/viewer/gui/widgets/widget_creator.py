@@ -42,7 +42,7 @@ class WidgetCreator:
         if tree.GetItemText(item_parent) == 'Systemwide Tools' and tree.GetItemParent(item_parent) == tree.GetRootItem():
             widget_creation_str = tree.GetItemText(item)
         else:
-            sim_path = tree.GetLeafSimPath(item)
+            sim_path = tree.GetItemSimPath(item)
             simhier = self.frame.explorer.navtree.simhier
 
             if sim_path in simhier.GetScalarStatsSimPaths():

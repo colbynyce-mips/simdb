@@ -46,7 +46,7 @@ class NavTree(wx.TreeCtrl):
         self.UpdateUtilizBitmaps()
         self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
 
-    def GetLeafSimPath(self, item):
+    def GetItemSimPath(self, item):
         return self._leaf_element_paths_by_tree_item.get(item, None)
 
     def __RecurseBuildTree(self, parent_id):
