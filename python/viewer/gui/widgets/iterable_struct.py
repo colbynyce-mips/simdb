@@ -7,12 +7,13 @@ class IterableStruct(wx.Panel):
         self.elem_path = elem_path
         self.deserializer = frame.data_retriever.GetDeserializer(elem_path)
 
-        field_names = self.deserializer.GetFieldNames()
+        self._field_names = self.deserializer.GetFieldNames()
         self.capacity = frame.widget_renderer.utiliz_handler.GetCapacity(elem_path)
         self.grid = wx.grid.Grid(self)
-        self.grid.CreateGrid(self.capacity*20, len(field_names))
+        self.grid.CreateGrid(self.capacity, len(self._field_names), wx.grid.Grid.GridSelectNone)
+        self.grid.EnableEditing(False)
 
-        for i, field_name in enumerate(field_names):
+        for i, field_name in enumerate(self._field_names):
             self.grid.SetColLabelValue(i, field_name)
 
         for i in range(self.capacity):
@@ -29,7 +30,7 @@ class IterableStruct(wx.Panel):
         row1.Add(location_elem, 1, wx.EXPAND | wx.ALL, 5)
 
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(row1, 1, wx.EXPAND | wx.ALL, 10)
+        sizer.Add(row1, 0, wx.EXPAND | wx.ALL, 10)
         sizer.Add(self.grid, 1, wx.EXPAND | wx.ALL, 10)
         self.SetSizer(sizer)
         self.Layout()
@@ -38,9 +39,35 @@ class IterableStruct(wx.Panel):
         return 'IterableStruct$' + self.elem_path
 
     def UpdateWidgetData(self):
+        widget_renderer = self.frame.widget_renderer
+        tick = widget_renderer.tick
+        queue_data = self.frame.data_retriever.Unpack(self.elem_path, (tick,tick))
+
+        self.__ClearGrid()
+        for idx, row_data in enumerate(queue_data['DataVals'][0]):
+            if row_data is None:
+                continue
+
+            for j, field_name in enumerate(self._field_names):
+                self.grid.SetCellValue(idx, j, str(row_data[field_name]))
+
+        num_rows_shown = len(queue_data['DataVals'][0])
+
+        for i in range(num_rows_shown):
+            self.grid.ShowRow(i)
+
+        for i in range(num_rows_shown, self.capacity):
+            self.grid.HideRow(i)
+
         self.utiliz_elem.UpdateUtilizPct(self.frame.widget_renderer.utiliz_handler.GetUtilizPct(self.elem_path))
         self.grid.AutoSizeColumns()
         self.Layout()
+
+    def __ClearGrid(self):
+        for i in range(self.grid.GetNumberRows()):
+            for j in range(self.grid.GetNumberCols()):
+                self.grid.SetCellValue(i, j, '')
+                self.grid.SetCellBackgroundColour(i, j, wx.WHITE)
 
 class UtilizElement(wx.StaticText):
     def __init__(self, parent, frame, capacity):
