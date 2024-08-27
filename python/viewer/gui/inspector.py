@@ -70,9 +70,9 @@ class DataInspector(wx.Notebook):
 
         # Check if the right-click was within the tab area
         hit = self.HitTest(pos)
-        if hit == wx.NOT_FOUND or hit[0] == self.GetPageCount() - 1:
+        if hit == wx.NOT_FOUND or hit[0] == self.GetPageCount() - 1 or hit[0] == -1:
             return
-
+        
         # Show the context menu
         menu = wx.Menu()
         rename_item = menu.Append(wx.ID_ANY, "Rename tab")
