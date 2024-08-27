@@ -37,6 +37,9 @@ class QueueUtilizWidget(wx.Panel):
         self.SetSizer(sizer)
         self.Layout()
 
+    def GetWidgetCreationString(self):
+        return 'Queue Utilization'
+
     def UpdateWidgetData(self):
         for sim_path, pct_bar in zip(self.container_sim_paths, self._utiliz_bars):
             utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(sim_path)

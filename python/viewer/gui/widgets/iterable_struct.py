@@ -34,6 +34,9 @@ class IterableStruct(wx.Panel):
         self.SetSizer(sizer)
         self.Layout()
 
+    def GetWidgetCreationString(self):
+        return 'IterableStruct$' + self.elem_path
+
     def UpdateWidgetData(self):
         self.utiliz_elem.UpdateUtilizPct(self.frame.widget_renderer.utiliz_handler.GetUtilizPct(self.elem_path))
         self.grid.AutoSizeColumns()

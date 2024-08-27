@@ -10,5 +10,8 @@ class PacketTrackerWidget(wx.Panel):
         self.SetSizer(self.sizer)
         self.Layout()
 
+    def GetWidgetCreationString(self):
+        return 'Packet Tracker'
+
     def UpdateWidgetData(self):
         pass

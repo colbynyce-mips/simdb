@@ -10,5 +10,8 @@ class LiveEditorWidget(wx.Panel):
         self.SetSizer(self.sizer)
         self.Layout()
 
+    def GetWidgetCreationString(self):
+        return 'Live Editor'
+
     def UpdateWidgetData(self):
         pass

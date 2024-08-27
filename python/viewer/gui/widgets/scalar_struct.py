@@ -11,5 +11,8 @@ class ScalarStruct(wx.Panel):
         self.SetSizer(self.sizer)
         self.Layout()
 
+    def GetWidgetCreationString(self):
+        return 'ScalarStruct$' + self.elem_path
+
     def UpdateWidgetData(self):
         pass

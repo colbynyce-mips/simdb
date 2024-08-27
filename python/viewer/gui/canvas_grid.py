@@ -45,6 +45,28 @@ class CanvasGrid(wx.Panel):
                 if isinstance(child, CanvasGrid):
                     child.UpdateWidgets()
 
+    def GetWidgetContainers(self):
+        widget_containers = []
+        self.__GetWidgetContainers(widget_containers)
+        return widget_containers
+    
+    def ResetLayout(self):
+        sizer = self.GetSizer()
+        sizer.Detach(self.container)
+        self.container.Destroy()
+ 
+        self.container = WidgetContainer(self)
+        sizer.Add(self.container, 1, wx.EXPAND)
+        self.Layout()
+    
+    def __GetWidgetContainers(self, widget_containers):
+        if isinstance(self.container, WidgetContainer):
+            widget_containers.append(self.container)
+        else:
+            for child in self.container.GetChildren():
+                if isinstance(child, CanvasGrid):
+                    child.__GetWidgetContainers(widget_containers)
+
     def __BuildGrid(self, splitter, rows, cols):
         assert rows > 0 and cols > 0
 
@@ -85,6 +107,11 @@ class CanvasGrid(wx.Panel):
         split_vertically = menu.Append(-1, "Split left/right")
         split_horizontally = menu.Append(-1, "Split top/bottom")
         split_custom = menu.Append(-1, "Split custom")
+
+        if isinstance(self.GetParent(), wx.SplitterWindow):
+            menu.AppendSeparator()
+            explode = menu.Append(-1, "Explode")
+            self.Bind(wx.EVT_MENU, self.__Explode, explode)
 
         self.Bind(wx.EVT_MENU, self.__OnSplitVertically, split_vertically)
         self.Bind(wx.EVT_MENU, self.__OnSplitHorizontally, split_horizontally)
@@ -128,6 +155,19 @@ class CanvasGrid(wx.Panel):
 
         dlg.Destroy()
 
+    def __Explode(self, event):
+        widget = self.container.GetWidget()
+        widget_creation_str = widget.GetWidgetCreationString() if widget else None
+
+        frame = self.container.frame
+        inspector = frame.inspector
+        inspector.ResetCurrentTab()
+
+        if widget_creation_str:
+            containers = inspector.GetCurrentTabWidgetContainers()
+            widget = frame.widget_creator.CreateWidget(widget_creation_str, containers[0])
+            containers[0].SetWidget(widget)
+
 class WidgetContainer(wx.Panel):
     def __init__(self, parent):
         super(WidgetContainer, self).__init__(parent)
@@ -160,6 +200,8 @@ class WidgetContainer(wx.Panel):
         sizer.Add(widget, 1, wx.EXPAND)
         self.Layout()
 
+        wx.CallAfter(self.__RefreshWidget)
+
     def SetWidgetFocus(self):
         if self._widget:
             self._widget.SetFocus()
@@ -174,6 +216,13 @@ class WidgetContainer(wx.Panel):
         if self._widget:
             self._widget.UpdateWidgetData()
 
+    def GetWidget(self):
+        return self._widget
+    
+    def __RefreshWidget(self):
+        self.UpdateWidgets()
+        self.SetWidgetFocus()
+
 class WidgetContainerDropTarget(wx.TextDropTarget):
     def __init__(self, widget_container, widget_creator):
         super(WidgetContainerDropTarget, self).__init__()
@@ -186,9 +235,4 @@ class WidgetContainerDropTarget(wx.TextDropTarget):
             return False
         
         self.widget_container.SetWidget(widget)
-        wx.CallAfter(self.__RenderWidget)
         return True
-
-    def __RenderWidget(self):
-        self.widget_container.UpdateWidgets()
-        self.widget_container.SetWidgetFocus()
