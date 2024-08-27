@@ -18,6 +18,7 @@ class NavTree(wx.TreeCtrl):
         self.AppendItem(tools_node, "Queue Utilization")
         self.AppendItem(tools_node, "Packet Tracker")
         self.AppendItem(tools_node, "Live Editor")
+        self.AppendItem(tools_node, "Timeseries Viewer")
 
         self._container_sim_paths = self.simhier.GetContainerSimPaths()
         self._leaf_element_paths_by_tree_item = {}

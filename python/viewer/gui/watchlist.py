@@ -106,6 +106,7 @@ class Watchlist(wx.TreeCtrl):
             self._undeletable_items.append(self.AppendItem(tools_root, "Queue Utilization"))
             self._undeletable_items.append(self.AppendItem(tools_root, "Packet Tracker"))
             self._undeletable_items.append(self.AppendItem(tools_root, "Live Editor"))
+            self._undeletable_items.append(self.AppendItem(tools_root, "Timeseries Viewer"))
 
             self.ExpandAll()
 
@@ -140,14 +141,17 @@ class Watchlist(wx.TreeCtrl):
             tools_root = self.AppendItem(self.GetRootItem(), "Systemwide Tools")
             items_by_path["Root.Watchlist.Systemwide Tools"] = tools_root
 
-            self.AppendItem(tools_root, "Queue Utilization")
-            items_by_path["Root.Watchlist.Systemwide Tools.Queue Utilization"] = tools_root
+            tool = self.AppendItem(tools_root, "Queue Utilization")
+            items_by_path["Root.Watchlist.Systemwide Tools.Queue Utilization"] = tool
 
-            self.AppendItem(tools_root, "Packet Tracker")
-            items_by_path["Root.Watchlist.Systemwide Tools.Packet Tracker"] = tools_root
+            tool = self.AppendItem(tools_root, "Packet Tracker")
+            items_by_path["Root.Watchlist.Systemwide Tools.Packet Tracker"] = tool
 
-            self.AppendItem(tools_root, "Live Editor")
-            items_by_path["Root.Watchlist.Systemwide Tools.Live Editor"] = tools_root
+            tool = self.AppendItem(tools_root, "Live Editor")
+            items_by_path["Root.Watchlist.Systemwide Tools.Live Editor"] = tool
+
+            tool = self.AppendItem(tools_root, "Timeseries Viewer")
+            items_by_path["Root.Watchlist.Systemwide Tools.Timeseries Viewer"] = tool
 
             for _, item in items_by_path.items():
                 self._undeletable_items.append(item)
