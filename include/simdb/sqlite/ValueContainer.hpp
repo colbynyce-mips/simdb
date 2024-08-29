@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "simdb/schema/ColumnTypedefs.hpp"
+#include "simdb/schema/Blob.hpp"
 
 #include <functional>
 #include <memory>
@@ -96,7 +96,7 @@ private:
 class BlobValueContainer : public ValueContainerBase
 {
 public:
-    BlobValueContainer(const Blob& val)
+    BlobValueContainer(const SqlBlob& val)
         : val_(val)
     {
     }
@@ -107,7 +107,7 @@ public:
     }
 
 private:
-    Blob val_;
+    SqlBlob val_;
 };
 
 template <typename T>

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "simdb/sqlite/ValueContainer.hpp"
+#include "simdb/schema/SchemaDef.hpp"
 #include <rapidjson/document.h>
 
 namespace simdb
@@ -61,7 +62,7 @@ private:
 class TimestampBase
 {
 public:
-    virtual ColumnDataType getDataType() const = 0;
+    virtual SqlDataType getDataType() const = 0;
     virtual ValueContainerBase* createBinder() const = 0;
     virtual void captureCurrentTime() = 0;
     virtual bool ensureTimeHasAdvanced() const = 0;
@@ -95,9 +96,9 @@ public:
         static_assert(std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint32_t), "Invalid TimeT");
     }
 
-    ColumnDataType getDataType() const override
+    SqlDataType getDataType() const override
     {
-        return ColumnDataType::int32_t;
+        return SqlDataType::int32_t;
     }
 
     ValueContainerBase* createBinder() const override
@@ -152,9 +153,9 @@ public:
         static_assert(std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint64_t), "Invalid TimeT");
     }
 
-    ColumnDataType getDataType() const override
+    SqlDataType getDataType() const override
     {
-        return ColumnDataType::int64_t;
+        return SqlDataType::int64_t;
     }
 
     ValueContainerBase* createBinder() const override
@@ -209,9 +210,9 @@ public:
         static_assert(std::is_floating_point<TimeT>::value, "Invalid TimeT");
     }
 
-    ColumnDataType getDataType() const override
+    SqlDataType getDataType() const override
     {
-        return ColumnDataType::double_t;
+        return SqlDataType::double_t;
     }
 
     ValueContainerBase* createBinder() const override

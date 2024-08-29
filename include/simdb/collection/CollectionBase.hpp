@@ -4,7 +4,7 @@
 
 #include "simdb/sqlite/SQLiteTransaction.hpp"
 #include "simdb/sqlite/Timestamps.hpp"
-#include "simdb/schema/Schema.hpp"
+#include "simdb/schema/SchemaDef.hpp"
 #include "simdb/utils/StringMap.hpp"
 #include "simdb/utils/TreeBuilder.hpp"
 
@@ -177,7 +177,7 @@ public:
             throw DBException("Must be called after useTimestampsFrom()");
         }
 
-        using dt = ColumnDataType;
+        using dt = SqlDataType;
 
         schema.addTable("CollectionGlobals")
             .addColumn("TimeType", dt::string_t);

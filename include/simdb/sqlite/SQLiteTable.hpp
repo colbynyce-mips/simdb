@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "simdb/schema/ColumnTypedefs.hpp"
+//#include "simdb/schema/SchemaDef.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/sqlite/ValueContainer.hpp"
 #include "simdb/sqlite/SQLiteTransaction.hpp"
@@ -174,7 +174,7 @@ private:
     }
 
     template <typename T>
-    typename std::enable_if<std::is_same<T, Blob>::value, ValueContainerBasePtr>::type createValueContainer_(const T& val)
+    typename std::enable_if<std::is_same<T, SqlBlob>::value, ValueContainerBasePtr>::type createValueContainer_(const T& val)
     {
         return ValueContainerBasePtr(new BlobValueContainer(val));
     }

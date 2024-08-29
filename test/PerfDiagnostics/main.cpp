@@ -29,7 +29,7 @@ public:
         : db_mgr_(db_path)
     {
         simdb::Schema schema;
-        using dt = simdb::ColumnDataType;
+        using dt = simdb::SqlDataType;
         
         schema.addTable("Metadata")
             .addColumn("Name", dt::string_t)

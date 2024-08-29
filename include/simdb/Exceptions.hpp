@@ -1,4 +1,4 @@
-// <Errors> -*- C++ -*-
+// <Exceptions> -*- C++ -*-
 
 #pragma once
 
@@ -70,6 +70,26 @@ public:
     const char * what() const noexcept override {
         return "The database is locked";
     }
+};
+
+/*!
+ * \class InterruptException
+ *
+ * \brief This exception is used in order to break out of
+ *        the worker thread's infinite consumer loop.
+ */
+class InterruptException : public std::exception
+{
+public:
+    const char* what() const noexcept override
+    {
+        return "Infinite consumer loop has been interrupted";
+    }
+
+private:
+    /// Private constructor. Not to be created by anyone but the WorkerInterrupt.
+    InterruptException() = default;
+    friend class WorkerInterrupt;
 };
 
 } // namespace simdb

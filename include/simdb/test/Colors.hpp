@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "simdb/Errors.hpp"
+#include "simdb/Exceptions.hpp"
 
 #include <type_traits>
 #include <vector>

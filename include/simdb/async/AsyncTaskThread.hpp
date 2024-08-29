@@ -1,8 +1,8 @@
-// <TimerThread> -*- C++ -*-
+// <AsyncTaskThread> -*- C++ -*-
 
 #pragma once
 
-#include "simdb/Errors.hpp"
+#include "simdb/Exceptions.hpp"
 #include <chrono>
 #include <thread>
 
@@ -10,45 +10,25 @@ namespace simdb
 {
 
 /*!
- * \class InterruptException
- *
- * \brief This exception is used in order to break out of
- *        the worker thread's infinite consumer loop.
- */
-class InterruptException : public std::exception
-{
-public:
-    const char* what() const noexcept override
-    {
-        return "Infinite consumer loop has been interrupted";
-    }
-
-private:
-    /// Private constructor. Not to be created by anyone but the WorkerInterrupt.
-    InterruptException() = default;
-    friend class WorkerInterrupt;
-};
-
-/*!
- * \class TimerThread
+ * \class AsyncTaskThread
  *
  * \brief Thread utility used for periodic execution
  *        of asynchronous tasks.
  */
-class TimerThread
+class AsyncTaskThread
 {
 public:
     /// \brief Construction.
     ///
     /// \param interval_seconds Fixed wall clock interval in seconds.
-    TimerThread(const double interval_seconds)
+    AsyncTaskThread(const double interval_seconds)
         : interval_seconds_(interval_seconds)
     {
     }
 
     /// Destructor. When the timer goes out of scope,
     /// the execute_() callbacks will be stopped.
-    virtual ~TimerThread()
+    virtual ~AsyncTaskThread()
     {
         stop();
     }

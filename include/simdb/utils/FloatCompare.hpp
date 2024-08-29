@@ -1,4 +1,4 @@
-// <MathUtils> -*- C++ -*-
+// <FloatCompare> -*- C++ -*-
 
 #pragma once
 

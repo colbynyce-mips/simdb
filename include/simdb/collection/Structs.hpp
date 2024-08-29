@@ -207,7 +207,7 @@ public:
                 auto enum_val_str = kvp.first;
                 auto enum_val_vec = convertIntToBlob<enum_int_t>(kvp.second);
 
-                Blob enum_val_blob;
+                SqlBlob enum_val_blob;
                 enum_val_blob.data_ptr = enum_val_vec.data();
                 enum_val_blob.num_bytes = enum_val_vec.size();
 

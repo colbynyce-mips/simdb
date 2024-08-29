@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "simdb/schema/Schema.hpp"
+#include "simdb/schema/SchemaDef.hpp"
 #include "simdb/collection/CollectionBase.hpp"
 #include "simdb/sqlite/SQLiteConnection.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
@@ -173,7 +173,7 @@ public:
         collections_->finalizeCollections_();
 
         std::string time_type;
-        if (collections_->timestamp_->getDataType() == ColumnDataType::double_t) {
+        if (collections_->timestamp_->getDataType() == SqlDataType::double_t) {
             time_type = "REAL";
         } else {
             time_type = "INT";

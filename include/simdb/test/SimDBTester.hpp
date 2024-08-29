@@ -8,7 +8,7 @@
  */
 
 #include "simdb/test/Colors.hpp"
-#include "simdb/utils/MathUtils.hpp"
+#include "simdb/utils/FloatCompare.hpp"
 
 #include <algorithm>
 #include <cstring>

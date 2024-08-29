@@ -5,7 +5,7 @@
 #include "simdb/async/AsyncTaskQueue.hpp"
 #include "simdb/sqlite/Constraints.hpp"
 #include "simdb/sqlite/SQLiteTransaction.hpp"
-#include "simdb/utils/MathUtils.hpp"
+#include "simdb/utils/FloatCompare.hpp"
 
 #include <fstream>
 #include <memory>

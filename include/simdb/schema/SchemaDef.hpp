@@ -1,19 +1,59 @@
-// <Schema> -*- C++ -*-
+// <SchemaDef> -*- C++ -*-
 
 #pragma once
 
-#include "simdb/Errors.hpp"
-#include "simdb/schema/ColumnTypedefs.hpp"
+#include "simdb/Exceptions.hpp"
 #include "simdb/sqlite/SQLiteTable.hpp"
 
 #include <algorithm>
 #include <deque>
+#include <iostream>
 #include <memory>
 #include <unordered_map>
 #include <vector>
 
 namespace simdb
 {
+
+/// Data types supported by SimDB schemas
+enum class SqlDataType {
+    int32_t,
+    int64_t,
+    double_t,
+    string_t,
+    blob_t
+};
+
+/// Stream operator used when creating various SQL commands.
+inline std::ostream& operator<<(std::ostream& os, const SqlDataType dtype)
+{
+    using dt = SqlDataType;
+
+    switch (dtype) {
+        case dt::int32_t:
+        case dt::int64_t: {
+            os << "INT";
+            break;
+        }
+
+        case dt::string_t: {
+            os << "TEXT";
+            break;
+        }
+
+        case dt::double_t: {
+            os << "REAL";
+            break;
+        }
+
+        case dt::blob_t: {
+            os << "BLOB";
+            break;
+        }
+    }
+
+    return os;
+}
 
 /*!
  * \class Column
@@ -24,7 +64,7 @@ class Column
 {
 public:
     /// Construct with the column name and data type.
-    Column(const std::string& column_name, const ColumnDataType dt)
+    Column(const std::string& column_name, const SqlDataType dt)
         : name_(column_name)
         , dt_(dt)
     {
@@ -49,32 +89,32 @@ public:
     }
 
     /// Get the data type of this column.
-    ColumnDataType getDataType() const
+    SqlDataType getDataType() const
     {
         return dt_;
     }
 
     /// Optionally specify a default value for this Column.
-    /// Defaults for Blob data types are not allowed and will
-    /// throw if you attempt to set a Blob default value.
+    /// Defaults for SqlBlob data types are not allowed and will
+    /// throw if you attempt to set a SqlBlob default value.
     template <typename T>
     void setDefaultValue(const T val)
     {
-        if (dt_ == ColumnDataType::blob_t) {
+        if (dt_ == SqlDataType::blob_t) {
             throw DBException("Cannot set default value for a database "
                               "column with blob data type");
         }
 
         switch (dt_) {
-            case ColumnDataType::int32_t:
-            case ColumnDataType::int64_t: {
+            case SqlDataType::int32_t:
+            case SqlDataType::int64_t: {
                 auto flag = std::integral_constant<bool, std::is_integral<T>::value>();
                 auto err = "Default value type mismatch (expected integer type)";
                 verifyDefaultValueIsCorrectType_(flag, err);
                 break;
             }
 
-            case ColumnDataType::double_t: {
+            case SqlDataType::double_t: {
                 auto flag = std::integral_constant<bool, std::is_floating_point<T>::value>();
                 auto err = "Default value type mismatch (expected floating point type)";
                 verifyDefaultValueIsCorrectType_(flag, err);
@@ -97,7 +137,7 @@ public:
     /// Called in order to set default values for TEXT columns.
     void setDefaultValue(const std::string& val)
     {
-        if (dt_ != ColumnDataType::string_t) {
+        if (dt_ != SqlDataType::string_t) {
             throw DBException("Unable to set default value string (data type mismatch)");
         }
 
@@ -147,7 +187,7 @@ private:
     std::string name_;
 
     /// Column data type
-    ColumnDataType dt_;
+    SqlDataType dt_;
 
     /// Optional default value (stringified)
     std::string default_val_string_;
@@ -174,7 +214,7 @@ public:
     }
 
     /// Add a column to this table's schema with a name and data type.
-    Table& addColumn(const std::string& name, const ColumnDataType dt)
+    Table& addColumn(const std::string& name, const SqlDataType dt)
     {
         columns_.emplace_back(new Column(name, dt));
         columns_by_name_[name] = columns_.back();

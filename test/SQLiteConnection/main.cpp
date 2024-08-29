@@ -19,8 +19,8 @@ static constexpr auto TEST_DOUBLE_INEXACT = (0.1 + 0.1 + 0.1);
 static const std::string TEST_STRING = "TheExampleString";
 static const std::vector<int> TEST_VECTOR = {1, 2, 3, 4, 5};
 static const std::vector<int> TEST_VECTOR2 = {6, 7, 8, 9, 10};
-static const simdb::Blob TEST_BLOB = TEST_VECTOR;
-static const simdb::Blob TEST_BLOB2 = TEST_VECTOR2;
+static const simdb::SqlBlob TEST_BLOB = TEST_VECTOR;
+static const simdb::SqlBlob TEST_BLOB2 = TEST_VECTOR2;
 
 simdb::PerfTimer timer;
 
@@ -34,7 +34,7 @@ public:
 int main()
 {
     DB_INIT;
-    using dt = simdb::ColumnDataType;
+    using dt = simdb::SqlDataType;
 
     simdb::Schema schema;
 

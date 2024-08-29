@@ -17,7 +17,7 @@ SimDB features include:
 
 ## Database creation
 
-    using dt = simdb::ColumnDataType;
+    using dt = simdb::SqlDataType;
 
     simdb::Schema schema;
 
