@@ -78,7 +78,7 @@ protected:
         }
 
         auto validate_python_var = [&](const std::string& varname) {
-            if (varname.empty() || !isalpha(varname[0]) && varname[0] != '_') {
+            if (varname.empty() || (!isalpha(varname[0]) && varname[0] != '_')) {
                 return false;
             }
 

@@ -85,6 +85,9 @@ public:
                 }
                 break;
             }
+            case SimPhase::__NUM_PHASES__: {
+                throw DBException("Invalid sim phase");
+            }
         }
     }
 

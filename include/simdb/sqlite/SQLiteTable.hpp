@@ -119,9 +119,9 @@ public:
     {
         oss << " VALUES(";
         size_t count = col_vals_.size();
-        for (size_t idx = 0; idx < col_vals_.size(); ++idx) {
+        for (size_t idx = 0; idx < count; ++idx) {
             oss << "?";
-            if (idx != col_vals_.size() - 1) {
+            if (idx != count - 1) {
                 oss << ",";
             }
         }

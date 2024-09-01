@@ -75,6 +75,9 @@ void fuzzyMatch(sqlite3_context* context, int, sqlite3_value** argv)
             }
             break;
         }
+        case Constraints::__NUM_CONSTRAINTS__: {
+            throw DBException("Invalid constraint in fuzzyMatch()");
+        }
     }
 }
 
