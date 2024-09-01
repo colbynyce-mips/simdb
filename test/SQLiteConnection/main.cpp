@@ -19,24 +19,24 @@ static constexpr auto TEST_DOUBLE_INEXACT = (0.1 + 0.1 + 0.1);
 static const std::string TEST_STRING = "TheExampleString";
 static const std::vector<int> TEST_VECTOR = {1, 2, 3, 4, 5};
 static const std::vector<int> TEST_VECTOR2 = {6, 7, 8, 9, 10};
-static const simdb::SqlBlob TEST_BLOB = TEST_VECTOR;
-static const simdb::SqlBlob TEST_BLOB2 = TEST_VECTOR2;
+static const simdb3::SqlBlob TEST_BLOB = TEST_VECTOR;
+static const simdb3::SqlBlob TEST_BLOB2 = TEST_VECTOR2;
 
-simdb::PerfTimer timer;
+simdb3::PerfTimer timer;
 
 // Helper for negative test of rerouteNewTasksTo().
 class TaskRerouter
 {
 public:
-    void addTask(std::unique_ptr<simdb::WorkerTask>) {}
+    void addTask(std::unique_ptr<simdb3::WorkerTask>) {}
 };
 
 int main()
 {
     DB_INIT;
-    using dt = simdb::SqlDataType;
+    using dt = simdb3::SqlDataType;
 
-    simdb::Schema schema;
+    simdb3::Schema schema;
 
     schema.addTable("IntegerTypes")
         .addColumn("SomeInt32", dt::int32_t)
@@ -91,7 +91,7 @@ int main()
         .addColumn("SomeDouble", dt::double_t)
         .addColumn("SomeString", dt::string_t);
 
-    simdb::DatabaseManager db_mgr("test.db");
+    simdb3::DatabaseManager db_mgr("test.db");
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     // Verify set/get APIs for integer types
@@ -370,7 +370,7 @@ int main()
     }
 
     // Add WHERE constraints, rerun the query, and check the results.
-    query1->addConstraintForInt("SomeInt32", simdb::Constraints::NOT_EQUAL, 111);
+    query1->addConstraintForInt("SomeInt32", simdb3::Constraints::NOT_EQUAL, 111);
     {
         auto result_set = query1->getResultSet();
 
@@ -394,7 +394,7 @@ int main()
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
-    query1->addConstraintForInt("SomeInt64", simdb::Constraints::EQUAL, 777);
+    query1->addConstraintForInt("SomeInt64", simdb3::Constraints::EQUAL, 777);
     {
         auto result_set = query1->getResultSet();
 
@@ -426,8 +426,8 @@ int main()
 
     // Add ORDER BY clauses, rerun query.
     query1->resetLimit();
-    query1->orderBy("SomeInt32", simdb::QueryOrder::DESC);
-    query1->orderBy("SomeInt64", simdb::QueryOrder::ASC);
+    query1->orderBy("SomeInt32", simdb3::QueryOrder::DESC);
+    query1->orderBy("SomeInt64", simdb3::QueryOrder::ASC);
     {
         auto result_set = query1->getResultSet();
 
@@ -461,7 +461,7 @@ int main()
 
     // Test queries with NOT_EQUAL.
     query1->resetOrderBy();
-    query1->addConstraintForInt("SomeInt32", simdb::Constraints::NOT_EQUAL, 222);
+    query1->addConstraintForInt("SomeInt32", simdb3::Constraints::NOT_EQUAL, 222);
     {
         auto result_set = query1->getResultSet();
 
@@ -487,7 +487,7 @@ int main()
 
     // Test queries with NOT IN clause.
     query1->resetConstraints();
-    query1->addConstraintForInt("SomeInt32", simdb::SetConstraints::NOT_IN_SET, {111, 333});
+    query1->addConstraintForInt("SomeInt32", simdb3::SetConstraints::NOT_IN_SET, {111, 333});
     {
         auto result_set = query1->getResultSet();
 
@@ -550,61 +550,61 @@ int main()
     for (auto target : {TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT}) {
         // Not using fuzzyMatch() - test for equality.
         query2->resetConstraints();
-        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, target, false);
+        query2->addConstraintForDouble("SomeDouble", simdb3::Constraints::EQUAL, target, false);
         EXPECT_EQUAL(query2->count(), 2);
 
         // Using fuzzyMatch() - test for equality.
         query2->resetConstraints();
-        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, target, true);
+        query2->addConstraintForDouble("SomeDouble", simdb3::Constraints::EQUAL, target, true);
         EXPECT_EQUAL(query2->count(), 2);
 
         // Not using fuzzyMatch() - test the IN clause, test for equality.
         query2->resetConstraints();
-        query2->addConstraintForDouble("SomeDouble", simdb::SetConstraints::IN_SET, {target}, false);
+        query2->addConstraintForDouble("SomeDouble", simdb3::SetConstraints::IN_SET, {target}, false);
         EXPECT_EQUAL(query2->count(), 2);
 
         // Using fuzzyMatch() - test the IN clause, test for equality.
         query2->resetConstraints();
-        query2->addConstraintForDouble("SomeDouble", simdb::SetConstraints::IN_SET, {target}, true);
+        query2->addConstraintForDouble("SomeDouble", simdb3::SetConstraints::IN_SET, {target}, true);
         EXPECT_EQUAL(query2->count(), 2);
 
         // Not using fuzzyMatch() - test for inequality.
         query2->resetConstraints();
-        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::NOT_EQUAL, target, false);
+        query2->addConstraintForDouble("SomeDouble", simdb3::Constraints::NOT_EQUAL, target, false);
         EXPECT_EQUAL(query2->count(), 10);
 
         // Using fuzzyMatch() - test for inequality.
         query2->resetConstraints();
-        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::NOT_EQUAL, target, true);
+        query2->addConstraintForDouble("SomeDouble", simdb3::Constraints::NOT_EQUAL, target, true);
         EXPECT_EQUAL(query2->count(), 10);
 
         // Not using fuzzyMatch() - test the IN clause, test for inequality.
         query2->resetConstraints();
-        query2->addConstraintForDouble("SomeDouble", simdb::SetConstraints::NOT_IN_SET, {target}, false);
+        query2->addConstraintForDouble("SomeDouble", simdb3::SetConstraints::NOT_IN_SET, {target}, false);
         EXPECT_EQUAL(query2->count(), 10);
 
         // Using fuzzyMatch() - test the IN clause, test for inequality.
         query2->resetConstraints();
-        query2->addConstraintForDouble("SomeDouble", simdb::SetConstraints::NOT_IN_SET, {target}, true);
+        query2->addConstraintForDouble("SomeDouble", simdb3::SetConstraints::NOT_IN_SET, {target}, true);
         EXPECT_EQUAL(query2->count(), 10);
     }
 
     // Check WHERE clause for comparisons using <, <=, >, >=
     for (auto fuzzy : {false, true}) {
         query2->resetConstraints();
-        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::LESS, TEST_DOUBLE_PI, fuzzy);
+        query2->addConstraintForDouble("SomeDouble", simdb3::Constraints::LESS, TEST_DOUBLE_PI, fuzzy);
         EXPECT_EQUAL(query2->count(), 8);
 
         query2->resetConstraints();
-        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::LESS_EQUAL, TEST_DOUBLE_PI, fuzzy);
+        query2->addConstraintForDouble("SomeDouble", simdb3::Constraints::LESS_EQUAL, TEST_DOUBLE_PI, fuzzy);
         EXPECT_EQUAL(query2->count(), 10);
 
         query2->resetConstraints();
-        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::GREATER, TEST_DOUBLE_PI, fuzzy);
+        query2->addConstraintForDouble("SomeDouble", simdb3::Constraints::GREATER, TEST_DOUBLE_PI, fuzzy);
         EXPECT_EQUAL(query2->count(), 2);
 
         query2->resetConstraints();
-        query2->addConstraintForDouble("SomeDouble", simdb::Constraints::GREATER_EQUAL, TEST_DOUBLE_PI, fuzzy);
+        query2->addConstraintForDouble("SomeDouble", simdb3::Constraints::GREATER_EQUAL, TEST_DOUBLE_PI, fuzzy);
         EXPECT_EQUAL(query2->count(), 4);
     }
 
@@ -612,45 +612,45 @@ int main()
     auto query3 = db_mgr.createQuery("DefaultDoubles");
 
     query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultEPS", simdb::Constraints::EQUAL, TEST_EPSILON, false);
+    query3->addConstraintForDouble("DefaultEPS", simdb3::Constraints::EQUAL, TEST_EPSILON, false);
     EXPECT_EQUAL(query3->count(), 2);
     query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultEPS", simdb::Constraints::EQUAL, TEST_EPSILON, true);
-    EXPECT_EQUAL(query3->count(), 2);
-
-    query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultMIN", simdb::Constraints::EQUAL, TEST_DOUBLE_MIN, false);
-    EXPECT_EQUAL(query3->count(), 2);
-    query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultMIN", simdb::Constraints::EQUAL, TEST_DOUBLE_MIN, true);
+    query3->addConstraintForDouble("DefaultEPS", simdb3::Constraints::EQUAL, TEST_EPSILON, true);
     EXPECT_EQUAL(query3->count(), 2);
 
     query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultMAX", simdb::Constraints::EQUAL, TEST_DOUBLE_MAX, false);
+    query3->addConstraintForDouble("DefaultMIN", simdb3::Constraints::EQUAL, TEST_DOUBLE_MIN, false);
     EXPECT_EQUAL(query3->count(), 2);
     query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultMAX", simdb::Constraints::EQUAL, TEST_DOUBLE_MAX, true);
-    EXPECT_EQUAL(query3->count(), 2);
-
-    query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultPI", simdb::Constraints::EQUAL, TEST_DOUBLE_PI, false);
-    EXPECT_EQUAL(query3->count(), 2);
-    query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultPI", simdb::Constraints::EQUAL, TEST_DOUBLE_PI, true);
+    query3->addConstraintForDouble("DefaultMIN", simdb3::Constraints::EQUAL, TEST_DOUBLE_MIN, true);
     EXPECT_EQUAL(query3->count(), 2);
 
     query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultEXACT", simdb::Constraints::EQUAL, TEST_DOUBLE_EXACT, false);
+    query3->addConstraintForDouble("DefaultMAX", simdb3::Constraints::EQUAL, TEST_DOUBLE_MAX, false);
     EXPECT_EQUAL(query3->count(), 2);
     query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultEXACT", simdb::Constraints::EQUAL, TEST_DOUBLE_EXACT, true);
+    query3->addConstraintForDouble("DefaultMAX", simdb3::Constraints::EQUAL, TEST_DOUBLE_MAX, true);
     EXPECT_EQUAL(query3->count(), 2);
 
     query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultINEXACT", simdb::Constraints::EQUAL, TEST_DOUBLE_INEXACT, false);
+    query3->addConstraintForDouble("DefaultPI", simdb3::Constraints::EQUAL, TEST_DOUBLE_PI, false);
     EXPECT_EQUAL(query3->count(), 2);
     query3->resetConstraints();
-    query3->addConstraintForDouble("DefaultINEXACT", simdb::Constraints::EQUAL, TEST_DOUBLE_INEXACT, true);
+    query3->addConstraintForDouble("DefaultPI", simdb3::Constraints::EQUAL, TEST_DOUBLE_PI, true);
+    EXPECT_EQUAL(query3->count(), 2);
+
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultEXACT", simdb3::Constraints::EQUAL, TEST_DOUBLE_EXACT, false);
+    EXPECT_EQUAL(query3->count(), 2);
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultEXACT", simdb3::Constraints::EQUAL, TEST_DOUBLE_EXACT, true);
+    EXPECT_EQUAL(query3->count(), 2);
+
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultINEXACT", simdb3::Constraints::EQUAL, TEST_DOUBLE_INEXACT, false);
+    EXPECT_EQUAL(query3->count(), 2);
+    query3->resetConstraints();
+    query3->addConstraintForDouble("DefaultINEXACT", simdb3::Constraints::EQUAL, TEST_DOUBLE_INEXACT, true);
     EXPECT_EQUAL(query3->count(), 2);
 
     // Test SQL queries for string types.
@@ -680,7 +680,7 @@ int main()
     }
 
     // Add WHERE constraints, rerun the query, and check the results.
-    query4->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    query4->addConstraintForString("SomeString", simdb3::Constraints::EQUAL, "foo");
     {
         auto result_set = query4->getResultSet();
 
@@ -694,8 +694,8 @@ int main()
     }
 
     query4->resetConstraints();
-    query4->addConstraintForString("SomeString", simdb::SetConstraints::IN_SET, {"bar", "baz"});
-    query4->orderBy("SomeString", simdb::QueryOrder::DESC);
+    query4->addConstraintForString("SomeString", simdb3::SetConstraints::IN_SET, {"bar", "baz"});
+    query4->orderBy("SomeString", simdb3::QueryOrder::DESC);
     {
         auto result_set = query4->getResultSet();
 
@@ -729,8 +729,8 @@ int main()
     // SELECT COUNT(Id) should return 4 records.
     EXPECT_EQUAL(query5->count(), 4);
 
-    query5->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 20);
-    query5->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    query5->addConstraintForInt("SomeInt32", simdb3::Constraints::EQUAL, 20);
+    query5->addConstraintForString("SomeString", simdb3::Constraints::EQUAL, "foo");
     {
         auto result_set = query5->getResultSet();
 
@@ -759,13 +759,13 @@ int main()
     query7->select("Id", NonIndexedColumns_id);
     EXPECT_EQUAL(query6->count(), query7->count());
 
-    query6->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 100000);
-    query6->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, 100000.1);
-    query6->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "100000");
+    query6->addConstraintForInt("SomeInt32", simdb3::Constraints::EQUAL, 100000);
+    query6->addConstraintForDouble("SomeDouble", simdb3::Constraints::EQUAL, 100000.1);
+    query6->addConstraintForString("SomeString", simdb3::Constraints::EQUAL, "100000");
 
-    query7->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 100000);
-    query7->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, 100000.1);
-    query7->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "100000");
+    query7->addConstraintForInt("SomeInt32", simdb3::Constraints::EQUAL, 100000);
+    query7->addConstraintForDouble("SomeDouble", simdb3::Constraints::EQUAL, 100000.1);
+    query7->addConstraintForString("SomeString", simdb3::Constraints::EQUAL, "100000");
 
     timer.restart();
     EXPECT_EQUAL(query6->count(), 1);
@@ -779,11 +779,11 @@ int main()
 
     // Ensure that we can connect a new DatabaseManager to a .db that was
     // created by another DatabaseManager.
-    simdb::DatabaseManager db_mgr2(db_mgr.getDatabaseFilePath());
+    simdb3::DatabaseManager db_mgr2(db_mgr.getDatabaseFilePath());
 
     // Verify that we cannot alter the schema since this second DatabaseManager
     // did not instantiate the schema in the first place.
-    simdb::Schema schema2;
+    simdb3::Schema schema2;
 
     schema2.addTable("SomeTable").addColumn("SomeColumn", dt::string_t);
 
@@ -806,7 +806,7 @@ int main()
     EXPECT_EQUAL(record12->getPropertyString("SomeString"), str);
 
     // Ensure that we can append tables to an existing database schema.
-    simdb::Schema schema3;
+    simdb3::Schema schema3;
 
     schema3.addTable("AppendedTable")
         .addColumn("SomeInt32", dt::int32_t);
@@ -818,23 +818,23 @@ int main()
     db_mgr.INSERT(SQL_TABLE("AppendedTable"), SQL_COLUMNS("SomeInt32"), SQL_VALUES(202));
 
     auto query8 = db_mgr.createQuery("AppendedTable");
-    query8->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 101);
+    query8->addConstraintForInt("SomeInt32", simdb3::Constraints::EQUAL, 101);
     EXPECT_EQUAL(query8->count(), 2);
 
     // Ensure that we can send a bunch of data to the database on the
     // worker thread. This is a common approach for high-volume data
     // from simulations.
-    simdb::Schema schema4;
+    simdb3::Schema schema4;
 
     schema4.addTable("HighVolumeData")
         .addColumn("RawData", dt::blob_t);
 
     db_mgr.appendSchema(schema4);
 
-    class AsyncWriter : public simdb::WorkerTask
+    class AsyncWriter : public simdb3::WorkerTask
     {
     public:
-        AsyncWriter(simdb::DatabaseManager* db_mgr, size_t num_vals, int val)
+        AsyncWriter(simdb3::DatabaseManager* db_mgr, size_t num_vals, int val)
             : db_mgr_(db_mgr)
             , data_(num_vals, val)
         {
@@ -850,22 +850,22 @@ int main()
         }
 
     private:
-        simdb::DatabaseManager* db_mgr_;
+        simdb3::DatabaseManager* db_mgr_;
         std::vector<int> data_;
     };
 
     auto task_queue = db_mgr.getConnection()->getTaskQueue();
 
-    // Open scope for simdb::AllOrNothing
+    // Open scope for simdb3::AllOrNothing
     {
-        simdb::AllOrNothing all_or_nothing(task_queue);
+        simdb3::AllOrNothing all_or_nothing(task_queue);
         TaskRerouter rerouter;
 
         for (size_t idx = 10; idx < 1000; ++idx) {
             const size_t num_vals = idx;
             const int val = 500 - idx;
 
-            std::unique_ptr<simdb::WorkerTask> task(new AsyncWriter(&db_mgr, num_vals, val));
+            std::unique_ptr<simdb3::WorkerTask> task(new AsyncWriter(&db_mgr, num_vals, val));
             task_queue->addTask(std::move(task));
 
             // Ensure exception is thrown if we try to call rerouteNewTasksTo() again.
@@ -902,14 +902,14 @@ int main()
     query10->select("SomeInt32", i32);
     query10->select("SomeString", str);
 
-    query10->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 10);
-    query10->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    query10->addConstraintForInt("SomeInt32", simdb3::Constraints::EQUAL, 10);
+    query10->addConstraintForString("SomeString", simdb3::Constraints::EQUAL, "foo");
     auto clause1 = query10->releaseConstraintClauses();
 
-    query10->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    query10->addConstraintForString("SomeString", simdb3::Constraints::EQUAL, "foo");
     auto clause2 = query10->releaseConstraintClauses();
 
-    query10->addCompoundConstraint(clause1, simdb::QueryOperator::OR, clause2);
+    query10->addCompoundConstraint(clause1, simdb3::QueryOperator::OR, clause2);
     EXPECT_EQUAL(query10->count(), 2);
 
     {
@@ -926,20 +926,20 @@ int main()
     }
 
     // Verify that we cannot open a database connection for an invalid file
-    EXPECT_THROW(simdb::DatabaseManager db_mgr3(__FILE__));
+    EXPECT_THROW(simdb3::DatabaseManager db_mgr3(__FILE__));
 
     db_mgr.closeDatabase();
     db_mgr2.closeDatabase();
 
     // Verify that we cannot schedule task on the AsyncTaskQueue for multiple
     // DatabaseManagers at once. We only allow one worker thread.
-    simdb::DatabaseManager db_mgr4("threadA.db");
-    simdb::DatabaseManager db_mgr5("threadB.db");
+    simdb3::DatabaseManager db_mgr4("threadA.db");
+    simdb3::DatabaseManager db_mgr5("threadB.db");
     db_mgr4.createDatabaseFromSchema(schema);
     db_mgr5.createDatabaseFromSchema(schema);
 
-    std::unique_ptr<simdb::WorkerTask> taskA(new AsyncWriter(nullptr, 0, 0));
-    std::unique_ptr<simdb::WorkerTask> taskB(new AsyncWriter(nullptr, 0, 0));
+    std::unique_ptr<simdb3::WorkerTask> taskA(new AsyncWriter(nullptr, 0, 0));
+    std::unique_ptr<simdb3::WorkerTask> taskB(new AsyncWriter(nullptr, 0, 0));
 
     EXPECT_NOTHROW(db_mgr4.getConnection()->getTaskQueue()->addTask(std::move(taskA)));
     EXPECT_THROW(db_mgr5.getConnection()->getTaskQueue()->addTask(std::move(taskB)));

@@ -4,7 +4,7 @@
 
 #include <iostream>
 
-namespace simdb
+namespace simdb3
 {
 
 /// This enum holds all the comparators for WHERE clauses in queries (scalar target values).
@@ -28,7 +28,7 @@ enum class Constraints {
 /// This enum holds all the comparators for WHERE clauses in queries (multiple target values).
 enum class SetConstraints {
     // WHERE val IN (4,5,6)
-    IN_SET = (int)simdb::Constraints::__NUM_CONSTRAINTS__,
+    IN_SET = (int)simdb3::Constraints::__NUM_CONSTRAINTS__,
     // WHERE val NOT IN (4,5,6)
     NOT_IN_SET,
     // For internal use only
@@ -43,20 +43,20 @@ enum class QueryOperator {
 };
 
 /// Stringifier for the Constraints enum
-inline std::string stringify(const simdb::Constraints constraint)
+inline std::string stringify(const simdb3::Constraints constraint)
 {
     switch (constraint) {
-        case simdb::Constraints::EQUAL:
+        case simdb3::Constraints::EQUAL:
             return " =  ";
-        case simdb::Constraints::NOT_EQUAL:
+        case simdb3::Constraints::NOT_EQUAL:
             return " != ";
-        case simdb::Constraints::LESS:
+        case simdb3::Constraints::LESS:
             return " <  ";
-        case simdb::Constraints::LESS_EQUAL:
+        case simdb3::Constraints::LESS_EQUAL:
             return " <= ";
-        case simdb::Constraints::GREATER:
+        case simdb3::Constraints::GREATER:
             return " >  ";
-        case simdb::Constraints::GREATER_EQUAL:
+        case simdb3::Constraints::GREATER_EQUAL:
             return " >= ";
         default:
             return "INVALID";
@@ -64,16 +64,16 @@ inline std::string stringify(const simdb::Constraints constraint)
 }
 
 /// Stringifier for the SetConstraints enum
-inline std::string stringify(const simdb::SetConstraints constraint)
+inline std::string stringify(const simdb3::SetConstraints constraint)
 {
     switch (constraint) {
-        case simdb::SetConstraints::IN_SET:
+        case simdb3::SetConstraints::IN_SET:
             return " IN ";
-        case simdb::SetConstraints::NOT_IN_SET:
+        case simdb3::SetConstraints::NOT_IN_SET:
             return " NOT IN ";
         default:
             return "INVALID";
     }
 }
 
-} // namespace simdb
+} // namespace simdb3

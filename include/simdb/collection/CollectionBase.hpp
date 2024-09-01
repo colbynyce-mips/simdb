@@ -21,7 +21,7 @@
 #include "rapidjson/prettywriter.h"
 #include <rapidjson/stringbuffer.h>
 
-namespace simdb
+namespace simdb3
 {
 
 class DatabaseManager;
@@ -409,4 +409,4 @@ private:
     friend class DatabaseManager;
 };
 
-} // namespace simdb
+} // namespace simdb3

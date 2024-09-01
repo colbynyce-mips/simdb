@@ -4,7 +4,7 @@
 
 #include "simdb/collection/Structs.hpp"
 
-namespace simdb
+namespace simdb3
 {
 
 /*!
@@ -270,4 +270,4 @@ private:
         std::vector<std::vector<std::unique_ptr<StructT>>>> collected_structs_;
 };
 
-} // namespace simdb
+} // namespace simdb3

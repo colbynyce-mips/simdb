@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace simdb
+namespace simdb3
 {
 
 /*!
@@ -291,4 +291,4 @@ private:
     std::vector<std::shared_ptr<ResultWriterBase>> result_writers_;
 };
 
-} // namespace simdb
+} // namespace simdb3

@@ -10,7 +10,7 @@
 #include "simdb/utils/TreeSerializer.hpp"
 #include <cstring>
 
-namespace simdb
+namespace simdb3
 {
 
 template <typename StructT>
@@ -666,4 +666,4 @@ private:
     std::unordered_map<std::string, std::vector<StructT>> collected_structs_;
 };
 
-} // namespace simdb
+} // namespace simdb3

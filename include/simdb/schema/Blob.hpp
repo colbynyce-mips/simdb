@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace simdb
+namespace simdb3
 {
 
 /// Blob descriptor used for writing and reading raw bytes
@@ -24,4 +24,4 @@ struct SqlBlob {
     SqlBlob() = default;
 };
 
-} // namespace simdb
+} // namespace simdb3

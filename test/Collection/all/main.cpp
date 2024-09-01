@@ -94,7 +94,7 @@ struct AllTypes
     uint64_t    uint64_hex;
 };
 
-namespace simdb
+namespace simdb3
 {
     template <>
     void defineStructSchema<AllTypes>(StructSchema& schema)
@@ -311,21 +311,21 @@ namespace simdb
     }
 }
 
-using StatCollectionInt8   = simdb::StatCollection<int8_t>;
-using StatCollectionInt16  = simdb::StatCollection<int16_t>;
-using StatCollectionInt32  = simdb::StatCollection<int32_t>;
-using StatCollectionInt64  = simdb::StatCollection<int64_t>;
-using StatCollectionUInt8  = simdb::StatCollection<uint8_t>;
-using StatCollectionUInt16 = simdb::StatCollection<uint16_t>;
-using StatCollectionUInt32 = simdb::StatCollection<uint32_t>;
-using StatCollectionUInt64 = simdb::StatCollection<uint64_t>;
-using StatCollectionFloat  = simdb::StatCollection<float>;
-using StatCollectionDouble = simdb::StatCollection<double>;
+using StatCollectionInt8   = simdb3::StatCollection<int8_t>;
+using StatCollectionInt16  = simdb3::StatCollection<int16_t>;
+using StatCollectionInt32  = simdb3::StatCollection<int32_t>;
+using StatCollectionInt64  = simdb3::StatCollection<int64_t>;
+using StatCollectionUInt8  = simdb3::StatCollection<uint8_t>;
+using StatCollectionUInt16 = simdb3::StatCollection<uint16_t>;
+using StatCollectionUInt32 = simdb3::StatCollection<uint32_t>;
+using StatCollectionUInt64 = simdb3::StatCollection<uint64_t>;
+using StatCollectionFloat  = simdb3::StatCollection<float>;
+using StatCollectionDouble = simdb3::StatCollection<double>;
 
-using ScalarStructCollection = simdb::ScalarStructCollection<AllTypes>;
+using ScalarStructCollection = simdb3::ScalarStructCollection<AllTypes>;
 using StructGroup = std::vector<std::shared_ptr<AllTypes>>;
-using StructGroupCollection = simdb::IterableStructCollection<StructGroup>;
-using SparseStructGroupCollection = simdb::IterableStructCollection<StructGroup, true>;
+using StructGroupCollection = simdb3::IterableStructCollection<StructGroup>;
+using SparseStructGroupCollection = simdb3::IterableStructCollection<StructGroup, true>;
 
 #define STRUCT_GROUP_CAPACITY 8
 #define SPARSE_STRUCT_GROUP_CAPACITY 16
@@ -447,7 +447,7 @@ std::shared_ptr<AllTypes> generateRandomStruct()
 class Sim
 {
 public:
-    Sim(simdb::DatabaseManager* db_mgr)
+    Sim(simdb3::DatabaseManager* db_mgr)
         : db_mgr_(db_mgr)
     {
     }
@@ -637,7 +637,7 @@ private:
         }
     }
 
-    simdb::DatabaseManager* db_mgr_;
+    simdb3::DatabaseManager* db_mgr_;
     uint64_t time_ = 0;
 
     int8_t stat_int8_;
@@ -681,9 +681,9 @@ int main()
     // Note that we only care about the collection data and have
     // no need for any other tables, aside from the tables that the
     // DatabaseManager adds automatically to support this feature.
-    simdb::Schema schema;
+    simdb3::Schema schema;
 
-    simdb::DatabaseManager db_mgr("test.db");
+    simdb3::DatabaseManager db_mgr("test.db");
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     Sim sim(&db_mgr);

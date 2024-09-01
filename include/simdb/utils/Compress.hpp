@@ -5,7 +5,7 @@
 #include <vector>
 #include <zlib.h>
 
-namespace simdb
+namespace simdb3
 {
 
 /// Compression modes of operation.
@@ -54,4 +54,4 @@ inline void compressDataVec(const std::vector<T>& in, std::vector<char>& out)
     out.resize(num_bytes_after);
 }
 
-} // namespace simdb
+} // namespace simdb3

@@ -8,7 +8,7 @@
 #include "simdb/utils/StringMap.hpp"
 #include "simdb/utils/Compress.hpp"
 
-namespace simdb
+namespace simdb3
 {
 
 /// \class CollectableSerializer
@@ -131,4 +131,4 @@ private:
     std::vector<int> valid_flags_;
 };
 
-} // namespace simdb
+} // namespace simdb3

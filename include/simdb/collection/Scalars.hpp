@@ -9,7 +9,7 @@
 #include "simdb/utils/Compress.hpp"
 #include "simdb/utils/TreeSerializer.hpp"
 
-namespace simdb
+namespace simdb3
 {
 
 /*!
@@ -260,4 +260,4 @@ private:
     std::unordered_map<std::string, std::vector<DataT>> collected_data_vals_;
 };
 
-} // namespace simdb
+} // namespace simdb3

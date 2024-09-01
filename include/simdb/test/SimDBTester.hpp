@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-namespace simdb
+namespace simdb3
 {
 /// ostream operator so we can do EXPECT_EQUAL(vec1, vec2)
 template <typename T>
@@ -277,7 +277,7 @@ public:
             ++num_errors_;
             ret = false;
         } else {
-            ret = simdb::approximatelyEqual(v1, v2, tol);
+            ret = simdb3::approximatelyEqual(v1, v2, tol);
             if (!ret) {
                 cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
                       << ". Value: '" << v1 << "' should be equal to '" << v2 << "' within tolerance '" << tol << "'";
@@ -483,7 +483,7 @@ private:
  * \brief Initializes the test.  Should be placed OUTSIDE of a
  * code block SOMEWHERE in the test source
  */
-#define TEST_INIT simdb::SimDBTester* simdb::SimDBTester::inst = 0
+#define TEST_INIT simdb3::SimDBTester* simdb3::SimDBTester::inst = 0
 
 /**
  * \def DB_INIT
@@ -498,7 +498,7 @@ private:
  * at least once. This macro can be placed anywhere inside the function expected
  * to be called.
  */
-#define EXPECT_REACHED() simdb::SimDBTester::getInstance()->reachedMethod(__FUNCTION__)
+#define EXPECT_REACHED() simdb3::SimDBTester::getInstance()->reachedMethod(__FUNCTION__)
 
 /**
  * \def ENSURE_ALL_REACHED(x)
@@ -506,7 +506,7 @@ private:
  * \param x the number of unique methods that you expect to be reached at least once.
  * x should equal the number of times EXPECT_REACHED() is placed throughout the test.
  */
-#define ENSURE_ALL_REACHED(x) simdb::SimDBTester::getInstance()->expectAllReached(x, __LINE__, __FUNCTION__)
+#define ENSURE_ALL_REACHED(x) simdb3::SimDBTester::getInstance()->expectAllReached(x, __LINE__, __FUNCTION__)
 
 /**
  * \def EXPECT_TRUE(x)
@@ -521,7 +521,7 @@ private:
  *      }
  * \endcode
  */
-#define EXPECT_TRUE(x) simdb::SimDBTester::getInstance()->expect((x), #x, __LINE__, __FILE__)
+#define EXPECT_TRUE(x) simdb3::SimDBTester::getInstance()->expect((x), #x, __LINE__, __FILE__)
 
 /**
  * \def EXPECT_EQUAL(x,y)
@@ -540,7 +540,7 @@ private:
  *      }
  * \endcode
  */
-#define EXPECT_EQUAL(x, y) simdb::SimDBTester::getInstance()->expectEqual((x), (y), true, #x, __LINE__, __FILE__)
+#define EXPECT_EQUAL(x, y) simdb3::SimDBTester::getInstance()->expectEqual((x), (y), true, #x, __LINE__, __FILE__)
 
 /**
  * \def EXPECT_NOTEQUAL(x,y)
@@ -559,7 +559,7 @@ private:
  *      }
  * \endcode
  */
-#define EXPECT_NOTEQUAL(x, y) simdb::SimDBTester::getInstance()->expectEqual((x), (y), false, #x, __LINE__, __FILE__)
+#define EXPECT_NOTEQUAL(x, y) simdb3::SimDBTester::getInstance()->expectEqual((x), (y), false, #x, __LINE__, __FILE__)
 
 /**
  * \def EXPECT_WITHIN_TOLERANCE(x,y,tol)
@@ -581,7 +581,7 @@ private:
  * \endcode
  */
 #define EXPECT_WITHIN_TOLERANCE(x, y, tol)                                                                                                 \
-    simdb::SimDBTester::getInstance()->expectEqualWithinTolerance((x), (y), (tol), #x, __LINE__, __FILE__)
+    simdb3::SimDBTester::getInstance()->expectEqualWithinTolerance((x), (y), (tol), #x, __LINE__, __FILE__)
 
 /**
  * \def EXPECT_WITHIN_EPSILON(x,y)
@@ -604,7 +604,7 @@ private:
  * \endcode
  */
 #define EXPECT_WITHIN_EPSILON(x, y)                                                                                                        \
-    simdb::SimDBTester::getInstance()->expectEqualWithinTolerance(                                                                         \
+    simdb3::SimDBTester::getInstance()->expectEqualWithinTolerance(                                                                         \
         (x), (y), (std::numeric_limits<decltype(x)>::epsilon()), #x, __LINE__, __FILE__)
 
 /**
@@ -620,7 +620,7 @@ private:
  *      }
  * \endcode
  */
-#define EXPECT_FALSE(x) simdb::SimDBTester::getInstance()->expect(!(x), #x, __LINE__, __FILE__)
+#define EXPECT_FALSE(x) simdb3::SimDBTester::getInstance()->expect(!(x), #x, __LINE__, __FILE__)
 
 /**
  * \def EXPECT_THROW(x)
@@ -640,7 +640,7 @@ private:
             did_it_throw = true;                                                                                                           \
         }                                                                                                                                  \
         if (did_it_throw == false) {                                                                                                       \
-            simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__);                                                    \
+            simdb3::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__);                                                    \
         }                                                                                                                                  \
     }
 
@@ -653,7 +653,7 @@ private:
  * \code
  *      // The thrower:
  *      void foo() {
- *          throw simdb::SimDBException("Hello");
+ *          throw simdb3::SimDBException("Hello");
  *      }
  *
  *      // The message:
@@ -667,16 +667,16 @@ private:
         bool did_it_throw = false;                                                                                                         \
         try {                                                                                                                              \
             x;                                                                                                                             \
-        } catch (simdb::SimDBException & ex) {                                                                                             \
+        } catch (simdb3::SimDBException & ex) {                                                                                             \
             did_it_throw = true;                                                                                                           \
             if (strcmp(expected_msg, ex.rawReason().c_str()) != 0) {                                                                       \
                 std::cerr << "Expected msg: " << expected_msg << std::endl;                                                                \
                 std::cerr << "Actual msg:   " << ex.what() << std::endl;                                                                   \
-                simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, ex.what());                                     \
+                simdb3::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, ex.what());                                     \
             }                                                                                                                              \
         }                                                                                                                                  \
         if (did_it_throw == false) {                                                                                                       \
-            simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, "did not throw");                                   \
+            simdb3::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, "did not throw");                                   \
         }                                                                                                                                  \
     }
 
@@ -689,7 +689,7 @@ private:
  * \code
  *      // The thrower:
  *      void foo() {
- *          throw simdb::SimDBException("Hello");
+ *          throw simdb3::SimDBException("Hello");
  *      }
  *
  *      // The message:
@@ -703,16 +703,16 @@ private:
         bool did_it_throw = false;                                                                                                         \
         try {                                                                                                                              \
             x;                                                                                                                             \
-        } catch (simdb::SimDBException & ex) {                                                                                             \
+        } catch (simdb3::SimDBException & ex) {                                                                                             \
             did_it_throw = true;                                                                                                           \
             if (strcmp(expected_msg, ex.what()) != 0) {                                                                                    \
                 std::cerr << "Expected msg: " << expected_msg << std::endl;                                                                \
                 std::cerr << "Actual msg:   " << ex.what() << std::endl;                                                                   \
-                simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, ex.what());                                     \
+                simdb3::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, ex.what());                                     \
             }                                                                                                                              \
         }                                                                                                                                  \
         if (did_it_throw == false) {                                                                                                       \
-            simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, "did not throw");                                   \
+            simdb3::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, "did not throw");                                   \
         }                                                                                                                                  \
     }
 
@@ -721,16 +721,16 @@ private:
         bool did_it_throw = false;                                                                                                         \
         try {                                                                                                                              \
             x;                                                                                                                             \
-        } catch (simdb::SimDBException & ex) {                                                                                             \
+        } catch (simdb3::SimDBException & ex) {                                                                                             \
             did_it_throw = true;                                                                                                           \
             if (std::string(ex.what()).find(expected_msg) != std::string::npos) {                                                          \
                 std::cerr << "Expected msg: " << expected_msg << std::endl;                                                                \
                 std::cerr << "Actual msg:   " << ex.what() << std::endl;                                                                   \
-                simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, ex.what());                                     \
+                simdb3::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, ex.what());                                     \
             }                                                                                                                              \
         }                                                                                                                                  \
         if (did_it_throw == false) {                                                                                                       \
-            simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, "did not throw");                                   \
+            simdb3::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, "did not throw");                                   \
         }                                                                                                                                  \
     }
 
@@ -756,7 +756,7 @@ private:
             did_it_throw = true;                                                                                                           \
         }                                                                                                                                  \
         if (did_it_throw == true) {                                                                                                        \
-            simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, exception_what.c_str());                            \
+            simdb3::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, exception_what.c_str());                            \
         }                                                                                                                                  \
     }
 
@@ -772,7 +772,7 @@ private:
  */
 #define EXPECT_FILES_EQUAL(a, b)                                                                                                           \
     {                                                                                                                                      \
-        simdb::SimDBTester::getInstance()->expectFilesEqual(a, b, true, __LINE__, __FILE__);                                               \
+        simdb3::SimDBTester::getInstance()->expectFilesEqual(a, b, true, __LINE__, __FILE__);                                               \
     }
 
 /**
@@ -787,20 +787,20 @@ private:
  */
 #define EXPECT_FILES_NOTEQUAL(a, b)                                                                                                        \
     {                                                                                                                                      \
-        simdb::SimDBTester::getInstance()->expectFilesEqual(a, b, false, __LINE__, __FILE__);                                              \
+        simdb3::SimDBTester::getInstance()->expectFilesEqual(a, b, false, __LINE__, __FILE__);                                              \
     }
 
 /**
  * \def ERROR_CODE
  * \brief The number of errors found in the testing
  */
-#define ERROR_CODE simdb::SimDBTester::getErrorCode()
+#define ERROR_CODE simdb3::SimDBTester::getErrorCode()
 
 /**
   * \def REPORT_ERROR
   * \brief Prints the error code with a nice pretty message
   * \note This is separate from returning ERROR_CODE, which must be done
-  * after this macro. See the example for simdb::SimDBTester . The reason for
+  * after this macro. See the example for simdb3::SimDBTester . The reason for
   * this separation is so that errors can be reported before teardown, which
   * could fail uncatchably (i.e. segfault) when there are caught errors
   * earlier in the test (e.g. dangling pointers).
@@ -828,4 +828,4 @@ private:
                   << std::endl;                                                                                                            \
     }
 
-} // namespace simdb
+} // namespace simdb3

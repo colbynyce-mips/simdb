@@ -28,7 +28,7 @@ struct Instruction
     std::string mnemonic;
 };
 
-namespace simdb
+namespace simdb3
 {
     template <>
     void defineStructSchema<Instruction>(StructSchema& schema)
@@ -61,8 +61,8 @@ namespace simdb
 }
 
 using InstGroup = std::vector<std::shared_ptr<Instruction>>;
-using InstGroupCollection = simdb::IterableStructCollection<InstGroup>;
-using SparseInstGroupCollection = simdb::IterableStructCollection<InstGroup, true>;
+using InstGroupCollection = simdb3::IterableStructCollection<InstGroup>;
+using SparseInstGroupCollection = simdb3::IterableStructCollection<InstGroup, true>;
 
 std::shared_ptr<Instruction> generateRandomInst()
 {
@@ -78,7 +78,7 @@ std::shared_ptr<Instruction> generateRandomInst()
 class Sim
 {
 public:
-    Sim(simdb::DatabaseManager* db_mgr)
+    Sim(simdb3::DatabaseManager* db_mgr)
         : db_mgr_(db_mgr)
     {
     }
@@ -129,7 +129,7 @@ private:
         }
     }
 
-    simdb::DatabaseManager* db_mgr_;
+    simdb3::DatabaseManager* db_mgr_;
     uint64_t time_ = 0;
     InstGroup insts_;
     InstGroup sparse_insts_;
@@ -142,9 +142,9 @@ int main()
     // Note that we only care about the collection data and have
     // no need for any other tables, aside from the tables that the
     // DatabaseManager adds automatically to support this feature.
-    simdb::Schema schema;
+    simdb3::Schema schema;
 
-    simdb::DatabaseManager db_mgr("test.db");
+    simdb3::DatabaseManager db_mgr("test.db");
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     Sim sim(&db_mgr);

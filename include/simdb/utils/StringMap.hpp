@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace simdb
+namespace simdb3
 {
 
 class StringMap
@@ -55,4 +55,4 @@ private:
     unserialized_string_map_t unserialized_map_;
 };
 
-} // namespace simdb
+} // namespace simdb3

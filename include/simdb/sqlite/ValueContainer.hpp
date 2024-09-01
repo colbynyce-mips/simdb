@@ -9,7 +9,7 @@
 #include <sqlite3.h>
 #include <vector>
 
-namespace simdb
+namespace simdb3
 {
 
 /*!
@@ -186,4 +186,4 @@ private:
     ValueReader reader_;
 };
 
-} // namespace simdb
+} // namespace simdb3

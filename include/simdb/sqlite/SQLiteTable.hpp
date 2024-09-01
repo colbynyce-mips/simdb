@@ -11,7 +11,7 @@
 #include <list>
 #include <sqlite3.h>
 
-namespace simdb
+namespace simdb3
 {
 
 /*!
@@ -481,8 +481,8 @@ inline bool SqlRecord::removeFromTable()
     return sqlite3_changes(db_conn_) == 1;
 }
 
-} // namespace simdb
+} // namespace simdb3
 
-#define SQL_TABLE(name) simdb::SqlTable(name)
-#define SQL_COLUMNS(...) simdb::SqlColumns(__VA_ARGS__)
-#define SQL_VALUES(...) simdb::SqlValues(__VA_ARGS__)
+#define SQL_TABLE(name) simdb3::SqlTable(name)
+#define SQL_COLUMNS(...) simdb3::SqlColumns(__VA_ARGS__)
+#define SQL_VALUES(...) simdb3::SqlValues(__VA_ARGS__)

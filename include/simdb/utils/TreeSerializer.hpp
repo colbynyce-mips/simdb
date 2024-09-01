@@ -4,7 +4,7 @@
 
 #include "simdb/sqlite/DatabaseManager.hpp"
 
-namespace simdb
+namespace simdb3
 {
 
 inline void serializeElementTree(DatabaseManager* db_mgr,
@@ -24,4 +24,4 @@ inline void serializeElementTree(DatabaseManager* db_mgr,
     }
 }
 
-} // namespace simdb
+} // namespace simdb3

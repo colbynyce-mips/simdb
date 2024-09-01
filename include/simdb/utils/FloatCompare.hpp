@@ -8,7 +8,7 @@
 #include <random>
 #include <time.h>
 
-namespace simdb
+namespace simdb3
 {
 
 /// Comparison of two floating-point values with
@@ -25,4 +25,4 @@ approximatelyEqual(const T a, const T b, const T epsilon = std::numeric_limits<T
     return fabs_diff <= ((fabs_a < fabs_b ? fabs_b : fabs_a) * epsilon);
 }
 
-} // namespace simdb
+} // namespace simdb3

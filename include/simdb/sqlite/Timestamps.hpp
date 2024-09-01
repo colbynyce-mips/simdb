@@ -6,7 +6,7 @@
 #include "simdb/schema/SchemaDef.hpp"
 #include <rapidjson/document.h>
 
-namespace simdb
+namespace simdb3
 {
 
 /// For developer use only.
@@ -242,4 +242,4 @@ private:
 
 using TimestampPtr = std::shared_ptr<TimestampBase>;
 
-} // namespace simdb
+} // namespace simdb3

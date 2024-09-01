@@ -12,7 +12,7 @@
 #include <sqlite3.h>
 #include <thread>
 
-namespace simdb
+namespace simdb3
 {
 
 class AsyncTaskQueue;
@@ -266,4 +266,4 @@ private:
     PerfDiagnostics* profiler_ = nullptr;
 };
 
-} // namespace simdb
+} // namespace simdb3

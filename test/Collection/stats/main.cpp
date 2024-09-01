@@ -7,10 +7,10 @@
 
 TEST_INIT;
 
-using CounterCollectionT = simdb::StatCollection<uint32_t>;
+using CounterCollectionT = simdb3::StatCollection<uint32_t>;
 
 template <typename DataT>
-using RandStatCollectionT = simdb::StatCollection<DataT>;
+using RandStatCollectionT = simdb3::StatCollection<DataT>;
 
 /// Example class for counter values, which are common in certain simulators.
 class Counter
@@ -77,7 +77,7 @@ private:
 class Sim
 {
 public:
-    Sim(simdb::DatabaseManager* db_mgr)
+    Sim(simdb3::DatabaseManager* db_mgr)
         : db_mgr_(db_mgr)
     {
     }
@@ -230,7 +230,7 @@ public:
             for (auto id : {1,2}) {
                 double expected_time_val = 1;
                 query->resetConstraints();
-                query->addConstraintForInt("CollectionID", simdb::Constraints::EQUAL, id);
+                query->addConstraintForInt("CollectionID", simdb3::Constraints::EQUAL, id);
                 {
                     auto result_set = query->getResultSet();
 
@@ -274,7 +274,7 @@ private:
     }
 
     template <typename DataT>
-    void addCollection_(const std::array<DataT, 10> & array, const std::string& stat_path_prefix, const std::string& collection_name, simdb::Collections* collection_mgr) {
+    void addCollection_(const std::array<DataT, 10> & array, const std::string& stat_path_prefix, const std::string& collection_name, simdb3::Collections* collection_mgr) {
         std::unique_ptr<RandStatCollectionT<DataT>> collection(new RandStatCollectionT<DataT>(collection_name));
 
         for (size_t idx = 0; idx < array.size(); ++idx) {
@@ -335,7 +335,7 @@ private:
     }
 
     template <typename DataT>
-    void validateSimPaths_(simdb::SqlResultIterator& result_set, int& actual_collection_id, const int expected_collection_id, const std::string& stat_path_prefix, std::string& actual_stat_path, const std::array<DataT, 10>& array)
+    void validateSimPaths_(simdb3::SqlResultIterator& result_set, int& actual_collection_id, const int expected_collection_id, const std::string& stat_path_prefix, std::string& actual_stat_path, const std::array<DataT, 10>& array)
     {
         for (size_t idx = 0; idx < array.size(); ++idx) {
             EXPECT_TRUE(result_set.getNextRecord());
@@ -344,7 +344,7 @@ private:
         }
     }
 
-    simdb::DatabaseManager* db_mgr_;
+    simdb3::DatabaseManager* db_mgr_;
     Execute execute_;
     Retire retire_;
     std::array<int8_t, 10> rand_int8s_;
@@ -362,9 +362,9 @@ private:
 
 void runNegativeTests()
 {
-    simdb::Schema schema;
+    simdb3::Schema schema;
 
-    simdb::DatabaseManager db_mgr("negative.db");
+    simdb3::DatabaseManager db_mgr("negative.db");
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     // Pretend we have some member variables for collection.
@@ -425,9 +425,9 @@ int main()
     // Note that we only care about the collection data and have
     // no need for any other tables, aside from the tables that the
     // DatabaseManager adds automatically to support this feature.
-    simdb::Schema schema;
+    simdb3::Schema schema;
 
-    simdb::DatabaseManager db_mgr("test.db");
+    simdb3::DatabaseManager db_mgr("test.db");
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     runNegativeTests();

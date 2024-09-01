@@ -11,7 +11,7 @@
 #include <queue>
 #include <vector>
 
-namespace simdb
+namespace simdb3
 {
 
 class DatabaseManager;
@@ -167,7 +167,7 @@ public:
 
     /// \brief   Reroute all future tasks from calls to addTask() to the provided
     ///          object's addTask() method. The signature of that method must be
-    ///          "void addTask(std::unique_ptr<simdb::WorkerTask> task)".
+    ///          "void addTask(std::unique_ptr<simdb3::WorkerTask> task)".
     template <typename T>
     void rerouteNewTasksTo(T& destination)
     {
@@ -295,13 +295,13 @@ private:
  * 
  *    void sendDataToDatabase()
  *    {
- *        std::unique_ptr<simdb::WorkerTask> task1(...);
+ *        std::unique_ptr<simdb3::WorkerTask> task1(...);
  *        task_queue_->addTask(std::move(task1));
  * 
  *        // Imagine the safeTransaction() now runs on the worker thread
  *        // and successfully completes.
  * 
- *        std::unique_ptr<simdb::WorkerTask> task2(...);
+ *        std::unique_ptr<simdb3::WorkerTask> task2(...);
  *        task_queue_->addTask(std::move(task2));
  * 
  *        // Now imagine that the second task is pending in the queue,
@@ -322,12 +322,12 @@ private:
  *    void sendDataToDatabase()
  *    {
  *        // Use RAII.
- *        simdb::AllOrNothing all_or_nothing(task_queue_);
+ *        simdb3::AllOrNothing all_or_nothing(task_queue_);
  * 
- *        std::unique_ptr<simdb::WorkerTask> task1(...);
+ *        std::unique_ptr<simdb3::WorkerTask> task1(...);
  *        task_queue_->addTask(std::move(task1));
  * 
- *        std::unique_ptr<simdb::WorkerTask> task2(...);
+ *        std::unique_ptr<simdb3::WorkerTask> task2(...);
  *        task_queue_->addTask(std::move(task2));
  * 
  *        // ... whatever else ...
@@ -336,7 +336,7 @@ private:
 class AllOrNothing
 {
 public:
-    AllOrNothing(simdb::AsyncTaskQueue* task_queue)
+    AllOrNothing(simdb3::AsyncTaskQueue* task_queue)
         : task_queue_(task_queue)
     {
         task_queue_->rerouteNewTasksTo(*this);
@@ -348,7 +348,7 @@ public:
     ~AllOrNothing()
     {
         if (!pending_tasks_.empty()) {
-            std::unique_ptr<simdb::WorkerTask> commit_task(new Committer(std::move(pending_tasks_)));
+            std::unique_ptr<simdb3::WorkerTask> commit_task(new Committer(std::move(pending_tasks_)));
             task_queue_->rerouteNewTasksTo(nullptr);
             task_queue_->addTask(std::move(commit_task));
         }
@@ -359,15 +359,15 @@ private:
     /// that nobody else calls this but the friend class AsyncTaskQueue, or else
     /// tasks could get added to both and the required FIFO nature of the WorkerTask
     /// completeTask() calls could become out of order.
-    void addTask(std::unique_ptr<simdb::WorkerTask> task)
+    void addTask(std::unique_ptr<simdb3::WorkerTask> task)
     {
         pending_tasks_.emplace_back(task.release());
     }
 
-    class Committer : public simdb::WorkerTask
+    class Committer : public simdb3::WorkerTask
     {
     public:
-        Committer(std::vector<std::unique_ptr<simdb::WorkerTask>>&& tasks)
+        Committer(std::vector<std::unique_ptr<simdb3::WorkerTask>>&& tasks)
             : tasks_(std::move(tasks))
         {
         }
@@ -380,12 +380,12 @@ private:
         }
 
     private:
-        std::vector<std::unique_ptr<simdb::WorkerTask>> tasks_;
+        std::vector<std::unique_ptr<simdb3::WorkerTask>> tasks_;
     };
 
-    simdb::AsyncTaskQueue* task_queue_;
-    std::vector<std::unique_ptr<simdb::WorkerTask>> pending_tasks_;
+    simdb3::AsyncTaskQueue* task_queue_;
+    std::vector<std::unique_ptr<simdb3::WorkerTask>> pending_tasks_;
     friend class AsyncTaskQueue;
 };
 
-} // namespace simdb
+} // namespace simdb3

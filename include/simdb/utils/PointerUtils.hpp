@@ -11,7 +11,7 @@
 
 #include <memory>
 
-namespace simdb
+namespace simdb3
 {
     /**
     * \brief This templated struct takes a type and gives
@@ -162,4 +162,4 @@ namespace simdb
     template<typename T>
     using remove_any_pointer_t = typename remove_any_pointer<T>::type;
 
-} // namespace simdb
+} // namespace simdb3

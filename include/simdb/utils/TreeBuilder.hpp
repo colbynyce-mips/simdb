@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace simdb
+namespace simdb3
 {
 
 struct TreeNode {
@@ -82,4 +82,4 @@ inline std::unique_ptr<TreeNode> buildTree(std::vector<std::string> tree_paths)
     return root;
 }
 
-} // namespace simdb
+} // namespace simdb3

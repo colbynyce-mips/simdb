@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace simdb
+namespace simdb3
 {
 
 /// Data types supported by SimDB schemas
@@ -353,4 +353,4 @@ private:
     std::deque<Table> tables_;
 };
 
-} // namespace simdb
+} // namespace simdb3

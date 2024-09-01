@@ -9,7 +9,7 @@
 #include "simdb/sqlite/SQLiteTable.hpp"
 #include "simdb/utils/PerfDiagnostics.hpp"
 
-namespace simdb
+namespace simdb3
 {
 
 /*!
@@ -481,4 +481,4 @@ private:
     std::unique_ptr<PerfDiagnostics> perf_diagnostics_;
 };
 
-} // namespace simdb
+} // namespace simdb3

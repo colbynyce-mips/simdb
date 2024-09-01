@@ -8,7 +8,7 @@
 #include <iostream>
 #include <limits>
 
-namespace simdb
+namespace simdb3
 {
 
 /// Used in query->orderBy("ColA", ASC|DESC)
@@ -489,4 +489,4 @@ private:
     std::vector<std::shared_ptr<ResultWriterBase>> result_writers_;
 };
 
-} // namespace simdb
+} // namespace simdb3

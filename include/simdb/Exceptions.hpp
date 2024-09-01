@@ -7,7 +7,7 @@
 #include <sstream>
 #include <string>
 
-namespace simdb
+namespace simdb3
 {
 
 /// Used to construct and throw a standard C++ exception
@@ -92,4 +92,4 @@ private:
     friend class WorkerInterrupt;
 };
 
-} // namespace simdb
+} // namespace simdb3

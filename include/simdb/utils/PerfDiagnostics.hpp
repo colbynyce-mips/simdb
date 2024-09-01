@@ -14,7 +14,7 @@
 #include <thread>
 #include <unordered_map>
 
-namespace simdb {
+namespace simdb3 {
 
 class PerfTimer
 {
@@ -181,4 +181,4 @@ private:
     PerfTimer timer_;
 };
 
-} // namespace simdb
+} // namespace simdb3

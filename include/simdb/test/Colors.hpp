@@ -38,30 +38,30 @@
 #define SIMDB_UNMANAGED_COLOR_BG_CYAN "\033[0;46m"
 
 /// Macros for accessing the colors through the default scheme.
-#define SIMDB_CURRENT_COLOR_NORMAL simdb::color::ColorScheme::getDefaultScheme().color(Color::Normal)
-#define SIMDB_CURRENT_COLOR_BRIGHT_NORMAL simdb::color::ColorScheme::getDefaultScheme().color(Color::BrightNormal)
-#define SIMDB_CURRENT_COLOR_BG_NORMAL simdb::color::ColorScheme::getDefaultScheme().color(Color::BgNormal)
-#define SIMDB_CURRENT_COLOR_BOLD simdb::color::ColorScheme::getDefaultScheme().color(Color::Bold)
-#define SIMDB_CURRENT_COLOR_BRIGHT_BOLD simdb::color::ColorScheme::getDefaultScheme().color(Color::BrightBold)
-#define SIMDB_CURRENT_COLOR_BG_BOLD simdb::color::ColorScheme::getDefaultScheme().color(Color::BgBold)
-#define SIMDB_CURRENT_COLOR_RED simdb::color::ColorScheme::getDefaultScheme().color(Color::Red)
-#define SIMDB_CURRENT_COLOR_BRIGHT_RED simdb::color::ColorScheme::getDefaultScheme().color(Color::BrightRed)
-#define SIMDB_CURRENT_COLOR_BG_RED simdb::color::ColorScheme::getDefaultScheme().color(Color::BgRed)
-#define SIMDB_CURRENT_COLOR_GREEN simdb::color::ColorScheme::getDefaultScheme().color(Color::Green)
-#define SIMDB_CURRENT_COLOR_BRIGHT_GREEN simdb::color::ColorScheme::getDefaultScheme().color(Color::BrightGreen)
-#define SIMDB_CURRENT_COLOR_BG_GREEN simdb::color::ColorScheme::getDefaultScheme().color(Color::BgGreen)
-#define SIMDB_CURRENT_COLOR_YELLOW simdb::color::ColorScheme::getDefaultScheme().color(Color::Yellow)
-#define SIMDB_CURRENT_COLOR_BRIGHT_YELLOW simdb::color::ColorScheme::getDefaultScheme().color(Color::BrightYellow)
-#define SIMDB_CURRENT_COLOR_BG_YELLOW simdb::color::ColorScheme::getDefaultScheme().color(Color::BgYellow)
-#define SIMDB_CURRENT_COLOR_BLUE simdb::color::ColorScheme::getDefaultScheme().color(Color::Blue)
-#define SIMDB_CURRENT_COLOR_BRIGHT_BLUE simdb::color::ColorScheme::getDefaultScheme().color(Color::BrightBlue)
-#define SIMDB_CURRENT_COLOR_BG_BLUE simdb::color::ColorScheme::getDefaultScheme().color(Color::BgBlue)
-#define SIMDB_CURRENT_COLOR_MAGENTA simdb::color::ColorScheme::getDefaultScheme().color(Color::Magenta)
-#define SIMDB_CURRENT_COLOR_BRIGHT_MAGENTA simdb::color::ColorScheme::getDefaultScheme().color(Color::BrightMagenta)
-#define SIMDB_CURRENT_COLOR_BG_MAGENTA simdb::color::ColorScheme::getDefaultScheme().color(Color::BgMagenta)
-#define SIMDB_CURRENT_COLOR_CYAN simdb::color::ColorScheme::getDefaultScheme().color(Color::Cyan)
-#define SIMDB_CURRENT_COLOR_BRIGHT_CYAN simdb::color::ColorScheme::getDefaultScheme().color(Color::BrightCyan)
-#define SIMDB_CURRENT_COLOR_BG_CYAN simdb::color::ColorScheme::getDefaultScheme().color(Color::BgCyan)
+#define SIMDB_CURRENT_COLOR_NORMAL simdb3::color::ColorScheme::getDefaultScheme().color(Color::Normal)
+#define SIMDB_CURRENT_COLOR_BRIGHT_NORMAL simdb3::color::ColorScheme::getDefaultScheme().color(Color::BrightNormal)
+#define SIMDB_CURRENT_COLOR_BG_NORMAL simdb3::color::ColorScheme::getDefaultScheme().color(Color::BgNormal)
+#define SIMDB_CURRENT_COLOR_BOLD simdb3::color::ColorScheme::getDefaultScheme().color(Color::Bold)
+#define SIMDB_CURRENT_COLOR_BRIGHT_BOLD simdb3::color::ColorScheme::getDefaultScheme().color(Color::BrightBold)
+#define SIMDB_CURRENT_COLOR_BG_BOLD simdb3::color::ColorScheme::getDefaultScheme().color(Color::BgBold)
+#define SIMDB_CURRENT_COLOR_RED simdb3::color::ColorScheme::getDefaultScheme().color(Color::Red)
+#define SIMDB_CURRENT_COLOR_BRIGHT_RED simdb3::color::ColorScheme::getDefaultScheme().color(Color::BrightRed)
+#define SIMDB_CURRENT_COLOR_BG_RED simdb3::color::ColorScheme::getDefaultScheme().color(Color::BgRed)
+#define SIMDB_CURRENT_COLOR_GREEN simdb3::color::ColorScheme::getDefaultScheme().color(Color::Green)
+#define SIMDB_CURRENT_COLOR_BRIGHT_GREEN simdb3::color::ColorScheme::getDefaultScheme().color(Color::BrightGreen)
+#define SIMDB_CURRENT_COLOR_BG_GREEN simdb3::color::ColorScheme::getDefaultScheme().color(Color::BgGreen)
+#define SIMDB_CURRENT_COLOR_YELLOW simdb3::color::ColorScheme::getDefaultScheme().color(Color::Yellow)
+#define SIMDB_CURRENT_COLOR_BRIGHT_YELLOW simdb3::color::ColorScheme::getDefaultScheme().color(Color::BrightYellow)
+#define SIMDB_CURRENT_COLOR_BG_YELLOW simdb3::color::ColorScheme::getDefaultScheme().color(Color::BgYellow)
+#define SIMDB_CURRENT_COLOR_BLUE simdb3::color::ColorScheme::getDefaultScheme().color(Color::Blue)
+#define SIMDB_CURRENT_COLOR_BRIGHT_BLUE simdb3::color::ColorScheme::getDefaultScheme().color(Color::BrightBlue)
+#define SIMDB_CURRENT_COLOR_BG_BLUE simdb3::color::ColorScheme::getDefaultScheme().color(Color::BgBlue)
+#define SIMDB_CURRENT_COLOR_MAGENTA simdb3::color::ColorScheme::getDefaultScheme().color(Color::Magenta)
+#define SIMDB_CURRENT_COLOR_BRIGHT_MAGENTA simdb3::color::ColorScheme::getDefaultScheme().color(Color::BrightMagenta)
+#define SIMDB_CURRENT_COLOR_BG_MAGENTA simdb3::color::ColorScheme::getDefaultScheme().color(Color::BgMagenta)
+#define SIMDB_CURRENT_COLOR_CYAN simdb3::color::ColorScheme::getDefaultScheme().color(Color::Cyan)
+#define SIMDB_CURRENT_COLOR_BRIGHT_CYAN simdb3::color::ColorScheme::getDefaultScheme().color(Color::BrightCyan)
+#define SIMDB_CURRENT_COLOR_BG_CYAN simdb3::color::ColorScheme::getDefaultScheme().color(Color::BgCyan)
 
 static constexpr const char* ALL_COLORS[] = {
     SIMDB_UNMANAGED_COLOR_NORMAL,         SIMDB_UNMANAGED_COLOR_BOLD,          SIMDB_UNMANAGED_COLOR_RED,
@@ -101,7 +101,7 @@ enum class Color {
 #define SIMDB_CMDLINE_COLOR_WARNING "" // SIMDB_UNMANAGED_COLOR_YELLOW
 #define SIMDB_CMDLINE_COLOR_GOOD "" // SIMDB_UNMANAGED_COLOR_GOOD
 
-namespace simdb
+namespace simdb3
 {
 namespace color
 {
@@ -162,4 +162,4 @@ private:
 };
 
 } // namespace color
-} // namespace simdb
+} // namespace simdb3

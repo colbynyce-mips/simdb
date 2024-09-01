@@ -12,7 +12,7 @@
 #include <sqlite3.h>
 #include <string>
 
-namespace simdb
+namespace simdb3
 {
 
 /// Callback which gets invoked during SELECT queries that involve
@@ -273,4 +273,4 @@ private:
     friend class DatabaseManager;
 };
 
-} // namespace simdb
+} // namespace simdb3

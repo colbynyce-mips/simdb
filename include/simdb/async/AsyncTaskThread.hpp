@@ -6,7 +6,7 @@
 #include <chrono>
 #include <thread>
 
-namespace simdb
+namespace simdb3
 {
 
 /*!
@@ -149,4 +149,4 @@ private:
     bool first_execute_occurred_ = false;
 };
 
-} // namespace simdb
+} // namespace simdb3
