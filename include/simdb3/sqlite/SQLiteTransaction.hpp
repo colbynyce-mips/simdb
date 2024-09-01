@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "simdb/Exceptions.hpp"
-#include "simdb/utils/PerfDiagnostics.hpp"
+#include "simdb3/Exceptions.hpp"
+#include "simdb3/utils/PerfDiagnostics.hpp"
 
 #include <chrono>
 #include <functional>

@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "simdb/async/AsyncTaskQueue.hpp"
-#include "simdb/sqlite/DatabaseManager.hpp"
-#include "simdb/sqlite/Timestamps.hpp"
-#include "simdb/utils/StringMap.hpp"
-#include "simdb/utils/Compress.hpp"
+#include "simdb3/async/AsyncTaskQueue.hpp"
+#include "simdb3/sqlite/DatabaseManager.hpp"
+#include "simdb3/sqlite/Timestamps.hpp"
+#include "simdb3/utils/StringMap.hpp"
+#include "simdb3/utils/Compress.hpp"
 
 namespace simdb3
 {

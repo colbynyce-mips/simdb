@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "simdb/collection/Structs.hpp"
+#include "simdb3/collection/Structs.hpp"
 
 namespace simdb3
 {

@@ -1,8 +1,8 @@
 /// Tests for SimDB collections feature (specifically scalar PODs).
 
-#include "simdb/collection/Scalars.hpp"
-#include "simdb/sqlite/DatabaseManager.hpp"
-#include "simdb/test/SimDBTester.hpp"
+#include "simdb3/collection/Scalars.hpp"
+#include "simdb3/sqlite/DatabaseManager.hpp"
+#include "simdb3/test/SimDBTester.hpp"
 #include <array>
 
 TEST_INIT;

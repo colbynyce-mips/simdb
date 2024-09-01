@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "simdb/sqlite/ValueContainer.hpp"
-#include "simdb/schema/SchemaDef.hpp"
+#include "simdb3/sqlite/ValueContainer.hpp"
+#include "simdb3/schema/SchemaDef.hpp"
 #include <rapidjson/document.h>
 
 namespace simdb3

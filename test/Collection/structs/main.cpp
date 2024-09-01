@@ -1,8 +1,8 @@
 /// Tests for SimDB collections feature (specifically structs of PODs, enums, and strings).
 
-#include "simdb/collection/Structs.hpp"
-#include "simdb/sqlite/DatabaseManager.hpp"
-#include "simdb/test/SimDBTester.hpp"
+#include "simdb3/collection/Structs.hpp"
+#include "simdb3/sqlite/DatabaseManager.hpp"
+#include "simdb3/test/SimDBTester.hpp"
 
 TEST_INIT;
 

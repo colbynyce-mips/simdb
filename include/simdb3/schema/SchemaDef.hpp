@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "simdb/Exceptions.hpp"
-#include "simdb/sqlite/SQLiteTable.hpp"
+#include "simdb3/Exceptions.hpp"
+#include "simdb3/sqlite/SQLiteTable.hpp"
 
 #include <algorithm>
 #include <deque>

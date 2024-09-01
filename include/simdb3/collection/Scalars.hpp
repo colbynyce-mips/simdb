@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include "simdb/async/AsyncTaskQueue.hpp"
-#include "simdb/collection/CollectionBase.hpp"
-#include "simdb/collection/BlobSerializer.hpp"
-#include "simdb/sqlite/DatabaseManager.hpp"
-#include "simdb/utils/Compress.hpp"
-#include "simdb/utils/TreeSerializer.hpp"
+#include "simdb3/async/AsyncTaskQueue.hpp"
+#include "simdb3/collection/CollectionBase.hpp"
+#include "simdb3/collection/BlobSerializer.hpp"
+#include "simdb3/sqlite/DatabaseManager.hpp"
+#include "simdb3/utils/Compress.hpp"
+#include "simdb3/utils/TreeSerializer.hpp"
 
 namespace simdb3
 {

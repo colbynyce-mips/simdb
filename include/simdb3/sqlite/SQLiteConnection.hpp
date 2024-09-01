@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "simdb/async/AsyncTaskQueue.hpp"
-#include "simdb/sqlite/Constraints.hpp"
-#include "simdb/sqlite/SQLiteTransaction.hpp"
-#include "simdb/utils/FloatCompare.hpp"
+#include "simdb3/async/AsyncTaskQueue.hpp"
+#include "simdb3/sqlite/Constraints.hpp"
+#include "simdb3/sqlite/SQLiteTransaction.hpp"
+#include "simdb3/utils/FloatCompare.hpp"
 
 #include <fstream>
 #include <memory>

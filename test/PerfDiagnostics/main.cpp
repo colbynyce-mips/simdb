@@ -2,8 +2,8 @@
  \brief Tests for SimDB self-profiling feature to help users understand AsyncTaskQueue and safeTransaction().
  */
 
-#include "simdb/sqlite/DatabaseManager.hpp"
-#include "simdb/test/SimDBTester.hpp"
+#include "simdb3/sqlite/DatabaseManager.hpp"
+#include "simdb3/test/SimDBTester.hpp"
 
 TEST_INIT;
 

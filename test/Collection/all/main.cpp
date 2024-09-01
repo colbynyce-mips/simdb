@@ -5,11 +5,11 @@
 /// This test is meant to drive the python module deserializers / reports.
 /// All supported data types are tested here.
 
-#include "simdb/collection/IterableStructs.hpp"
-#include "simdb/collection/Structs.hpp"
-#include "simdb/collection/Scalars.hpp"
-#include "simdb/sqlite/DatabaseManager.hpp"
-#include "simdb/test/SimDBTester.hpp"
+#include "simdb3/collection/IterableStructs.hpp"
+#include "simdb3/collection/Structs.hpp"
+#include "simdb3/collection/Scalars.hpp"
+#include "simdb3/sqlite/DatabaseManager.hpp"
+#include "simdb3/test/SimDBTester.hpp"
 #include <random>
 
 TEST_INIT;

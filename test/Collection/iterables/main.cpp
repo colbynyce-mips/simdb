@@ -1,9 +1,9 @@
 /// Tests for SimDB collections feature (specifically containers e.g. vector of structs
 /// of PODs, enums, and strings).
 
-#include "simdb/collection/IterableStructs.hpp"
-#include "simdb/sqlite/DatabaseManager.hpp"
-#include "simdb/test/SimDBTester.hpp"
+#include "simdb3/collection/IterableStructs.hpp"
+#include "simdb3/sqlite/DatabaseManager.hpp"
+#include "simdb3/test/SimDBTester.hpp"
 
 TEST_INIT;
 

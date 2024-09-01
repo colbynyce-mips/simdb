@@ -2,10 +2,10 @@
 
 #pragma once
 
-//#include "simdb/schema/SchemaDef.hpp"
-#include "simdb/sqlite/SQLiteQuery.hpp"
-#include "simdb/sqlite/ValueContainer.hpp"
-#include "simdb/sqlite/SQLiteTransaction.hpp"
+//#include "simdb3/schema/SchemaDef.hpp"
+#include "simdb3/sqlite/SQLiteQuery.hpp"
+#include "simdb3/sqlite/ValueContainer.hpp"
+#include "simdb3/sqlite/SQLiteTransaction.hpp"
 
 #include <algorithm>
 #include <list>

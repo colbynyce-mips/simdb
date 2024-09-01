@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "simdb/sqlite/Constraints.hpp"
-#include "simdb/sqlite/SQLiteIterator.hpp"
+#include "simdb3/sqlite/Constraints.hpp"
+#include "simdb3/sqlite/SQLiteIterator.hpp"
 #include <iomanip>
 #include <iostream>
 #include <limits>

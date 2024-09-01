@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include "simdb/schema/SchemaDef.hpp"
-#include "simdb/collection/CollectionBase.hpp"
-#include "simdb/sqlite/SQLiteConnection.hpp"
-#include "simdb/sqlite/SQLiteQuery.hpp"
-#include "simdb/sqlite/SQLiteTable.hpp"
-#include "simdb/utils/PerfDiagnostics.hpp"
+#include "simdb3/schema/SchemaDef.hpp"
+#include "simdb3/collection/CollectionBase.hpp"
+#include "simdb3/sqlite/SQLiteConnection.hpp"
+#include "simdb3/sqlite/SQLiteQuery.hpp"
+#include "simdb3/sqlite/SQLiteTable.hpp"
+#include "simdb3/utils/PerfDiagnostics.hpp"
 
 namespace simdb3
 {

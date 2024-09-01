@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "simdb/sqlite/DatabaseManager.hpp"
+#include "simdb3/sqlite/DatabaseManager.hpp"
 
 namespace simdb3
 {

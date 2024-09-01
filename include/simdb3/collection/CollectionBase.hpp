@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "simdb/sqlite/SQLiteTransaction.hpp"
-#include "simdb/sqlite/Timestamps.hpp"
-#include "simdb/schema/SchemaDef.hpp"
-#include "simdb/utils/StringMap.hpp"
-#include "simdb/utils/TreeBuilder.hpp"
+#include "simdb3/sqlite/SQLiteTransaction.hpp"
+#include "simdb3/sqlite/Timestamps.hpp"
+#include "simdb3/schema/SchemaDef.hpp"
+#include "simdb3/utils/StringMap.hpp"
+#include "simdb3/utils/TreeBuilder.hpp"
 
 #include <fstream>
 #include <functional>

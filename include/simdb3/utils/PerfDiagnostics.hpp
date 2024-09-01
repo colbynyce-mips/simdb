@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "simdb/Exceptions.hpp"
+#include "simdb3/Exceptions.hpp"
 
 #include <array>
 #include <chrono>

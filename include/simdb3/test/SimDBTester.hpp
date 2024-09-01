@@ -7,8 +7,8 @@
  * associated macros for SimDB unit tests.
  */
 
-#include "simdb/test/Colors.hpp"
-#include "simdb/utils/FloatCompare.hpp"
+#include "simdb3/test/Colors.hpp"
+#include "simdb3/utils/FloatCompare.hpp"
 
 #include <algorithm>
 #include <cstring>

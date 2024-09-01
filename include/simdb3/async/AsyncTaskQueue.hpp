@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "simdb/async/AsyncTaskThread.hpp"
-#include "simdb/sqlite/SQLiteTransaction.hpp"
+#include "simdb3/async/AsyncTaskThread.hpp"
+#include "simdb3/sqlite/SQLiteTransaction.hpp"
 
 #include <iostream>
 #include <memory>

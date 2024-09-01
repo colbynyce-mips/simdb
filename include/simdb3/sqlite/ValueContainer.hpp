@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "simdb/schema/Blob.hpp"
+#include "simdb3/schema/Blob.hpp"
 
 #include <functional>
 #include <memory>
