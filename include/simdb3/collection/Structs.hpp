@@ -6,7 +6,7 @@
 #include "simdb3/collection/CollectionBase.hpp"
 #include "simdb3/collection/BlobSerializer.hpp"
 #include "simdb3/sqlite/DatabaseManager.hpp"
-#include "simdb3/utils/PointerUtils.hpp"
+#include "simdb3/utils/MetaStructs.hpp"
 #include "simdb3/utils/TreeSerializer.hpp"
 #include <cstring>
 
@@ -480,7 +480,7 @@ class StructDefnSerializer
 public:
     StructDefnSerializer()
     {
-        defineStructSchema<typename remove_any_pointer<StructT>::type>(schema_);
+        defineStructSchema<MetaStruct::remove_any_pointer_t<StructT>>(schema_);
     }
 
     const std::string& getStructName() const
@@ -522,7 +522,7 @@ public:
     ScalarStructCollection(const std::string& name)
         : name_(name)
     {
-        static_assert(!is_any_pointer<StructT>::value,
+        static_assert(!MetaStruct::is_any_pointer<StructT>::value,
                       "Template type must be a value type");
     }
 

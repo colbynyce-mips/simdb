@@ -22,13 +22,13 @@ class IterableStructCollection : public CollectionBase
 {
 public:
     using StructPtrT = typename ContainerT::value_type;
-    using StructT = typename remove_any_pointer<StructPtrT>::type;
+    using StructT = MetaStruct::remove_any_pointer_t<StructPtrT>;
 
     /// Construct with a name for this collection.
     IterableStructCollection(const std::string& name)
         : name_(name)
     {
-        static_assert(is_any_pointer<StructPtrT>::value,
+        static_assert(MetaStruct::is_any_pointer<StructPtrT>::value,
                       "Must collect a container such as " \
                       "std::vector<std::shared_ptr<MyStruct>> or " \
                       "std::deque<MyStruct*> (note that you may have to " \
@@ -193,7 +193,7 @@ public:
 
 private:
     template <typename ElemT>
-    typename std::enable_if<is_any_pointer<ElemT>::value, bool>::type
+    typename std::enable_if<MetaStruct::is_any_pointer<ElemT>::value, bool>::type
     writeStruct_(const ElemT& el, char*& dest)
     {
         if (el) {
@@ -205,7 +205,7 @@ private:
     }
 
     template <typename ElemT>
-    typename std::enable_if<!is_any_pointer<ElemT>::value, bool>::type
+    typename std::enable_if<!MetaStruct::is_any_pointer<ElemT>::value, bool>::type
     writeStruct_(const ElemT& el, char*& dest)
     {
         blob_serializer_->writeStruct(&el, dest);

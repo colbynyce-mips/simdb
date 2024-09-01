@@ -23,12 +23,12 @@ public:
     CollectableSerializer(
         DatabaseManager* db_mgr, const int collection_id, const TimestampBase* timestamp, const std::vector<DataT>& data, const size_t num_elements_in_blob, const bool compress = true)
         : db_mgr_(db_mgr)
+        , compress_(compress)
         , collection_id_(collection_id)
         , timestamp_binder_(timestamp->createBinder())
         , data_vals_(data)
         , num_elems_in_blob_(num_elements_in_blob)
         , unserialized_map_(StringMap::instance()->getUnserializedMap())
-        , compress_(compress)
     {
         StringMap::instance()->clearUnserializedMap();
     }
