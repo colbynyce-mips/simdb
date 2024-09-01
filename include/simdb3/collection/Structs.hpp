@@ -92,6 +92,7 @@ inline size_t getDTypeNumBytes(const StructFields dtype)
         case StructFields::uint64_t: return sizeof(uint64_t);
         case StructFields::float_t:  return sizeof(float);
         case StructFields::double_t: return sizeof(double);
+        default: break;
     }
 
     throw DBException("Invalid data type");
