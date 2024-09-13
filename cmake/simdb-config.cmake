@@ -2,11 +2,6 @@
 #                     RequiredLibraries                       #
 ###############################################################
 
-# Find RapidJSON
-find_package (RapidJSON 1.1 REQUIRED)
-include_directories (SYSTEM ${RapidJSON_INCLUDE_DIRS})
-message (STATUS "Using RapidJSON CPP ${RapidJSON_VERSION}")
-
 # Find SQLite3
 find_package (SQLite3 3.19 REQUIRED)
 include_directories (SYSTEM ${SQLite3_INCLUDE_DIRS})

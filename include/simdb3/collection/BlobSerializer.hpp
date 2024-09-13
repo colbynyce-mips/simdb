@@ -21,9 +21,8 @@ class CollectableSerializer : public WorkerTask
 public:
     /// Construct with a timestamp and the data values, whether compressed or not.
     CollectableSerializer(
-        DatabaseManager* db_mgr, const int collection_id, const TimestampBase* timestamp, const std::vector<DataT>& data, const size_t num_elements_in_blob, const bool compress = true)
+        DatabaseManager* db_mgr, const int collection_id, const TimestampBase* timestamp, const std::vector<DataT>& data, const size_t num_elements_in_blob)
         : db_mgr_(db_mgr)
-        , compress_(compress)
         , collection_id_(collection_id)
         , timestamp_binder_(timestamp->createBinder())
         , data_vals_(data)
@@ -36,22 +35,14 @@ public:
     /// Asynchronously write the collection data to the database.
     void completeTask() override
     {
-        if (compress_) {
-            std::vector<char> compressed_data;
-            compressDataVec(data_vals_, compressed_data);
+        std::vector<char> compressed_data;
+        compressData_(compressed_data);
 
-            auto record = db_mgr_->INSERT(SQL_TABLE("CollectionData"),
-                                          SQL_COLUMNS("CollectionID", "TimeVal", "DataVals", "NumElems"),
-                                          SQL_VALUES(collection_id_, timestamp_binder_, compressed_data, num_elems_in_blob_));
+        auto record = db_mgr_->INSERT(SQL_TABLE("CollectionData"),
+                                      SQL_COLUMNS("CollectionID", "TimeVal", "DataVals", "NumElems"),
+                                      SQL_VALUES(collection_id_, timestamp_binder_, compressed_data, num_elems_in_blob_));
 
-            collection_data_id_ = record->getId();
-        } else {
-            auto record = db_mgr_->INSERT(SQL_TABLE("CollectionData"),
-                                          SQL_COLUMNS("CollectionID", "TimeVal", "DataVals", "NumElems"),
-                                          SQL_VALUES(collection_id_, timestamp_binder_, data_vals_, num_elems_in_blob_));
-
-            collection_data_id_ = record->getId();
-        }
+        collection_data_id_ = record->getId();
 
         for (const auto& kvp : unserialized_map_) {
             db_mgr_->INSERT(SQL_TABLE("StringMap"),
@@ -67,10 +58,22 @@ protected:
     /// DatabaseManager used for INSERT().
     DatabaseManager* db_mgr_;
 
-    /// Should we compress on the worker thread?
-    bool compress_;
-
 private:
+    template <typename T=DataT>
+    typename std::enable_if<!std::is_same<T, bool>::value, void>::type
+    compressData_(std::vector<char>& compressed_data)
+    {
+        compressDataVec(data_vals_, compressed_data);
+    }
+
+    template <typename T=DataT>
+    typename std::enable_if<std::is_same<T, bool>::value, void>::type
+    compressData_(std::vector<char>& compressed_data)
+    {
+        std::vector<char> bool_data{data_vals_.begin(), data_vals_.end()};
+        compressDataVec(bool_data, compressed_data);
+    }
+
     /// Primary key in the Collections table.
     const int collection_id_;
 
@@ -91,14 +94,14 @@ private:
 /// \brief Writes collection data on the worker thread. This class is used for
 ///        iterable structs only. To serialize collection data for scalar PODs
 ///        and scalar structs, use the CollectableSerializer.
-template <typename DataT=char>
+template <typename DataT>
 class IterableStructSerializer : public CollectableSerializer<DataT>
 {
 public:
     /// Construct with a timestamp and the data values, whether compressed or not.
     IterableStructSerializer(
-        DatabaseManager* db_mgr, const int collection_id, const TimestampBase* timestamp, const std::vector<DataT>& data, const std::vector<int>& valid_flags, const size_t num_structs_written, const bool compress = true)
-        : CollectableSerializer<DataT>(db_mgr, collection_id, timestamp, data, num_structs_written, compress)
+        DatabaseManager* db_mgr, const int collection_id, const TimestampBase* timestamp, const std::vector<DataT>& data, const std::vector<int>& valid_flags, const size_t num_structs_written)
+        : CollectableSerializer<DataT>(db_mgr, collection_id, timestamp, data, num_structs_written)
         , valid_flags_(valid_flags)
     {
     }
@@ -112,18 +115,12 @@ public:
             return;
         }
 
-        if (this->compress_) {
-            std::vector<char> compressed_data;
-            compressDataVec(valid_flags_, compressed_data);
+        std::vector<char> compressed_data;
+        compressDataVec(valid_flags_, compressed_data);
 
-            this->db_mgr_->INSERT(SQL_TABLE("IterableBlobMeta"),
-                                  SQL_COLUMNS("CollectionDataID", "SparseValidFlags"),
-                                  SQL_VALUES(this->collection_data_id_, compressed_data));
-        } else {
-            this->db_mgr_->INSERT(SQL_TABLE("IterableBlobMeta"),
-                                  SQL_COLUMNS("CollectionDataID", "SparseValidFlags"),
-                                  SQL_VALUES(this->collection_data_id_, valid_flags_));
-        }
+        this->db_mgr_->INSERT(SQL_TABLE("IterableBlobMeta"),
+                                SQL_COLUMNS("CollectionDataID", "SparseValidFlags"),
+                                SQL_VALUES(this->collection_data_id_, compressed_data));
     }
 
 private:

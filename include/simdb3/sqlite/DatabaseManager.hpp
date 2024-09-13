@@ -481,4 +481,26 @@ private:
     std::unique_ptr<PerfDiagnostics> perf_diagnostics_;
 };
 
+/// One-time finalization of all collections. Called by friend class DatabaseManager.
+inline void Collections::finalizeCollections_()
+{
+    db_conn_->safeTransaction([&]() {
+        auto root = createElementTree_();
+        for (auto& collection : collections_) {
+            collection->finalize(db_mgr_, root.get());
+            root.reset();
+        }
+
+        for (const auto& kvp : clk_periods_) {
+            db_mgr_->INSERT(SQL_TABLE("Clocks"), SQL_COLUMNS("Name", "Period"), SQL_VALUES(kvp.first, kvp.second));
+        }
+
+        for (const auto& kvp : clks_by_location_) {
+            db_mgr_->INSERT(SQL_TABLE("ElementClocks"), SQL_COLUMNS("SimPath", "ClockName"), SQL_VALUES(kvp.first, kvp.second));
+        }
+
+        return true;
+    });
+}
+
 } // namespace simdb3

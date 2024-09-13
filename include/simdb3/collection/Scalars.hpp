@@ -45,7 +45,8 @@ public:
                       std::is_same<DataT, int32_t>::value  ||
                       std::is_same<DataT, int64_t>::value  ||
                       std::is_same<DataT, float>::value    ||
-                      std::is_same<DataT, double>::value,
+                      std::is_same<DataT, double>::value   ||
+                      std::is_same<DataT, bool>::value,
                       "Invalid DataT for collection");
     }
 
@@ -63,7 +64,7 @@ public:
     /// \throws  Throws an exception if called after finalize() or if the stat_path is not unique.
     ///          Also throws if the element path cannot later be used in python (do not use uuids of
     ///          the form "abc123-def456").
-    void addStat(const std::string& stat_path, const DataT* data_ptr, Format format = Format::none)
+    void addStat(const std::string& stat_path, const DataT* data_ptr, const std::string& clk_name = "", Format format = Format::none)
     {
         validatePath_(stat_path);
 
@@ -73,7 +74,7 @@ public:
 
         ScalarValueReader<DataT> reader(data_ptr);
         Stat<DataT> stat(stat_path, reader, format);
-        stats_.emplace_back(stat);
+        stats_.emplace_back(stat, clk_name);
     }
 
     /// \brief   Add a stat to this collection using a function pointer to get the
@@ -88,13 +89,13 @@ public:
     /// \throws  Throws an exception if called after finalize() or if the stat_path is not unique.
     ///          Also throws if the element path cannot later be used in python (do not use uuids of
     ///          the form "abc123-def456").
-    void addStat(const std::string& stat_path, std::function<DataT()> func_ptr, Format format = Format::none)
+    void addStat(const std::string& stat_path, std::function<DataT()> func_ptr, const std::string& clk_name = "", Format format = Format::none)
     {
         validatePath_(stat_path);
 
         ScalarValueReader<DataT> reader(func_ptr);
         Stat<DataT> stat(stat_path, reader, format);
-        stats_.emplace_back(stat);
+        stats_.emplace_back(stat, clk_name);
     }
 
     /// Get the name of this collection.
@@ -134,6 +135,8 @@ public:
             data_type = "float";
         } else if (std::is_same<DataT, double>::value) {
             data_type = "double";
+        } else if (std::is_same<DataT, bool>::value) {
+            data_type = "bool";
         } else {
             throw DBException("Invalid DataT");
         }
@@ -144,7 +147,9 @@ public:
 
         collection_pkey_ = record->getId();
 
-        for (const auto& stat : stats_) {
+        for (const auto& pair : stats_) {
+            const auto& stat = pair.first;
+
             auto record = db_mgr->INSERT(SQL_TABLE("CollectionElems"),
                                          SQL_COLUMNS("CollectionID", "SimPath"),
                                          SQL_VALUES(collection_pkey_, stat.getPath()));
@@ -161,7 +166,7 @@ public:
     ///         and write the values to the database.
     ///
     /// \throws Throws an exception if finalize() was not already called first.
-    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp, const bool log_json = false) override
+    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) override
     {
         if (!finalized_) {
             throw DBException("Cannot call collect() on a collection before calling finalize()");
@@ -170,32 +175,15 @@ public:
         stats_values_.reserve(stats_.size());
         stats_values_.clear();
 
-        for (auto& stat : stats_) {
+        for (const auto& pair : stats_) {
+            const auto& stat = pair.first;
             stats_values_.push_back(stat.getValue());
-            if (log_json) {
-                collected_data_vals_[stat.getPath()].push_back(stat.getValue());
-            }
         }
 
         std::unique_ptr<WorkerTask> task(new CollectableSerializer<DataT>(
             db_mgr, collection_pkey_, timestamp, stats_values_, stats_.size()));
 
         db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
-    }
-
-    /// For developer use only.
-    void addCollectedDataToJSON(rapidjson::Value& data_vals_dict, rapidjson::Document::AllocatorType& allocator) const override
-    {
-        for (const auto& kvp : collected_data_vals_) {
-            rapidjson::Value data_vals{rapidjson::kArrayType};
-            for (const auto val : kvp.second) {
-                data_vals.PushBack(val, allocator);
-            }
-
-            rapidjson::Value elem_path_json;
-            elem_path_json.SetString(kvp.first.c_str(), static_cast<rapidjson::SizeType>(kvp.first.length()), allocator);
-            data_vals_dict.AddMember(elem_path_json, data_vals, allocator);
-        }
     }
 
 private:
@@ -236,8 +224,8 @@ private:
     /// Name of this collection. Serialized to the database.
     std::string name_;
 
-    /// All the stats in this collection.
-    std::vector<Stat<DataT>> stats_;
+    /// All the stats in this collection together with their clock names.
+    std::vector<std::pair<Stat<DataT>, std::string>> stats_;
 
     /// All the stats' values in one vector. Held in a member variable
     /// so we do not reallocate these (potentially large) vectors with
@@ -247,17 +235,6 @@ private:
 
     /// Our primary key in the Collections table.
     int collection_pkey_ = -1;
-
-    /// Hold collected data to later be serialized to disk in JSON format.
-    /// This is for developer use only.
-    ///
-    /// {
-    ///     "TimeVals": [1, 2, 3],
-    ///     "DataVals": {
-    ///         "stats.foo": [4.4, 5.5, 6.6]
-    ///     }
-    /// }
-    std::unordered_map<std::string, std::vector<DataT>> collected_data_vals_;
 };
 
 } // namespace simdb3

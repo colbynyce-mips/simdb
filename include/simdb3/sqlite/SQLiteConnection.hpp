@@ -17,7 +17,7 @@ namespace simdb3
 
 /// Callback which gets invoked during SELECT queries that involve
 /// floating point comparisons with a supplied tolerance.
-void fuzzyMatch(sqlite3_context* context, int, sqlite3_value** argv)
+inline void fuzzyMatch(sqlite3_context* context, int, sqlite3_value** argv)
 {
     const double column_value = sqlite3_value_double(argv[0]);
     const double target_value = sqlite3_value_double(argv[1]);

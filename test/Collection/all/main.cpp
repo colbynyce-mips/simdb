@@ -241,74 +241,6 @@ namespace simdb3
         return "UNKNOWN";
     }
 
-    // For developer use only.
-    template <>
-    inline void writeStructToRapidJson<AllTypes>(const AllTypes& s, rapidjson::Value& json_dict, rapidjson::Document::AllocatorType& allocator)
-    {
-        std::string enum_name, enum_str;
-        std::map<std::string, int8_t> int8_enum_map;
-        defineEnumMap<EnumInt8>(enum_name, int8_enum_map);
-        enum_str = getEnumString<EnumInt8>(int8_enum_map, s.e_int8);
-        json_dict.AddMember("int8", rapidjson::Value(enum_str.c_str(), allocator), allocator);
-
-        std::map<std::string, int16_t> int16_enum_map;
-        defineEnumMap<EnumInt16>(enum_name, int16_enum_map);
-        enum_str = getEnumString<EnumInt16>(int16_enum_map, s.e_int16);
-        json_dict.AddMember("int16", rapidjson::Value(enum_str.c_str(), allocator), allocator);
-
-        std::map<std::string, int32_t> int32_enum_map;
-        defineEnumMap<EnumInt32>(enum_name, int32_enum_map);
-        enum_str = getEnumString<EnumInt32>(int32_enum_map, s.e_int32);
-        json_dict.AddMember("int32", rapidjson::Value(enum_str.c_str(), allocator), allocator);
-
-        std::map<std::string, int64_t> int64_enum_map;
-        defineEnumMap<EnumInt64>(enum_name, int64_enum_map);
-        enum_str = getEnumString<EnumInt64>(int64_enum_map, s.e_int64);
-        json_dict.AddMember("int64", rapidjson::Value(enum_str.c_str(), allocator), allocator);
-
-        std::map<std::string, uint8_t> uint8_enum_map;
-        defineEnumMap<EnumUInt8>(enum_name, uint8_enum_map);
-        enum_str = getEnumString<EnumUInt8>(uint8_enum_map, s.e_uint8);
-        json_dict.AddMember("uint8", rapidjson::Value(enum_str.c_str(), allocator), allocator);
-
-        std::map<std::string, uint16_t> uint16_enum_map;
-        defineEnumMap<EnumUInt16>(enum_name, uint16_enum_map);
-        enum_str = getEnumString<EnumUInt16>(uint16_enum_map, s.e_uint16);
-        json_dict.AddMember("uint16", rapidjson::Value(enum_str.c_str(), allocator), allocator);
-
-        std::map<std::string, uint32_t> uint32_enum_map;
-        defineEnumMap<EnumUInt32>(enum_name, uint32_enum_map);
-        enum_str = getEnumString<EnumUInt32>(uint32_enum_map, s.e_uint32);
-        json_dict.AddMember("uint32", rapidjson::Value(enum_str.c_str(), allocator), allocator);
-
-        std::map<std::string, uint64_t> uint64_enum_map;
-        defineEnumMap<EnumUInt64>(enum_name, uint64_enum_map);
-        enum_str = getEnumString<EnumUInt64>(uint64_enum_map, s.e_uint64);
-        json_dict.AddMember("uint64", rapidjson::Value(enum_str.c_str(), allocator), allocator);
-
-        json_dict.AddMember("ch", s.ch, allocator);
-        json_dict.AddMember("int8", s.int8, allocator);
-        json_dict.AddMember("int16", s.int16, allocator);
-        json_dict.AddMember("int32", s.int32, allocator);
-        json_dict.AddMember("int64", s.int64, allocator);
-        json_dict.AddMember("uint8", s.uint8, allocator);
-        json_dict.AddMember("uint16", s.uint16, allocator);
-        json_dict.AddMember("uint32", s.uint32, allocator);
-        json_dict.AddMember("uint64", s.uint64, allocator);
-        json_dict.AddMember("flt", s.flt, allocator);
-        json_dict.AddMember("dbl", s.dbl, allocator);
-        json_dict.AddMember("str", rapidjson::Value(s.str.c_str(), allocator), allocator);
-
-        std::ostringstream oss1;
-        oss1 << std::hex << s.uint32_hex;
-        auto uint32_hex = "0x" + oss1.str();
-        json_dict.AddMember("uint32_hex", rapidjson::Value(uint32_hex.c_str(), allocator), allocator);
-
-        std::ostringstream oss2;
-        oss2 << std::hex << s.uint64_hex;
-        auto uint64_hex = "0x" + oss2.str();
-        json_dict.AddMember("uint64_hex", rapidjson::Value(uint64_hex.c_str(), allocator), allocator);
-    }
 }
 
 using StatCollectionInt8   = simdb3::StatCollection<int8_t>;
@@ -464,7 +396,6 @@ public:
         }
 
         db_mgr_->getConnection()->getTaskQueue()->stopThread();
-        db_mgr_->getCollectionMgr()->serializeJSON("test.json", true);
     }
 
 private:
@@ -472,7 +403,6 @@ private:
     {
         auto collection_mgr = db_mgr_->getCollectionMgr();
         collection_mgr->useTimestampsFrom(&time_);
-        collection_mgr->enableJsonLogging();
 
         std::unique_ptr<StatCollectionInt8> int8_collection(new StatCollectionInt8("Int8Collection"));
         int8_collection->addStat("stats.int8", &stat_int8_);

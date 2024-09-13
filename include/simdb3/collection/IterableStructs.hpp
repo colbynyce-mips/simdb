@@ -7,6 +7,12 @@
 namespace simdb3
 {
 
+template <typename T>
+struct is_std_vector : std::false_type {};
+
+template <typename T>
+struct is_std_vector<std::vector<T>> : std::true_type {};
+
 /*!
  * \class IterableStructCollection
  *
@@ -52,14 +58,14 @@ public:
     /// \throws  Throws an exception if called after finalize() or if the stat_path is not unique.
     ///          Also throws if the element path cannot later be used in python (do not use uuids of
     ///          the form "abc123-def456").
-    void addContainer(const std::string& container_path, const ContainerT* container_ptr, size_t capacity)
+    void addContainer(const std::string& container_path, const ContainerT* container_ptr, size_t capacity, const std::string& clk_name = "")
     {
         if (!containers_.empty()) {
             throw DBException("Cannot add more than one container to an IterableStructCollection");
         }
 
         validatePath_(container_path);
-        containers_.emplace_back(container_ptr, container_path, capacity);
+        containers_.emplace_back(container_ptr, container_path, capacity, clk_name);
     }
 
     /// Get the name of this collection.
@@ -109,7 +115,7 @@ public:
     ///         per container) and write them to the database.
     ///
     /// \throws Throws an exception if finalize() was not already called first.
-    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp, const bool log_json = false) override
+    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) override
     {
         if (!finalized_) {
             throw DBException("Cannot call collect() on a collection before calling finalize()");
@@ -124,7 +130,8 @@ public:
             container_blob_.resize(container_bytes);
 
             if (Sparse) {
-                sparse_container_valid_flags_.resize(size);
+                const auto capacity = std::get<2>(tup);
+                sparse_container_valid_flags_.resize(capacity);
                 std::fill(sparse_container_valid_flags_.begin(), sparse_container_valid_flags_.end(), 0);
             }
 
@@ -132,30 +139,24 @@ public:
             size_t num_structs_written = 0;
 
             size_t container_idx = 0;
-            for (const auto& s : *container) {
-                if (writeStruct_(s, dest)) {
+            auto itr = container->begin();
+            auto eitr = container->end();
+            auto sparse_array_type = std::integral_constant<bool, Sparse>{};
+            while (itr != eitr) {
+                if (checkValid_(itr, sparse_array_type) && writeStruct_(*itr, dest)) {
                     ++num_structs_written;
                     if (Sparse) {
                         sparse_container_valid_flags_[container_idx] = 1;
-                    }
-                    if (log_json) {
-                        container_structs.emplace_back(new StructT(*s));
                     }
                 } else if (!Sparse) {
                     container_blob_.resize(num_structs_written);
                     break;
                 } else {
                     sparse_container_valid_flags_[container_idx] = 0;
-                    if (log_json) {
-                        container_structs.emplace_back(nullptr);
-                    }
                 }
 
                 ++container_idx;
-            }
-
-            if (log_json) {
-                collected_structs_[std::get<1>(tup)].emplace_back(std::move(container_structs));
+                ++itr;
             }
 
             std::unique_ptr<WorkerTask> task(new IterableStructSerializer<char>(
@@ -165,33 +166,40 @@ public:
         }
     }
 
-    /// For developer use only.
-    void addCollectedDataToJSON(rapidjson::Value& data_vals_dict, rapidjson::Document::AllocatorType& allocator) const override
+private:
+    template <typename container_t = ContainerT>
+    typename std::enable_if<is_std_vector<container_t>::value, bool>::type
+    checkValid_(typename container_t::const_iterator itr, std::true_type)
     {
-        for (const auto& kvp : collected_structs_) {
-            rapidjson::Value struct_arrays{rapidjson::kArrayType};
-            for (const auto& structs : kvp.second) {
-                rapidjson::Value struct_array{rapidjson::kArrayType};
-                for (const auto& s : structs) {
-                    if (s) {
-                        rapidjson::Value struct_vals{rapidjson::kObjectType};
-                        writeStructToRapidJson<StructT>(*s, struct_vals, allocator);
-                        struct_array.PushBack(struct_vals, allocator);
-                    } else {
-                        struct_array.PushBack(rapidjson::Value(rapidjson::kNullType), allocator);
-                    }
-                }
-
-                struct_arrays.PushBack(struct_array, allocator);
-            }
-
-            rapidjson::Value elem_path_json;
-            elem_path_json.SetString(kvp.first.c_str(), static_cast<rapidjson::SizeType>(kvp.first.length()), allocator);
-            data_vals_dict.AddMember(elem_path_json, struct_arrays, allocator);
-        }
+        return *itr != nullptr;
     }
 
-private:
+    template <typename container_t = ContainerT>
+    typename std::enable_if<!is_std_vector<container_t>::value, bool>::type
+    checkValid_(typename container_t::const_iterator itr, std::true_type)
+    {
+        return itr.isValid();
+    }
+
+    bool checkValid_(typename ContainerT::const_iterator itr, std::false_type)
+    {
+        return true;
+    }
+
+    template <typename S=StructT>
+    typename std::enable_if<MetaStruct::is_any_pointer<S>::value, StructT*>::type
+    cloneStruct_(const StructT& s)
+    {
+        return cloneStruct_(*s);
+    }
+
+    template <typename S=StructT>
+    typename std::enable_if<!MetaStruct::is_any_pointer<S>::value, StructT*>::type
+    cloneStruct_(const StructT& s)
+    {
+        return new StructT(s);
+    }
+
     template <typename ElemT>
     typename std::enable_if<MetaStruct::is_any_pointer<ElemT>::value, bool>::type
     writeStruct_(const ElemT& el, char*& dest)
@@ -215,8 +223,8 @@ private:
     /// Name of this collection. Serialized to the database.
     std::string name_;
 
-    /// All the containers' backpointers, their paths, and their capacities.
-    std::vector<std::tuple<const ContainerT*, std::string, size_t>> containers_;
+    /// All the containers' backpointers, their paths, their capacities, and their clock names.
+    std::vector<std::tuple<const ContainerT*, std::string, size_t, std::string>> containers_;
 
     /// Size of one struct when serialized to raw bytes.
     size_t struct_num_bytes_ = 0;
@@ -238,36 +246,6 @@ private:
     ///    container:  {a*, b*, nullptr, d*}
     ///    sparse_container_valid_flags_: {1,1,0,1}
     std::vector<int> sparse_container_valid_flags_;
-
-    /// Hold collected data to later be serialized to disk in JSON format.
-    /// This is for developer use only.
-    ///
-    /// {
-    ///     "TimeVals": [1, 2, 3],
-    ///     "DataVals": {
-    ///         "structs.iterable": [
-    ///             [
-    ///                 {
-    ///                     "fiz": 555,
-    ///                     "buz": "GREEN"
-    ///                 }
-    ///             ],
-    ///             [
-    ///                 {
-    ///                     "fiz": 555,
-    ///                     "buz": "GREEN"
-    ///                 },
-    ///                 None,                 <--- Buckets can be None for sparse containers.
-    ///                 {
-    ///                     "fiz": 888,
-    ///                     "buz": "BLUE"
-    ///                 }
-    ///             ]
-    ///         ]
-    ///     }
-    /// }
-    std::unordered_map<std::string,
-        std::vector<std::vector<std::unique_ptr<StructT>>>> collected_structs_;
 };
 
 } // namespace simdb3

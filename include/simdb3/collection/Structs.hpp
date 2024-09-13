@@ -13,14 +13,6 @@
 namespace simdb3
 {
 
-template <typename StructT>
-inline void writeStructToRapidJson(const StructT& s, rapidjson::Value& json_dict, rapidjson::Document::AllocatorType& allocator)
-{
-    (void)s;
-    (void)json_dict;
-    (void)allocator;
-}
-
 /// Data types supported by the collection system. Note that
 /// enum struct fields use the std::underlying_type of that
 /// enum, e.g. int32_t
@@ -472,7 +464,7 @@ private:
 };
 
 template <typename StructT>
-void defineStructSchema(StructSchema& schema);
+void defineStructSchema(StructSchema& schema) = delete;
 
 template <typename StructT>
 class StructDefnSerializer
@@ -518,11 +510,13 @@ template <typename StructT>
 class ScalarStructCollection : public CollectionBase
 {
 public:
+    using UnderlyingStructT = MetaStruct::remove_any_pointer_t<StructT>;
+
     /// Construct with a name for this collection.
     ScalarStructCollection(const std::string& name)
         : name_(name)
     {
-        static_assert(!MetaStruct::is_any_pointer<StructT>::value,
+        static_assert(!MetaStruct::is_any_pointer<UnderlyingStructT>::value,
                       "Template type must be a value type");
     }
 
@@ -540,10 +534,10 @@ public:
     /// \throws  Throws an exception if called after finalize() or if the struct_path is not unique.
     ///          Also throws if the struct path cannot later be used in python (do not use uuids of
     ///          the form "abc123-def456").
-    void addStruct(const std::string& struct_path, const StructT* struct_ptr)
+    void addStruct(const std::string& struct_path, const UnderlyingStructT* struct_ptr, const std::string& clk_name = "")
     {
         validatePath_(struct_path);
-        structs_.emplace_back(struct_ptr, struct_path);
+        structs_.emplace_back(struct_ptr, struct_path, clk_name);
     }
 
     /// Get the name of this collection.
@@ -568,10 +562,10 @@ public:
 
         collection_pkey_ = record->getId();
 
-        for (const auto& pair : structs_) {
+        for (const auto& tup : structs_) {
             db_mgr->INSERT(SQL_TABLE("CollectionElems"),
                            SQL_COLUMNS("CollectionID", "SimPath"),
-                           SQL_VALUES(collection_pkey_, pair.second));
+                           SQL_VALUES(collection_pkey_, std::get<1>(tup)));
         }
 
         auto struct_num_bytes = meta_serializer_.getStructNumBytes();
@@ -587,18 +581,16 @@ public:
     ///         and write the blob to the database.
     ///
     /// \throws Throws an exception if finalize() was not already called first.
-    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp, const bool log_json = false) override
+    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) override
     {
         if (!finalized_) {
             throw DBException("Cannot call collect() on a collection before calling finalize()");
         }
 
         char* dest = structs_blob_.data();
-        for (auto& pair : structs_) {
-            blob_serializer_->writeStruct(pair.first, dest);
-            if (log_json) {
-                collected_structs_[pair.second].push_back(*pair.first);
-            }
+        for (const auto& tup : structs_) {
+            const UnderlyingStructT *container = std::get<0>(tup);
+            writeStruct_(container, dest);
         }
 
         std::unique_ptr<WorkerTask> task(new CollectableSerializer<char>(
@@ -607,35 +599,34 @@ public:
         db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
     }
 
-    /// For developer use only.
-    void addCollectedDataToJSON(rapidjson::Value& data_vals_dict, rapidjson::Document::AllocatorType& allocator) const override
+private:
+    template <typename S=UnderlyingStructT>
+    typename std::enable_if<MetaStruct::is_any_pointer<S>::value, void>::type
+    writeStruct_(const S s, char*& dest)
     {
-        for (const auto& kvp : collected_structs_) {
-            rapidjson::Value struct_array{rapidjson::kArrayType};
-            for (const StructT& val : kvp.second) {
-                rapidjson::Value struct_vals{rapidjson::kObjectType};
-                writeStructToRapidJson<StructT>(val, struct_vals, allocator);
-                struct_array.PushBack(struct_vals, allocator);
-            }
-
-            rapidjson::Value elem_path_json;
-            elem_path_json.SetString(kvp.first.c_str(), static_cast<rapidjson::SizeType>(kvp.first.length()), allocator);
-            data_vals_dict.AddMember(elem_path_json, struct_array, allocator);
+        if (s) {
+            writeStruct_(*s, dest);            
         }
     }
 
-private:
+    template <typename S=UnderlyingStructT>
+    typename std::enable_if<!MetaStruct::is_any_pointer<S>::value, void>::type
+    writeStruct_(const S& s, char*& dest)
+    {
+        blob_serializer_->writeStruct(&s, dest);
+    }
+
     /// Name of this collection. Serialized to the database.
     std::string name_;
 
-    /// All the structs' backpointers and their paths.
-    std::vector<std::pair<const StructT*, std::string>> structs_;
+    /// All the structs' backpointers their paths, and their clock names.
+    std::vector<std::tuple<const UnderlyingStructT*, std::string, std::string>> structs_;
 
     /// Our primary key in the Collections table.
     int collection_pkey_ = -1;
 
     /// Serializer to write all info about this struct to the DB.
-    StructDefnSerializer<StructT> meta_serializer_;
+    StructDefnSerializer<UnderlyingStructT> meta_serializer_;
 
     /// Serializer to pack all struct data into a blob.
     std::unique_ptr<StructBlobSerializer> blob_serializer_;
@@ -645,26 +636,6 @@ private:
     /// every call to collect(), which can be called very many times
     /// during the simulation.
     std::vector<char> structs_blob_;
-
-    /// Hold collected data to later be serialized to disk in JSON format.
-    /// This is for developer use only.
-    ///
-    /// {
-    ///     "TimeVals": [1, 2, 3],
-    ///     "DataVals": {
-    ///         "structs.scalar": [
-    ///             {
-    ///                 "fiz": 555,
-    ///                 "buz": "GREEN"
-    ///             },
-    ///             {
-    ///                 "fiz": 888,
-    ///                 "buz": "BLUE"
-    ///             }
-    ///         ]
-    ///     }
-    /// }
-    std::unordered_map<std::string, std::vector<StructT>> collected_structs_;
 };
 
 } // namespace simdb3
