@@ -22,8 +22,8 @@ class QueueUtilizWidget(wx.Panel):
         self._sim_path_text_elems = [wx.StaticText(self, label=sim_path) for sim_path in self.container_sim_paths]
         self._utiliz_bars = [UtilizBar(self, frame) for _ in range(len(self.container_sim_paths))]
 
-        # Change the font to 8-point monospace.
-        font = wx.Font(8, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        # Change the font to 10-point monospace.
+        font = wx.Font(10, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
         for elem in self._sim_path_text_elems:
             elem.SetFont(font)
 

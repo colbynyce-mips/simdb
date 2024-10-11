@@ -24,7 +24,8 @@ class DatabaseManager;
 enum class Format
 {
     none = 0,
-    hex = 1
+    hex = 1,
+    boolalpha = 2
 };
 
 /*!

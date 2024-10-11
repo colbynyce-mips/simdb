@@ -320,7 +320,10 @@ class StructFieldSerializer;
 
 /// Users specialize this template to write the struct fields one by one into the serializer.
 template <typename StructT>
-void writeStructFields(const StructT* s, StructFieldSerializer<StructT>* serializer) = delete;
+void writeStructFields(const StructT* s, StructFieldSerializer<StructT>* serializer)
+{
+    (void)serializer;
+}
 
 template <typename StructT>
 class StructFieldSerializer
@@ -369,6 +372,11 @@ public:
         } else {
             throw DBException("Data type mismatch in writing struct field");
         }
+    }
+
+    void writeField(const char* val)
+    {
+        writeField(std::string(val));
     }
 
 private:
@@ -446,6 +454,11 @@ public:
         fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<FieldT>(), Format::hex));
     }
 
+    void addBoolField(const char* name)
+    {
+        fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<int32_t>(), Format::boolalpha));
+    }
+
     void writeMetadata(DatabaseManager* db_mgr, const std::string& collection_name) const
     {
         for (auto& field : fields_) {
@@ -464,7 +477,10 @@ private:
 };
 
 template <typename StructT>
-void defineStructSchema(StructSchema& schema) = delete;
+inline void defineStructSchema(StructSchema& schema)
+{
+    (void)schema;
+}
 
 template <typename StructT>
 class StructDefnSerializer
