@@ -2,7 +2,6 @@
 
 #pragma once
 
-//#include "simdb3/schema/SchemaDef.hpp"
 #include "simdb3/sqlite/SQLiteQuery.hpp"
 #include "simdb3/sqlite/ValueContainer.hpp"
 #include "simdb3/sqlite/SQLiteTransaction.hpp"
@@ -280,21 +279,21 @@ private:
     /// \throws Throws an exception if sqlite3_step() returned a code that was not in <ret_codes>
     void stepStatement_(sqlite3_stmt* stmt, const std::initializer_list<int>& ret_codes) const
     {
-        auto stringifyRetCodes = [&]() {
-            std::ostringstream oss;
-            auto iter = ret_codes.begin();
-            for (size_t idx = 0; idx < ret_codes.size(); ++idx) {
-                oss << *iter;
-                if (idx != ret_codes.size() - 1) {
-                    oss << ",";
-                }
-                ++iter;
-            }
-            return oss.str();
-        };
-
         auto rc = SQLiteReturnCode(sqlite3_step(stmt));
         if (std::find(ret_codes.begin(), ret_codes.end(), rc) == ret_codes.end()) {
+            auto stringifyRetCodes = [&]() {
+                 std::ostringstream oss;
+                 auto iter = ret_codes.begin();
+                 for (size_t idx = 0; idx < ret_codes.size(); ++idx) {
+                     oss << *iter;
+                     if (idx != ret_codes.size() - 1) {
+                         oss << ",";
+                     }
+                     ++iter;
+                 }
+                 return oss.str();
+            };
+
             throw DBException("Unexpected sqlite3_step() return code:\n")
                 << "\tActual: " << rc << "\tExpected: " << stringifyRetCodes() << "\tError: " << sqlite3_errmsg(db_conn_);
         }

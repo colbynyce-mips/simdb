@@ -150,8 +150,7 @@ directories (test/Collection/**).
 
     // Use T* backpointers or a std::function<T()> to capture the collection time values.
     // Both integral (discrete time) and floating-point (continuous time) are supported.
-    // Here we assume we are in the Scheduler class' step() method with a uint64_t cycle_
-    // member variable.
+    // Here we assume we have a uint64_t member variable called "cycle_" holding the current tick.
     collection_mgr->useTimestampsFrom(&cycle_);
 
     using StatCollection = simdb::StatCollection<double>;
@@ -177,7 +176,7 @@ directories (test/Collection/**).
         }
     }
 
-# Python deserializer
+# Python Deserializer
 
 You can use the simdb_collections.py module to write your own post-processing
 tools, such as stats CSV reports.
