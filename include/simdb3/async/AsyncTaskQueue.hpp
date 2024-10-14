@@ -127,12 +127,13 @@ public:
         return db_conn_;
     }
 
-    /// Add a task you wish to evaluate on the worker thread.
-    void addTask(std::unique_ptr<WorkerTask> task)
+    /// Add a task you wish to evaluate on the worker thread. Returns
+    /// the number of tasks currently in the queue.
+    size_t addTask(std::unique_ptr<WorkerTask> task)
     {
         if (new_task_destination_) {
             new_task_destination_(std::move(task));
-            return;
+            return concurrent_queue_.size();
         }
 
         concurrent_queue_.emplace(task.release());
@@ -145,6 +146,8 @@ public:
             timed_eval_.start();
             threadRunning() = true;
         }
+
+        return concurrent_queue_.size();
     }
 
     /// \brief Evaluate every task that has been queued up.

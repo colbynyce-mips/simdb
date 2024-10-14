@@ -565,18 +565,36 @@ inline void Collections::collectAll()
 
     timestamp_->captureCurrentTime();
 
-    if (compression_enabled_) {
-        compressDataVec(all_collection_data_, all_compressed_data_);
+    compressDataVec(all_collection_data_, all_compressed_data_, compression_level_);
 
-        std::unique_ptr<WorkerTask> task(new CollectableSerializer(
-            db_mgr_, timestamp_.get(), all_compressed_data_, true));
+    std::unique_ptr<WorkerTask> task(new CollectableSerializer(
+        db_mgr_, timestamp_.get(), all_compressed_data_, true));
 
-        db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
-    } else {
-        std::unique_ptr<WorkerTask> task(new CollectableSerializer(
-            db_mgr_, timestamp_.get(), all_collection_data_, false));
+    auto task_count = db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
 
-        db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
+    if (num_tasks_highwater_mark_ == 0) {
+        // Start with a highwater mark of 5 so we do not inadvertently lower the compression
+        // level too soon. We want to give the worker thread a chance to catch up.
+        num_tasks_highwater_mark_ = 5;
+    } else if (task_count > num_tasks_highwater_mark_ && compression_level_ > 1) {
+        // Use exponential backoff to set the new threshold for lowering the compression again.
+        num_tasks_highwater_mark_ *= 2;
+        ++num_times_highwater_mark_exceeded_;
+        if (num_times_highwater_mark_exceeded_ >= 3) {
+            std::cout << "SimDB collections worker thread is falling behind. Lowering compression level to "
+                      << compression_level_ - 1 << std::endl;
+            --compression_level_;
+            num_times_highwater_mark_exceeded_ = 0;
+        }
+    } else if (task_count > num_tasks_highwater_mark_) {
+        // We are falling behind, but we are already at the fastest compression level.
+        // Flush the queue in the main thread. Best we can do at this point other than
+        // disabling compression entirely which we really don't want to do.
+        std::cout << "SimDB collections is already at the fastest compression level, but the "
+                  << "worker thread is still not able to keep up. We have to flush the queue "
+                  << "in the main thread.\n";
+
+        db_mgr_->getConnection()->getTaskQueue()->flushQueue();
     }
 }
 

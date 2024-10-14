@@ -17,7 +17,7 @@ enum class CompressionModes
 
 /// Perform zlib compression on the single data vector of stats values.
 template <typename T>
-inline void compressDataVec(const std::vector<T>& in, std::vector<char>& out)
+inline void compressDataVec(const std::vector<T>& in, std::vector<char>& out, int compression_level = Z_DEFAULT_COMPRESSION)
 {
     if (in.empty()) {
         out.clear();
@@ -46,7 +46,7 @@ inline void compressDataVec(const std::vector<T>& in, std::vector<char>& out)
     defstream.avail_out = (uInt)(out.size());
     defstream.next_out = (Bytef*)(out.data());
 
-    deflateInit(&defstream, Z_DEFAULT_COMPRESSION);
+    deflateInit(&defstream, compression_level);
     deflate(&defstream, Z_FINISH);
     deflateEnd(&defstream);
 

@@ -312,12 +312,6 @@ public:
     /// of all collections.
     void collectAll();
 
-    /// Enable/disable compression of the collected data.
-    void enableCompression(bool enable)
-    {
-        compression_enabled_ = enable;
-    }
-
 private:
     template <typename TimeT>
     typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint32_t), TimestampPtr>::type
@@ -409,8 +403,19 @@ private:
     /// variable so we can avoid re-allocating this buffer every time we collect all collections.
     std::vector<char> all_compressed_data_;
 
-    /// Flag to enable/disable compression of the collected data.
-    bool compression_enabled_ = true;
+    /// Compression level. This starts out as the default compromise between speed and compression,
+    /// and will gradually move towards fastest compression if the worker thread is falling behind.
+    /// Note that the levels are 0-9, where 0 is no compression, 1 is fastest, and 9 is best compression.
+    /// We currently do not go all the way to zero compression or the database will be too large.
+    int compression_level_ = 6;
+
+    /// Keep track of the "highwater mark" representing the number of tasks in the queue at
+    /// the time of each collection.
+    size_t num_tasks_highwater_mark_ = 0;
+
+    /// Keep track of how many times the highwater mark is exceeded. When it reaches 3, we will
+    /// decrement the compression level to make it go faster and reset this count back to 0.
+    size_t num_times_highwater_mark_exceeded_ = 0;
 
     friend class DatabaseManager;
 };
