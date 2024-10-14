@@ -85,7 +85,6 @@ public:
                                       SQL_VALUES(name_, meta_serializer_.getStructName(), 1));
 
         collection_pkey_ = record1->getId();
-        auto struct_num_bytes = meta_serializer_.getStructNumBytes();
 
         auto record2 = db_mgr->INSERT(SQL_TABLE("CollectionElems"),
                                       SQL_COLUMNS("CollectionID", "SimPath"),
@@ -121,25 +120,29 @@ public:
     /// \brief Collect all containers in this collection (sparse version).
     void collect_(CollectionBuffer& buffer, std::true_type) {
         const ContainerT* container = std::get<0>(container_);
-        auto itr = container->begin();
-        auto eitr = container->end();
         uint16_t num_valid = 0;
 
-        while (itr != eitr) {
-            if (checkValid_(itr)) {
-                ++num_valid;
-            }
-            ++itr;
-        }
+        {
+            auto itr = container->begin();
+            auto eitr = container->end();
 
-        if (num_valid == 0) {
-            return;
+            while (itr != eitr) {
+                if (checkValid_(itr)) {
+                    ++num_valid;
+                }
+                ++itr;
+            }
+
+            if (num_valid == 0) {
+                return;
+            }
         }
 
         buffer.writeHeader(collection_pkey_, num_valid);
 
         uint16_t bucket_idx = 0;
-        itr = container->begin();
+        auto itr = container->begin();
+        auto eitr = container->end();
         while (itr != eitr) {
             if (checkValid_(itr)) {
                 writeStruct_(*itr, buffer, bucket_idx);
