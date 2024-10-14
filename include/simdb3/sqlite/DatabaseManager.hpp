@@ -488,11 +488,10 @@ class CollectableSerializer : public WorkerTask
 public:
     /// Construct with a timestamp and the data values, whether compressed or not.
     CollectableSerializer(
-        DatabaseManager* db_mgr, const TimestampBase* timestamp, const std::vector<char>& data, const bool compressed)
+        DatabaseManager* db_mgr, const TimestampBase* timestamp, const std::vector<char>& data)
         : db_mgr_(db_mgr)
         , timestamp_binder_(timestamp->createBinder())
-        , data_vals_(data)
-        , compressed_(compressed)
+        , data_(data)
         , unserialized_map_(StringMap::instance()->getUnserializedMap())
     {
         StringMap::instance()->clearUnserializedMap();
@@ -502,8 +501,8 @@ public:
     void completeTask() override
     {
         db_mgr_->INSERT(SQL_TABLE("CollectionData"),
-                        SQL_COLUMNS("TimeVal", "DataVals", "IsCompressed"),
-                        SQL_VALUES(timestamp_binder_, data_vals_, compressed_));
+                        SQL_COLUMNS("TimeVal", "DataVals"),
+                        SQL_VALUES(timestamp_binder_, data_));
 
         for (const auto& kvp : unserialized_map_) {
             db_mgr_->INSERT(SQL_TABLE("StringMap"),
@@ -520,10 +519,7 @@ private:
     ValueContainerBasePtr timestamp_binder_;
 
     /// Data values.
-    std::vector<char> data_vals_;
-
-    /// Flag to indicate whether the data is compressed.
-    const int compressed_;
+    std::vector<char> data_;
 
     /// Map of uint32_t->string pairs that need to be written to the database.
     StringMap::unserialized_string_map_t unserialized_map_;
@@ -568,7 +564,7 @@ inline void Collections::collectAll()
     compressDataVec(all_collection_data_, all_compressed_data_, compression_level_);
 
     std::unique_ptr<WorkerTask> task(new CollectableSerializer(
-        db_mgr_, timestamp_.get(), all_compressed_data_, true));
+        db_mgr_, timestamp_.get(), all_compressed_data_));
 
     auto task_count = db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
 
