@@ -481,6 +481,54 @@ private:
     std::unique_ptr<PerfDiagnostics> perf_diagnostics_;
 };
 
+/// \class CollectableSerializer
+/// \brief Writes collection data on the worker thread.
+class CollectableSerializer : public WorkerTask
+{
+public:
+    /// Construct with a timestamp and the data values, whether compressed or not.
+    CollectableSerializer(
+        DatabaseManager* db_mgr, const TimestampBase* timestamp, const std::vector<char>& data, const bool compressed)
+        : db_mgr_(db_mgr)
+        , timestamp_binder_(timestamp->createBinder())
+        , data_vals_(data)
+        , compressed_(compressed)
+        , unserialized_map_(StringMap::instance()->getUnserializedMap())
+    {
+        StringMap::instance()->clearUnserializedMap();
+    }
+
+    /// Asynchronously write the collection data to the database.
+    void completeTask() override
+    {
+        db_mgr_->INSERT(SQL_TABLE("CollectionData"),
+                        SQL_COLUMNS("TimeVal", "DataVals", "IsCompressed"),
+                        SQL_VALUES(timestamp_binder_, data_vals_, compressed_));
+
+        for (const auto& kvp : unserialized_map_) {
+            db_mgr_->INSERT(SQL_TABLE("StringMap"),
+                            SQL_COLUMNS("IntVal", "String"),
+                            SQL_VALUES(kvp.first, kvp.second));
+        }
+    }
+
+private:
+    /// DatabaseManager used for INSERT().
+    DatabaseManager* db_mgr_;
+
+    /// Timestamp binder holding the timestamp value at the time of construction.
+    ValueContainerBasePtr timestamp_binder_;
+
+    /// Data values.
+    std::vector<char> data_vals_;
+
+    /// Flag to indicate whether the data is compressed.
+    const int compressed_;
+
+    /// Map of uint32_t->string pairs that need to be written to the database.
+    StringMap::unserialized_string_map_t unserialized_map_;
+};
+
 /// One-time finalization of all collections. Called by friend class DatabaseManager.
 inline void Collections::finalizeCollections_()
 {
@@ -501,6 +549,35 @@ inline void Collections::finalizeCollections_()
 
         return true;
     });
+}
+
+/// Called manually during simulation to trigger automatic collection of all collections.
+inline void Collections::collectAll()
+{
+    if (!timestamp_->ensureTimeHasAdvanced()) {
+        throw DBException("Cannot perform  - time has not advanced");
+    }
+
+    CollectionBuffer buffer(all_collection_data_);
+    for (auto& collection : collections_) {
+        collection->collect(buffer);
+    }
+
+    timestamp_->captureCurrentTime();
+
+    if (compression_enabled_) {
+        compressDataVec(all_collection_data_, all_compressed_data_);
+
+        std::unique_ptr<WorkerTask> task(new CollectableSerializer(
+            db_mgr_, timestamp_.get(), all_compressed_data_, true));
+
+        db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
+    } else {
+        std::unique_ptr<WorkerTask> task(new CollectableSerializer(
+            db_mgr_, timestamp_.get(), all_collection_data_, false));
+
+        db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
+    }
 }
 
 } // namespace simdb3

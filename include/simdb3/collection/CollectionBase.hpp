@@ -7,6 +7,7 @@
 #include "simdb3/schema/SchemaDef.hpp"
 #include "simdb3/utils/StringMap.hpp"
 #include "simdb3/utils/TreeBuilder.hpp"
+#include "simdb3/utils/Compress.hpp"
 
 #include <fstream>
 #include <functional>
@@ -29,6 +30,44 @@ enum class Format
 };
 
 /*!
+ * \class CollectionBuffer
+ *
+ * \brief A helper class to allow collections to write their data
+ *        to a single buffer before sending it to the background
+ *        thread for database insertion. We pack everything into
+ *        one buffer to minimize the number of entries we have in
+ *        the database, and to get maximum compression.
+ */
+class CollectionBuffer
+{
+public:
+    CollectionBuffer(std::vector<char> &all_collection_data)
+        : all_collection_data_(all_collection_data)
+    {
+        all_collection_data_.clear();
+        all_collection_data_.reserve(all_collection_data_.capacity());
+    }
+
+    void writeHeader(uint16_t collection_id, uint16_t num_elems)
+    {
+        all_collection_data_.resize(all_collection_data_.size() + 2 * sizeof(uint16_t));
+        auto dest = all_collection_data_.data() + all_collection_data_.size() - 2 * sizeof(uint16_t);
+        memcpy(dest, &collection_id, sizeof(uint16_t));
+        memcpy(dest + sizeof(uint16_t), &num_elems, sizeof(uint16_t));
+    }
+
+    void writeBytes(const void* data, size_t num_bytes)
+    {
+        all_collection_data_.resize(all_collection_data_.size() + num_bytes);
+        auto dest = all_collection_data_.data() + all_collection_data_.size() - num_bytes;
+        memcpy(dest, data, num_bytes);
+    }
+
+private:
+    std::vector<char> &all_collection_data_;
+};
+
+/*!
  * \class CollectionBase
  *
  * \brief Base class for all collection classes.
@@ -47,7 +86,7 @@ public:
 
     /// Collect all values in this collection into one data vector
     /// and write the values to the database.
-    virtual void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) = 0;
+    virtual void collect(CollectionBuffer& buffer) = 0;
 
     /// Allow the Collections class to verify that all simulator paths
     /// across all collections are unique.
@@ -185,11 +224,10 @@ public:
             .addColumn("SimPath", dt::string_t);
 
         schema.addTable("CollectionData")
-            .addColumn("CollectionID", dt::int32_t)
             .addColumn("TimeVal", timestamp_->getDataType())
             .addColumn("DataVals", dt::blob_t)
-            .addColumn("NumElems", dt::int32_t)
-            .createCompoundIndexOn({"CollectionID", "TimeVal"});
+            .addColumn("IsCompressed", dt::int32_t)
+            .createIndexOn("TimeVal");
 
         schema.addTable("StructFields")
             .addColumn("CollectionName", dt::string_t)
@@ -272,15 +310,12 @@ public:
 
     /// Called manually during simulation to trigger automatic collection
     /// of all collections.
-    void collectAll()
+    void collectAll();
+
+    /// Enable/disable compression of the collected data.
+    void enableCompression(bool enable)
     {
-        if (!timestamp_->ensureTimeHasAdvanced()) {
-            throw DBException("Cannot perform  - time has not advanced");
-        }
-        for (auto& collection : collections_) {
-            collection->collect(db_mgr_, timestamp_.get());
-        }
-        timestamp_->captureCurrentTime();
+        compression_enabled_ = enable;
     }
 
 private:
@@ -365,6 +400,17 @@ private:
 
     /// All clocks associated with specific collectable elements (location -> clock name).
     std::unordered_map<std::string, std::string> clks_by_location_;
+
+    /// Single buffer to hold onto all collected data for all collections. Held as a member
+    /// variable so we can avoid re-allocating this buffer every time we collect all collections.
+    std::vector<char> all_collection_data_;
+
+    /// Single buffer to hold onto all compressed data for all collections. Held as a member
+    /// variable so we can avoid re-allocating this buffer every time we collect all collections.
+    std::vector<char> all_compressed_data_;
+
+    /// Flag to enable/disable compression of the collected data.
+    bool compression_enabled_ = true;
 
     friend class DatabaseManager;
 };
