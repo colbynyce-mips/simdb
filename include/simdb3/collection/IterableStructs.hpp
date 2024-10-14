@@ -60,12 +60,8 @@ public:
     ///          the form "abc123-def456").
     void addContainer(const std::string& container_path, const ContainerT* container_ptr, size_t capacity, const std::string& clk_name = "")
     {
-        if (!containers_.empty()) {
-            throw DBException("Cannot add more than one container to an IterableStructCollection");
-        }
-
         validatePath_(container_path);
-        containers_.emplace_back(container_ptr, container_path, capacity, clk_name);
+        container_ = std::make_tuple(container_ptr, container_path, capacity, clk_name);
     }
 
     /// Get the name of this collection.
@@ -84,28 +80,25 @@ public:
 
         serializeElementTree(db_mgr, root);
 
-        auto record = db_mgr->INSERT(SQL_TABLE("Collections"),
-                                     SQL_COLUMNS("Name", "DataType", "IsContainer"),
-                                     SQL_VALUES(name_, meta_serializer_.getStructName(), 1));
+        auto record1 = db_mgr->INSERT(SQL_TABLE("Collections"),
+                                      SQL_COLUMNS("Name", "DataType", "IsContainer"),
+                                      SQL_VALUES(name_, meta_serializer_.getStructName(), 1));
 
-        collection_pkey_ = record->getId();
+        collection_pkey_ = record1->getId();
         auto struct_num_bytes = meta_serializer_.getStructNumBytes();
 
-        for (const auto& tup : containers_) {
-            auto record = db_mgr->INSERT(SQL_TABLE("CollectionElems"),
-                                         SQL_COLUMNS("CollectionID", "SimPath"),
-                                         SQL_VALUES(collection_pkey_, std::get<1>(tup)));
+        auto record2 = db_mgr->INSERT(SQL_TABLE("CollectionElems"),
+                                      SQL_COLUMNS("CollectionID", "SimPath"),
+                                      SQL_VALUES(collection_pkey_, std::get<1>(container_)));
 
-            auto path_id = record->getId();
-            auto capacity = std::get<2>(tup);
-            auto is_sparse = Sparse ? 1 : 0;
+        auto path_id = record2->getId();
+        auto capacity = std::get<2>(container_);
+        auto is_sparse = Sparse ? 1 : 0;
 
-            db_mgr->INSERT(SQL_TABLE("ContainerMeta"),
-                           SQL_COLUMNS("PathID", "Capacity", "IsSparse"),
-                           SQL_VALUES(path_id, capacity, is_sparse));
-        }
+        db_mgr->INSERT(SQL_TABLE("ContainerMeta"),
+                       SQL_COLUMNS("PathID", "Capacity", "IsSparse"),
+                       SQL_VALUES(path_id, capacity, is_sparse));
 
-        struct_num_bytes_ = struct_num_bytes;
         meta_serializer_.writeMetadata(db_mgr, getName());
         blob_serializer_ = meta_serializer_.createBlobSerializer();
         finalized_ = true;
@@ -115,75 +108,77 @@ public:
     ///         per container) and write them to the database.
     ///
     /// \throws Throws an exception if finalize() was not already called first.
-    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) override
+    void collect(CollectionBuffer& buffer) override
     {
         if (!finalized_) {
             throw DBException("Cannot call collect() on a collection before calling finalize()");
         }
 
-        for (const auto& tup : containers_) {
-            const ContainerT* container = std::get<0>(tup);
-            std::vector<std::unique_ptr<StructT>> container_structs;
+        auto sparse_array_type = std::integral_constant<bool, Sparse>{};
+        collect_(buffer, sparse_array_type);
+    }
 
-            auto size = container->size();
-            auto container_bytes = size * struct_num_bytes_;
-            container_blob_.resize(container_bytes);
+    /// \brief Collect all containers in this collection (sparse version).
+    void collect_(CollectionBuffer& buffer, std::true_type) {
+        const ContainerT* container = std::get<0>(container_);
+        auto itr = container->begin();
+        auto eitr = container->end();
+        uint16_t num_valid = 0;
 
-            if (Sparse) {
-                const auto capacity = std::get<2>(tup);
-                sparse_container_valid_flags_.resize(capacity);
-                std::fill(sparse_container_valid_flags_.begin(), sparse_container_valid_flags_.end(), 0);
+        while (itr != eitr) {
+            if (checkValid_(itr)) {
+                ++num_valid;
             }
+            ++itr;
+        }
 
-            char *dest = container_blob_.data();
-            size_t num_structs_written = 0;
+        if (num_valid == 0) {
+            return;
+        }
 
-            size_t container_idx = 0;
-            auto itr = container->begin();
-            auto eitr = container->end();
-            auto sparse_array_type = std::integral_constant<bool, Sparse>{};
-            while (itr != eitr) {
-                if (checkValid_(itr, sparse_array_type) && writeStruct_(*itr, dest)) {
-                    ++num_structs_written;
-                    if (Sparse) {
-                        sparse_container_valid_flags_[container_idx] = 1;
-                    }
-                } else if (!Sparse) {
-                    container_blob_.resize(num_structs_written);
-                    break;
-                } else {
-                    sparse_container_valid_flags_[container_idx] = 0;
-                }
+        buffer.writeHeader(collection_pkey_, num_valid);
 
-                ++container_idx;
-                ++itr;
+        uint16_t bucket_idx = 0;
+        itr = container->begin();
+        while (itr != eitr) {
+            if (checkValid_(itr)) {
+                writeStruct_(*itr, buffer, bucket_idx);
             }
+            ++itr;
+            ++bucket_idx;
+        }
+    }
 
-            std::unique_ptr<WorkerTask> task(new IterableStructSerializer<char>(
-                db_mgr, collection_pkey_, timestamp, container_blob_, sparse_container_valid_flags_, num_structs_written));
+    /// \brief Collect all containers in this collection (non-sparse version).
+    void collect_(CollectionBuffer& buffer, std::false_type) {
+        const ContainerT* container = std::get<0>(container_);
+        auto size = container->size();
+        if (size == 0) {
+            return;
+        }
 
-            db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
+        buffer.writeHeader(collection_pkey_, size);
+        auto itr = container->begin();
+        auto eitr = container->end();
+        while (itr != eitr) {
+            writeStruct_(*itr, buffer, -1);
+            ++itr;
         }
     }
 
 private:
     template <typename container_t = ContainerT>
-    typename std::enable_if<is_std_vector<container_t>::value, bool>::type
-    checkValid_(typename container_t::const_iterator itr, std::true_type)
+    typename std::enable_if<Sparse && is_std_vector<container_t>::value, bool>::type
+    checkValid_(typename container_t::const_iterator itr)
     {
         return *itr != nullptr;
     }
 
     template <typename container_t = ContainerT>
-    typename std::enable_if<!is_std_vector<container_t>::value, bool>::type
-    checkValid_(typename container_t::const_iterator itr, std::true_type)
+    typename std::enable_if<Sparse && !is_std_vector<container_t>::value, bool>::type
+    checkValid_(typename container_t::const_iterator itr)
     {
         return itr.isValid();
-    }
-
-    bool checkValid_(typename ContainerT::const_iterator itr, std::false_type)
-    {
-        return true;
     }
 
     template <typename S=StructT>
@@ -202,32 +197,30 @@ private:
 
     template <typename ElemT>
     typename std::enable_if<MetaStruct::is_any_pointer<ElemT>::value, bool>::type
-    writeStruct_(const ElemT& el, char*& dest)
+    writeStruct_(const ElemT& el, CollectionBuffer& buffer, uint16_t bucket_idx)
     {
         if (el) {
-            return writeStruct_(*el, dest);
-        } else {
-            dest += struct_num_bytes_;
-            return false;
+            return writeStruct_(*el, buffer, bucket_idx);
         }
+        return false;
     }
 
     template <typename ElemT>
     typename std::enable_if<!MetaStruct::is_any_pointer<ElemT>::value, bool>::type
-    writeStruct_(const ElemT& el, char*& dest)
+    writeStruct_(const ElemT& el, CollectionBuffer& buffer, uint16_t bucket_idx)
     {
-        blob_serializer_->writeStruct(&el, dest);
+        if (Sparse) {
+            buffer.writeBytes(&bucket_idx, sizeof(uint16_t));
+        }
+        blob_serializer_->writeStruct(&el, buffer);
         return true;
     }
 
     /// Name of this collection. Serialized to the database.
     std::string name_;
 
-    /// All the containers' backpointers, their paths, their capacities, and their clock names.
-    std::vector<std::tuple<const ContainerT*, std::string, size_t, std::string>> containers_;
-
-    /// Size of one struct when serialized to raw bytes.
-    size_t struct_num_bytes_ = 0;
+    /// Container backpointer, its path, its capacity, and its clock name.
+    std::tuple<const ContainerT*, std::string, size_t, std::string> container_;
 
     /// Our primary key in the Collections table.
     int collection_pkey_ = -1;
@@ -237,15 +230,6 @@ private:
 
     /// Serializer to pack all struct data into a blob.
     std::unique_ptr<StructBlobSerializer> blob_serializer_;
-
-    /// All raw bytes for one struct in one container. Reused over and over 
-    /// throughout collection without reallocating.
-    std::vector<char> container_blob_;
-
-    /// Mask of valid/invalid flags for one container:
-    ///    container:  {a*, b*, nullptr, d*}
-    ///    sparse_container_valid_flags_: {1,1,0,1}
-    std::vector<int> sparse_container_valid_flags_;
 };
 
 } // namespace simdb3

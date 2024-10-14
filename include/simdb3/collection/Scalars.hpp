@@ -4,7 +4,6 @@
 
 #include "simdb3/async/AsyncTaskQueue.hpp"
 #include "simdb3/collection/CollectionBase.hpp"
-#include "simdb3/collection/BlobSerializer.hpp"
 #include "simdb3/sqlite/DatabaseManager.hpp"
 #include "simdb3/utils/Compress.hpp"
 #include "simdb3/utils/TreeSerializer.hpp"
@@ -166,24 +165,18 @@ public:
     ///         and write the values to the database.
     ///
     /// \throws Throws an exception if finalize() was not already called first.
-    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) override
+    void collect(CollectionBuffer& buffer) override
     {
         if (!finalized_) {
             throw DBException("Cannot call collect() on a collection before calling finalize()");
         }
 
-        stats_values_.reserve(stats_.size());
-        stats_values_.clear();
-
+        buffer.writeHeader(collection_pkey_, stats_.size());
         for (const auto& pair : stats_) {
             const auto& stat = pair.first;
-            stats_values_.push_back(stat.getValue());
+            auto stat_value = stat.getValue();
+            buffer.writeBytes(&stat_value, sizeof(DataT));
         }
-
-        std::unique_ptr<WorkerTask> task(new CollectableSerializer<DataT>(
-            db_mgr, collection_pkey_, timestamp, stats_values_, stats_.size()));
-
-        db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
     }
 
 private:
@@ -226,12 +219,6 @@ private:
 
     /// All the stats in this collection together with their clock names.
     std::vector<std::pair<Stat<DataT>, std::string>> stats_;
-
-    /// All the stats' values in one vector. Held in a member variable
-    /// so we do not reallocate these (potentially large) vectors with
-    /// every call to collect(), which can be called very many times
-    /// during the simulation.
-    std::vector<DataT> stats_values_;
 
     /// Our primary key in the Collections table.
     int collection_pkey_ = -1;

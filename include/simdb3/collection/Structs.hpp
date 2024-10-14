@@ -4,7 +4,6 @@
 
 #include "simdb3/async/AsyncTaskQueue.hpp"
 #include "simdb3/collection/CollectionBase.hpp"
-#include "simdb3/collection/BlobSerializer.hpp"
 #include "simdb3/sqlite/DatabaseManager.hpp"
 #include "simdb3/utils/MetaStructs.hpp"
 #include "simdb3/utils/TreeSerializer.hpp"
@@ -329,9 +328,9 @@ template <typename StructT>
 class StructFieldSerializer
 {
 public:
-    StructFieldSerializer(const std::vector<std::unique_ptr<FieldBase>>& fields, char*& dest)
+    StructFieldSerializer(const std::vector<std::unique_ptr<FieldBase>>& fields, CollectionBuffer& buffer)
         : fields_(fields)
-        , dest_(dest)
+        , buffer_(buffer)
     {
     }
 
@@ -351,8 +350,7 @@ public:
             throw DBException("Data type mismatch in writing struct field");
         }
 
-        memcpy(dest_, &val, num_bytes);
-        dest_ += num_bytes;
+        buffer_.writeBytes(&val, num_bytes);
         ++current_field_idx_;
     }
 
@@ -382,7 +380,7 @@ public:
 private:
     const std::vector<std::unique_ptr<FieldBase>>& fields_;
     size_t current_field_idx_ = 0;
-    char*& dest_;
+    CollectionBuffer& buffer_;
 };
 
 class StructBlobSerializer
@@ -394,9 +392,9 @@ public:
     }
 
     template <typename StructT>
-    void writeStruct(const StructT* s, char*& dest) const
+    void writeStruct(const StructT* s, CollectionBuffer& buffer) const
     {
-        StructFieldSerializer<StructT> field_serializer(fields_, dest);
+        StructFieldSerializer<StructT> field_serializer(fields_, buffer);
         field_serializer.writeFields(s);
     }
 
@@ -584,10 +582,6 @@ public:
                            SQL_VALUES(collection_pkey_, std::get<1>(tup)));
         }
 
-        auto struct_num_bytes = meta_serializer_.getStructNumBytes();
-        auto total_num_bytes = struct_num_bytes * structs_.size();
-        structs_blob_.resize(total_num_bytes);
-
         meta_serializer_.writeMetadata(db_mgr, getName());
         blob_serializer_ = meta_serializer_.createBlobSerializer();
         finalized_ = true;
@@ -597,39 +591,34 @@ public:
     ///         and write the blob to the database.
     ///
     /// \throws Throws an exception if finalize() was not already called first.
-    void collect(DatabaseManager* db_mgr, const TimestampBase* timestamp) override
+    void collect(CollectionBuffer& buffer) override
     {
         if (!finalized_) {
             throw DBException("Cannot call collect() on a collection before calling finalize()");
         }
 
-        char* dest = structs_blob_.data();
+        buffer.writeHeader(collection_pkey_, structs_.size());
         for (const auto& tup : structs_) {
             const UnderlyingStructT *container = std::get<0>(tup);
-            writeStruct_(container, dest);
+            writeStruct_(container, buffer);
         }
-
-        std::unique_ptr<WorkerTask> task(new CollectableSerializer<char>(
-            db_mgr, collection_pkey_, timestamp, structs_blob_, structs_.size()));
-
-        db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
     }
 
 private:
     template <typename S=UnderlyingStructT>
     typename std::enable_if<MetaStruct::is_any_pointer<S>::value, void>::type
-    writeStruct_(const S s, char*& dest)
+    writeStruct_(const S s, CollectionBuffer& buffer)
     {
         if (s) {
-            writeStruct_(*s, dest);            
+            writeStruct_(*s, buffer);            
         }
     }
 
     template <typename S=UnderlyingStructT>
     typename std::enable_if<!MetaStruct::is_any_pointer<S>::value, void>::type
-    writeStruct_(const S& s, char*& dest)
+    writeStruct_(const S& s, CollectionBuffer& buffer)
     {
-        blob_serializer_->writeStruct(&s, dest);
+        blob_serializer_->writeStruct(&s, buffer);
     }
 
     /// Name of this collection. Serialized to the database.
@@ -646,12 +635,6 @@ private:
 
     /// Serializer to pack all struct data into a blob.
     std::unique_ptr<StructBlobSerializer> blob_serializer_;
-
-    /// All the structs' values in one vector. Held in a member variable
-    /// so we do not reallocate these (potentially large) vectors with
-    /// every call to collect(), which can be called very many times
-    /// during the simulation.
-    std::vector<char> structs_blob_;
 };
 
 } // namespace simdb3
