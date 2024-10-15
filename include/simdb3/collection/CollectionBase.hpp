@@ -82,7 +82,7 @@ public:
     virtual std::string getName() const = 0;
 
     /// Write metadata about this collection to the database.
-    virtual void finalize(DatabaseManager* db_mgr, TreeNode* root) = 0;
+    virtual void finalize(DatabaseManager* db_mgr, TreeNode* root, size_t heartbeat) = 0;
 
     /// Collect all values in this collection into one data vector
     /// and write the values to the database.
@@ -201,6 +201,21 @@ public:
         timestamp_ = new_timestamp;
     }
 
+    /// Set the heartbeat for all collections. This is the max number of cycles
+    /// that we employ the optimization "only write to the database if the collected
+    /// data is different from the last collected data". This prevents Argos from
+    /// having to go back more than N cycles to find the last known value.
+    void setHeartbeat(size_t heartbeat)
+    {
+        pipeline_heartbeat_ = heartbeat;
+    }
+
+    /// Get the heartbeat for all collections.
+    size_t getHeartbeat() const
+    {
+        return pipeline_heartbeat_;
+    }
+
     /// Populate the schema with the appropriate tables for all the
     /// collections. Must be called after useTimestampsFrom().
     void defineSchema(Schema& schema) const
@@ -212,7 +227,9 @@ public:
         using dt = SqlDataType;
 
         schema.addTable("CollectionGlobals")
-            .addColumn("TimeType", dt::string_t);
+            .addColumn("TimeType", dt::string_t)
+            .addColumn("Heartbeat", dt::int32_t)
+            .setColumnDefaultValue("Heartbeat", 5);
 
         schema.addTable("Collections")
             .addColumn("Name", dt::string_t)
@@ -384,6 +401,12 @@ private:
     /// a user-provided backpointer or a function pointer that can get a timestamp
     /// in either 32/64-bit integers or as floating-point values.
     TimestampPtr timestamp_;
+
+    /// The max number of cycles that we employ the optimization "only write to the
+    /// database if the collected data is different from the last collected data".
+    /// This prevents Argos from having to go back more than N cycles to find the
+    /// last known value.
+    size_t pipeline_heartbeat_ = 5;
 
     /// Quick lookup to ensure that element paths are all unique.
     std::unordered_set<std::string> element_paths_;

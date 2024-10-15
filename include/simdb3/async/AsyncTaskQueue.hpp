@@ -30,6 +30,13 @@ public:
 
     /// \brief Called when this task's turn is up on the worker thread.
     virtual void completeTask() = 0;
+
+    /// \brief Get the size of this task in bytes. This is used
+    ///        to track the total size of the queue in the AsyncTaskQueue.
+    virtual size_t sizeInBytes() const
+    {
+        return 0;
+    }
 };
 
 /*!
@@ -136,6 +143,7 @@ public:
             return concurrent_queue_.size();
         }
 
+        queue_size_bytes_ += task->sizeInBytes();
         concurrent_queue_.emplace(task.release());
 
         if (!timed_eval_.isRunning()) {
@@ -145,6 +153,10 @@ public:
             }
             timed_eval_.start();
             threadRunning() = true;
+        }
+
+        if (auto_flush_mb_ > 0 && queue_size_bytes_ >= auto_flush_mb_ * 1024 * 1024) {
+            flushQueue();
         }
 
         return concurrent_queue_.size();
@@ -164,8 +176,22 @@ public:
                 wrote_to_db = true;
                 task->completeTask();
             }
+            queue_size_bytes_ = 0;
             return wrote_to_db;
         });
+    }
+
+    /// \brief Tell this task queue to automatically flush the queue
+    ///        to the database every time the queue reaches the given
+    ///        size in MB.
+    bool enableAutoFlush(const size_t flush_MB)
+    {
+        if (auto_flush_mb_ != flush_MB) {
+            auto_flush_mb_ = flush_MB;
+            return true;
+        }
+
+        return false;
     }
 
     /// \brief   Reroute all future tasks from calls to addTask() to the provided
@@ -281,6 +307,12 @@ private:
 
     /// Destination for rerouted tasks.
     std::function<void(std::unique_ptr<WorkerTask>)> new_task_destination_;
+
+    /// Size in MB at which to automatically flush the queue to the database.
+    size_t auto_flush_mb_ = 0;
+
+    /// Approximate size of the queue in bytes.
+    size_t queue_size_bytes_ = 0;
 
     /// Creating one of these directly is only for SQLiteConnection.
     /// Access via SQLiteConnection::getTaskQueue().

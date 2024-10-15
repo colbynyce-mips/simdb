@@ -72,7 +72,7 @@ public:
 
     /// \brief  Write metadata about this collection to the database.
     /// \throws Throws an exception if called more than once.
-    void finalize(DatabaseManager* db_mgr, TreeNode* root) override
+    void finalize(DatabaseManager* db_mgr, TreeNode* root, size_t heartbeat) override
     {
         if (finalized_) {
             throw DBException("Cannot call finalize() on a collection more than once");
@@ -100,6 +100,7 @@ public:
 
         meta_serializer_.writeMetadata(db_mgr, getName());
         blob_serializer_ = meta_serializer_.createBlobSerializer();
+        pipeline_heartbeat_ = heartbeat;
         finalized_ = true;
     }
 
@@ -117,6 +118,7 @@ public:
         collect_(buffer, sparse_array_type);
     }
 
+private:
     /// \brief Collect all containers in this collection (sparse version).
     void collect_(CollectionBuffer& buffer, std::true_type) {
         const ContainerT* container = std::get<0>(container_);
@@ -132,23 +134,28 @@ public:
                 }
                 ++itr;
             }
-
-            if (num_valid == 0) {
-                return;
-            }
         }
 
-        buffer.writeHeader(collection_pkey_, num_valid);
+        CollectionBuffer current_container_buffer(current_container_data_);
+        current_container_buffer.writeHeader(collection_pkey_, num_valid);
 
         uint16_t bucket_idx = 0;
         auto itr = container->begin();
         auto eitr = container->end();
         while (itr != eitr) {
             if (checkValid_(itr)) {
-                writeStruct_(*itr, buffer, bucket_idx);
+                writeStruct_(*itr, current_container_buffer, bucket_idx);
             }
             ++itr;
             ++bucket_idx;
+        }
+
+        if (current_container_data_ != prev_container_data_ || num_carry_forward_unchanged_ == pipeline_heartbeat_) {
+            buffer.writeBytes(current_container_data_.data(), current_container_data_.size());
+            prev_container_data_ = current_container_data_;
+            num_carry_forward_unchanged_ = 0;
+        } else {
+            ++num_carry_forward_unchanged_;
         }
     }
 
@@ -156,20 +163,29 @@ public:
     void collect_(CollectionBuffer& buffer, std::false_type) {
         const ContainerT* container = std::get<0>(container_);
         auto size = container->size();
-        if (size == 0) {
-            return;
-        }
 
-        buffer.writeHeader(collection_pkey_, size);
+        CollectionBuffer current_container_buffer(current_container_data_);
+        current_container_buffer.writeHeader(collection_pkey_, size);
+
         auto itr = container->begin();
         auto eitr = container->end();
+        size_t bucket_idx = 0;
+
         while (itr != eitr) {
-            writeStruct_(*itr, buffer, -1);
+            writeStruct_(*itr, current_container_buffer, bucket_idx);
             ++itr;
+            ++bucket_idx;
+        }
+
+        if (current_container_data_ != prev_container_data_ || num_carry_forward_unchanged_ == pipeline_heartbeat_) {
+            buffer.writeBytes(current_container_data_.data(), current_container_data_.size());
+            prev_container_data_ = current_container_data_;
+            num_carry_forward_unchanged_ = 0;
+        } else {
+            ++num_carry_forward_unchanged_;
         }
     }
 
-private:
     template <typename container_t = ContainerT>
     typename std::enable_if<Sparse && is_std_vector<container_t>::value, bool>::type
     checkValid_(typename container_t::const_iterator itr)
@@ -215,6 +231,7 @@ private:
         if (Sparse) {
             buffer.writeBytes(&bucket_idx, sizeof(uint16_t));
         }
+
         blob_serializer_->writeStruct(&el, buffer);
         return true;
     }
@@ -233,6 +250,26 @@ private:
 
     /// Serializer to pack all struct data into a blob.
     std::unique_ptr<StructBlobSerializer> blob_serializer_;
+
+    /// Previous container data. This is used so we can diff the current container
+    /// data with the previous container data and only write to the database if they
+    /// are different. Note that even if they are the same, we still periodically
+    /// force a write to the database to prevent Argos from having to go back more
+    /// than N cycles to find the last known value.
+    std::vector<char> prev_container_data_;
+
+    /// Hold onto a reusable data vector to avoid reallocating it every time.
+    std::vector<char> current_container_data_;
+
+    /// The heartbeat interval for this collection. This is the max number of collection
+    /// cycles that can pass before we force a write to the database, even if the data
+    /// hasn't changed.
+    size_t pipeline_heartbeat_ = 5;
+
+    /// Number of times we have carried forward the current container data without
+    /// writing it to the database. This is used together with the heartbeat to 
+    /// determine when to force a write to the database.
+    size_t num_carry_forward_unchanged_ = 0;
 };
 
 } // namespace simdb3

@@ -398,6 +398,13 @@ public:
         field_serializer.writeFields(s);
     }
 
+    template <typename StructT>
+    void extract(const StructT* s, std::vector<char>& bytes) const
+    {
+        CollectionBuffer buffer(bytes);
+        writeStruct(s, buffer);
+    }
+
 private:
     std::vector<std::unique_ptr<FieldBase>> fields_;
 };
@@ -562,7 +569,7 @@ public:
 
     /// \brief  Write metadata about this collection to the database.
     /// \throws Throws an exception if called more than once.
-    void finalize(DatabaseManager* db_mgr, TreeNode* root) override
+    void finalize(DatabaseManager* db_mgr, TreeNode* root, size_t) override
     {
         if (finalized_) {
             throw DBException("Cannot call finalize() on a collection more than once");

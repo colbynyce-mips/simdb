@@ -179,7 +179,7 @@ public:
             time_type = "INT";
         }
 
-        INSERT(SQL_TABLE("CollectionGlobals"), SQL_COLUMNS("TimeType"), SQL_VALUES(time_type));
+        INSERT(SQL_TABLE("CollectionGlobals"), SQL_COLUMNS("TimeType", "Heartbeat"), SQL_VALUES(time_type, (int)collections_->getHeartbeat()));
     }
 
     /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
@@ -511,6 +511,13 @@ public:
         }
     }
 
+    /// Get the size of this task in bytes. This is used to track the total
+    /// size of the queue in the AsyncTaskQueue.
+    size_t sizeInBytes() const override
+    {
+        return data_.size();
+    }
+
 private:
     /// DatabaseManager used for INSERT().
     DatabaseManager* db_mgr_;
@@ -531,7 +538,7 @@ inline void Collections::finalizeCollections_()
     db_conn_->safeTransaction([&]() {
         auto root = createElementTree_();
         for (auto& collection : collections_) {
-            collection->finalize(db_mgr_, root.get());
+            collection->finalize(db_mgr_, root.get(), pipeline_heartbeat_);
             root.reset();
         }
 
@@ -573,24 +580,22 @@ inline void Collections::collectAll()
         // level too soon. We want to give the worker thread a chance to catch up.
         num_tasks_highwater_mark_ = 5;
     } else if (task_count > num_tasks_highwater_mark_ && compression_level_ > 1) {
-        // Use exponential backoff to set the new threshold for lowering the compression again.
-        num_tasks_highwater_mark_ *= 2;
+        num_tasks_highwater_mark_ = task_count;
         ++num_times_highwater_mark_exceeded_;
         if (num_times_highwater_mark_exceeded_ >= 3) {
             std::cout << "SimDB collections worker thread is falling behind. Lowering compression level to "
                       << compression_level_ - 1 << std::endl;
             --compression_level_;
             num_times_highwater_mark_exceeded_ = 0;
+            num_tasks_highwater_mark_ = 0;
         }
     } else if (task_count > num_tasks_highwater_mark_) {
-        // We are falling behind, but we are already at the fastest compression level.
-        // Flush the queue in the main thread. Best we can do at this point other than
-        // disabling compression entirely which we really don't want to do.
-        std::cout << "SimDB collections is already at the fastest compression level, but the "
-                  << "worker thread is still not able to keep up. We have to flush the queue "
-                  << "in the main thread.\n";
-
-        db_mgr_->getConnection()->getTaskQueue()->flushQueue();
+        auto task_queue = db_mgr_->getConnection()->getTaskQueue();
+        if (task_queue->enableAutoFlush(100 * 1024 * 1024)) {
+            std::cout << "SimDB collections is already at the fastest compression level, but the "
+                      << "worker thread is still not able to keep up. The worker queue will be flushed "
+                      << "whenever the backlog consumes more than 100MB." << std::endl;
+        }
     }
 }
 
