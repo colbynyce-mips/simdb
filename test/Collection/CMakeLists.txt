@@ -1,4 +1,5 @@
 add_subdirectory(stats)
 add_subdirectory(structs)
 add_subdirectory(iterables)
+add_subdirectory(iterables_validity)
 add_subdirectory(all)

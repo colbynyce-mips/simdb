@@ -155,6 +155,8 @@ private:
             prev_container_data_ = current_container_data_;
             num_carry_forward_unchanged_ = 0;
         } else {
+            // We use UINT16_MAX to denote that the container data is unchanged.
+            buffer.writeHeader(collection_pkey_, UINT16_MAX);
             ++num_carry_forward_unchanged_;
         }
     }
@@ -182,6 +184,8 @@ private:
             prev_container_data_ = current_container_data_;
             num_carry_forward_unchanged_ = 0;
         } else {
+            // We use UINT16_MAX to denote that the container data is unchanged.
+            buffer.writeHeader(collection_pkey_, UINT16_MAX);
             ++num_carry_forward_unchanged_;
         }
     }

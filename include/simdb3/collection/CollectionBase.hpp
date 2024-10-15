@@ -216,6 +216,13 @@ public:
         return pipeline_heartbeat_;
     }
 
+    /// Set the compression level for all collections. This is the zlib compression
+    /// level, where 0 is no compression, 1 is fastest, and 9 is best compression.
+    void setCompressionLevel(int level)
+    {
+        compression_level_ = level;
+    }
+
     /// Populate the schema with the appropriate tables for all the
     /// collections. Must be called after useTimestampsFrom().
     void defineSchema(Schema& schema) const

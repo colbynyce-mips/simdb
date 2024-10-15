@@ -500,9 +500,9 @@ public:
     /// Asynchronously write the collection data to the database.
     void completeTask() override
     {
-        db_mgr_->INSERT(SQL_TABLE("CollectionData"),
-                        SQL_COLUMNS("TimeVal", "DataVals"),
-                        SQL_VALUES(timestamp_binder_, data_));
+        auto record = db_mgr_->INSERT(SQL_TABLE("CollectionData"),
+                                      SQL_COLUMNS("TimeVal", "DataVals"),
+                                      SQL_VALUES(timestamp_binder_, data_));
 
         for (const auto& kvp : unserialized_map_) {
             db_mgr_->INSERT(SQL_TABLE("StringMap"),
@@ -568,12 +568,20 @@ inline void Collections::collectAll()
 
     timestamp_->captureCurrentTime();
 
-    compressDataVec(all_collection_data_, all_compressed_data_, compression_level_);
+    size_t task_count = 0;
+    if (compression_level_ > 0) {
+        compressDataVec(all_collection_data_, all_compressed_data_, compression_level_);
 
-    std::unique_ptr<WorkerTask> task(new CollectableSerializer(
-        db_mgr_, timestamp_.get(), all_compressed_data_));
+        std::unique_ptr<WorkerTask> task(new CollectableSerializer(
+            db_mgr_, timestamp_.get(), all_compressed_data_));
 
-    auto task_count = db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
+        task_count = db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
+    } else {
+        std::unique_ptr<WorkerTask> task(new CollectableSerializer(
+            db_mgr_, timestamp_.get(), all_collection_data_));
+
+        task_count = db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
+    }
 
     if (num_tasks_highwater_mark_ == 0) {
         // Start with a highwater mark of 5 so we do not inadvertently lower the compression
