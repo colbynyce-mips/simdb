@@ -250,6 +250,7 @@ public:
         schema.addTable("CollectionData")
             .addColumn("TimeVal", timestamp_->getDataType())
             .addColumn("DataVals", dt::blob_t)
+            .addColumn("IsCompressed", dt::int32_t)
             .createIndexOn("TimeVal");
 
         schema.addTable("StructFields")
