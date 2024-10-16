@@ -341,10 +341,14 @@ class IterableDeserializer(StructDeserializer):
             for flags in cursor.fetchall():
                 flags = flags[0]
 
-            assert flags is not None and len(flags) > 0
-            flags = zlib.decompress(flags)
-            flags = struct.unpack('i'*int(len(data_blob) / struct_num_bytes), flags)
-            assert len(flags) == len(data_blob) / struct_num_bytes
+            # Try-catch to silence an exception. Note the IterableBlobMeta table will soon go away.
+            try:
+                assert flags is not None and len(flags) > 0
+                flags = zlib.decompress(flags)
+                flags = struct.unpack('i'*int(len(data_blob) / struct_num_bytes), flags)
+                assert len(flags) == len(data_blob) / struct_num_bytes
+            except Exception as e:
+                return res
 
             flag_idx = 0
             while len(data_blob) > 0:

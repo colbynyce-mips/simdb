@@ -50,7 +50,6 @@ class IterableUtiliz:
     def __init__(self, widget_renderer):
         self.widget_renderer = widget_renderer
         self._utiliz_pcts_by_sim_path = {}
-        self._cached_utiliz_tick = None
 
         cursor = self.widget_renderer.frame.db.cursor()
 
@@ -73,18 +72,16 @@ class IterableUtiliz:
             self._collection_ids_by_sim_path[simpath] = collection_id
             self._all_sim_paths.append(simpath)
 
-        self._utiliz_pcts_by_sim_path = None
-
     def GetCapacity(self, sim_path):
         return self._capacities_by_sim_path[sim_path]
 
     def GetUtilizPct(self, sim_path):
         self.__CacheUtilizValues()
-        return self._utiliz_pcts_by_sim_path[sim_path]
+        return self._utiliz_pcts_by_sim_path.get(sim_path, float('nan'))
 
     def GetUtilizColor(self, sim_path):
         self.__CacheUtilizValues()
-        utiliz_pct = self._utiliz_pcts_by_sim_path[sim_path]
+        utiliz_pct = self._utiliz_pcts_by_sim_path.get(sim_path, float('nan'))
         return self.__GetColorForUtilizPct(utiliz_pct)
     
     def ConvertUtilizPctToColor(self, utiliz_pct):
@@ -100,14 +97,9 @@ class IterableUtiliz:
         return image_list
 
     def __CacheUtilizValues(self):
-        if self._cached_utiliz_tick == self.widget_renderer.tick:
-            return
-
-        self._cached_utiliz_tick = self.widget_renderer.tick
-
         # We need to get the number of data elements in each simpath blob at this time step.
         cursor = self.widget_renderer.frame.db.cursor()
-        cmd = 'SELECT CollectionID,NumElems FROM CollectionData WHERE TimeVal={}'.format(self._cached_utiliz_tick)
+        cmd = 'SELECT CollectionID,NumElems FROM CollectionData WHERE TimeVal={}'.format(self.widget_renderer.tick)
 
         collection_ids = list(self._capacities_by_collection_id.keys())
         cmd += ' AND CollectionID IN ({})'.format(','.join(map(str, collection_ids)))

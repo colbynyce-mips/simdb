@@ -1,4 +1,5 @@
 import wx, wx.grid
+from collections.abc import Iterable
 
 class IterableStruct(wx.Panel):
     def __init__(self, parent, frame, elem_path):
@@ -44,14 +45,17 @@ class IterableStruct(wx.Panel):
         queue_data = self.frame.data_retriever.Unpack(self.elem_path, (tick,tick))
 
         self.__ClearGrid()
-        for idx, row_data in enumerate(queue_data['DataVals'][0]):
-            if row_data is None:
-                continue
 
-            for j, field_name in enumerate(self._field_names):
-                self.grid.SetCellValue(idx, j, str(row_data[field_name]))
+        if isinstance(queue_data['DataVals'][0], Iterable):
+            for idx, row_data in enumerate(queue_data['DataVals'][0]):
+                if row_data is None:
+                    continue
 
-        num_rows_shown = len(queue_data['DataVals'][0])
+                for j, field_name in enumerate(self._field_names):
+                    self.grid.SetCellValue(idx, j, str(row_data[field_name]))
+            num_rows_shown = len(queue_data['DataVals'][0])
+        else:
+            num_rows_shown = 0
 
         for i in range(num_rows_shown):
             self.grid.ShowRow(i)
