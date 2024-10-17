@@ -585,7 +585,7 @@ public:
 
         for (const auto& tup : structs_) {
             db_mgr->INSERT(SQL_TABLE("CollectionElems"),
-                           SQL_COLUMNS("CollectionID", "SimPath"),
+                           SQL_COLUMNS("CollectionID", "ElemPath"),
                            SQL_VALUES(collection_pkey_, std::get<1>(tup)));
         }
 

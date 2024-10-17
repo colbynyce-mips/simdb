@@ -551,7 +551,7 @@ inline void Collections::finalizeCollections_()
         }
 
         for (const auto& kvp : clks_by_location_) {
-            db_mgr_->INSERT(SQL_TABLE("ElementClocks"), SQL_COLUMNS("SimPath", "ClockName"), SQL_VALUES(kvp.first, kvp.second));
+            db_mgr_->INSERT(SQL_TABLE("ElementClocks"), SQL_COLUMNS("ElemPath", "ClockName"), SQL_VALUES(kvp.first, kvp.second));
         }
 
         return true;

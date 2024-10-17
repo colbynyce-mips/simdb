@@ -22,7 +22,7 @@ class Watchlist(wx.TreeCtrl):
     def GetWatchedSimElems(self):
         return self._watched_sim_elems
     
-    def GetItemSimPath(self, item):
+    def GetItemElemPath(self, item):
         if not item.IsOk():
             return None
 
@@ -53,13 +53,13 @@ class Watchlist(wx.TreeCtrl):
         self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
 
     def __UpdateUtilizBitmaps(self, item):
-        item_path = self.GetItemSimPath(item)
+        item_path = self.GetItemElemPath(item)
         if item_path is None:
             return
 
         if item_path in self._watched_sim_elems:
             simhier = self.frame.explorer.navtree.simhier
-            if item_path in simhier.GetContainerSimPaths():
+            if item_path in simhier.GetContainerElemPaths():
                 utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(item_path)
                 image_idx = int(utiliz_pct * 100)
                 self.SetItemImage(item, image_idx)
@@ -135,7 +135,7 @@ class Watchlist(wx.TreeCtrl):
                 self._undeletable_items.append(item)
 
             # Honor the same hierarchy as the NavTree
-            navtree_leaf_paths = self.frame.explorer.navtree.simhier.GetItemSimPaths()
+            navtree_leaf_paths = self.frame.explorer.navtree.simhier.GetItemElemPaths()
 
             for path in navtree_leaf_paths:
                 if path not in self._watched_sim_elems:
@@ -196,7 +196,7 @@ class Watchlist(wx.TreeCtrl):
         hier_view = menu.Append(-1, "Hierarchical View")
         self.Bind(wx.EVT_MENU, self.__RenderHierView, hier_view)
 
-        elem_path = self.GetItemSimPath(item)
+        elem_path = self.GetItemElemPath(item)
         if elem_path in self._watched_sim_elems:
             menu.AppendSeparator()
             remove_from_watchlist = menu.Append(-1, "Remove from Watchlist")
@@ -226,7 +226,7 @@ class Watchlist(wx.TreeCtrl):
         self.__RenderWatchlist()
 
     def __RecurseGetWatchedSimElems(self, item, watched_sim_elems):
-        item_path = self.GetItemSimPath(item)
+        item_path = self.GetItemElemPath(item)
         if item_path in self._watched_sim_elems:
             watched_sim_elems.append(item_path)
 

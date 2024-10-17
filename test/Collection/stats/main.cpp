@@ -192,7 +192,7 @@ public:
             query->select("CollectionID", collection_id);
 
             std::string stat_path;
-            query->select("SimPath", stat_path);
+            query->select("ElemPath", stat_path);
 
             auto result_set = query->getResultSet();
 
@@ -204,16 +204,16 @@ public:
             EXPECT_EQUAL(collection_id, 1);
             EXPECT_EQUAL(stat_path, "stats.num_insts_retired");
 
-            validateSimPaths_(result_set, collection_id, 2, "stats.rand_int8s.bin", stat_path, rand_int8s_);
-            validateSimPaths_(result_set, collection_id, 3, "stats.rand_int16s.bin", stat_path, rand_int16s_);
-            validateSimPaths_(result_set, collection_id, 4, "stats.rand_int32s.bin", stat_path, rand_int32s_);
-            validateSimPaths_(result_set, collection_id, 5, "stats.rand_int64s.bin", stat_path, rand_int64s_);
-            validateSimPaths_(result_set, collection_id, 6, "stats.rand_uint8s.bin", stat_path, rand_uint8s_);
-            validateSimPaths_(result_set, collection_id, 7, "stats.rand_uint16s.bin", stat_path, rand_uint16s_);
-            validateSimPaths_(result_set, collection_id, 8, "stats.rand_uint32s.bin", stat_path, rand_uint32s_);
-            validateSimPaths_(result_set, collection_id, 9, "stats.rand_uint64s.bin", stat_path, rand_uint64s_);
-            validateSimPaths_(result_set, collection_id, 10, "stats.rand_floats.bin", stat_path, rand_floats_);
-            validateSimPaths_(result_set, collection_id, 11, "stats.rand_doubles.bin", stat_path, rand_doubles_);
+            validateElemPaths_(result_set, collection_id, 2, "stats.rand_int8s.bin", stat_path, rand_int8s_);
+            validateElemPaths_(result_set, collection_id, 3, "stats.rand_int16s.bin", stat_path, rand_int16s_);
+            validateElemPaths_(result_set, collection_id, 4, "stats.rand_int32s.bin", stat_path, rand_int32s_);
+            validateElemPaths_(result_set, collection_id, 5, "stats.rand_int64s.bin", stat_path, rand_int64s_);
+            validateElemPaths_(result_set, collection_id, 6, "stats.rand_uint8s.bin", stat_path, rand_uint8s_);
+            validateElemPaths_(result_set, collection_id, 7, "stats.rand_uint16s.bin", stat_path, rand_uint16s_);
+            validateElemPaths_(result_set, collection_id, 8, "stats.rand_uint32s.bin", stat_path, rand_uint32s_);
+            validateElemPaths_(result_set, collection_id, 9, "stats.rand_uint64s.bin", stat_path, rand_uint64s_);
+            validateElemPaths_(result_set, collection_id, 10, "stats.rand_floats.bin", stat_path, rand_floats_);
+            validateElemPaths_(result_set, collection_id, 11, "stats.rand_doubles.bin", stat_path, rand_doubles_);
 
             EXPECT_FALSE(result_set.getNextRecord());
         }
@@ -336,7 +336,7 @@ private:
     }
 
     template <typename DataT>
-    void validateSimPaths_(simdb3::SqlResultIterator& result_set, int& actual_collection_id, const int expected_collection_id, const std::string& stat_path_prefix, std::string& actual_stat_path, const std::array<DataT, 10>& array)
+    void validateElemPaths_(simdb3::SqlResultIterator& result_set, int& actual_collection_id, const int expected_collection_id, const std::string& stat_path_prefix, std::string& actual_stat_path, const std::array<DataT, 10>& array)
     {
         for (size_t idx = 0; idx < array.size(); ++idx) {
             EXPECT_TRUE(result_set.getNextRecord());

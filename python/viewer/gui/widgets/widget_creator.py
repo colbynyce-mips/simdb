@@ -26,13 +26,13 @@ class WidgetCreator:
         elif widget_creation_key == 'Timeseries Viewer':
             return TimeseriesViewerWidget(widget_container, self.frame)
         elif widget_creation_key.find('$') != -1:
-            widget_name, sim_path = widget_creation_key.split('$')
+            widget_name, elem_path = widget_creation_key.split('$')
             if widget_name == 'ScalarStatistic':
-                return ScalarStatistic(widget_container, self.frame, sim_path)
+                return ScalarStatistic(widget_container, self.frame, elem_path)
             elif widget_name == 'ScalarStruct':
-                return ScalarStruct(widget_container, self.frame, sim_path)
+                return ScalarStruct(widget_container, self.frame, elem_path)
             elif widget_name == 'IterableStruct':
-                return IterableStruct(widget_container, self.frame, sim_path)
+                return IterableStruct(widget_container, self.frame, elem_path)
         else:
             raise ValueError(f"Unknown widget creation key: {widget_creation_key}")
 
@@ -48,15 +48,15 @@ class WidgetCreator:
         if tree.GetItemText(item_parent) == 'Systemwide Tools':
             widget_creation_str = tree.GetItemText(item)
         else:
-            sim_path = tree.GetItemSimPath(item)
+            elem_path = tree.GetItemElemPath(item)
             simhier = self.frame.explorer.navtree.simhier
 
-            if sim_path in simhier.GetScalarStatsSimPaths():
-                widget_creation_str = f'ScalarStatistic${sim_path}'
-            elif sim_path in simhier.GetScalarStructsSimPaths():
-                widget_creation_str = f'ScalarStruct${sim_path}'
-            elif sim_path in simhier.GetContainerSimPaths():
-                widget_creation_str = f'IterableStruct${sim_path}'
+            if elem_path in simhier.GetScalarStatsElemPaths():
+                widget_creation_str = f'ScalarStatistic${elem_path}'
+            elif elem_path in simhier.GetScalarStructsElemPaths():
+                widget_creation_str = f'ScalarStruct${elem_path}'
+            elif elem_path in simhier.GetContainerElemPaths():
+                widget_creation_str = f'IterableStruct${elem_path}'
 
         if widget_creation_str is None:
             event.Skip()

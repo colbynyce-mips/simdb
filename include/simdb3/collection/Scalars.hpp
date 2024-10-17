@@ -150,7 +150,7 @@ public:
             const auto& stat = pair.first;
 
             db_mgr->INSERT(SQL_TABLE("CollectionElems"),
-                           SQL_COLUMNS("CollectionID", "SimPath"),
+                           SQL_COLUMNS("CollectionID", "ElemPath"),
                            SQL_VALUES(collection_pkey_, stat.getPath()));
         }
 

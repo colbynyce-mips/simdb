@@ -6,8 +6,8 @@ class QueueUtilizWidget(wx.Panel):
         self.frame = frame
 
         # Get all container sim paths from the simhier
-        self.container_sim_paths = self.frame.simhier.GetContainerSimPaths()
-        self.container_sim_paths.sort()
+        self.container_elem_paths = self.frame.simhier.GetContainerElemPaths()
+        self.container_elem_paths.sort()
 
         # The layout of this widget is like a barchart:
         #
@@ -19,31 +19,31 @@ class QueueUtilizWidget(wx.Panel):
         #
         # Where the X's above are shown as a colored heatmap based on the
         # utilization percentage of each queue.
-        self._sim_path_text_elems = [wx.StaticText(self, label=sim_path) for sim_path in self.container_sim_paths]
-        self._utiliz_bars = [UtilizBar(self, frame) for _ in range(len(self.container_sim_paths))]
+        self._elem_path_text_boxes = [wx.StaticText(self, label=elem_path) for elem_path in self.container_elem_paths]
+        self._utiliz_bars = [UtilizBar(self, frame) for _ in range(len(self.container_elem_paths))]
 
         # Change the font to 10-point monospace.
         font = wx.Font(10, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        for elem in self._sim_path_text_elems:
+        for elem in self._elem_path_text_boxes:
             elem.SetFont(font)
 
         # Layout the widgets
         sizer = wx.FlexGridSizer(2, 0, 10)
         sizer.AddGrowableCol(1)
-        for sim_path, utiliz_bar in zip(self._sim_path_text_elems, self._utiliz_bars):
-            sizer.Add(sim_path, 1, wx.EXPAND)
+        for elem_path, utiliz_bar in zip(self._elem_path_text_boxes, self._utiliz_bars):
+            sizer.Add(elem_path, 1, wx.EXPAND)
             sizer.Add(utiliz_bar)
 
         self.SetSizer(sizer)
         self.Layout()
 
-        for text_elem in self._sim_path_text_elems:
+        for text_elem in self._elem_path_text_boxes:
             text_elem.Bind(wx.EVT_LEFT_DOWN, self.__OnSimElemInitDrag)
 
     def __OnSimElemInitDrag(self, event):
         text_elem = event.GetEventObject()
 
-        if text_elem in self._sim_path_text_elems:
+        if text_elem in self._elem_path_text_boxes:
             if text_elem.HasCapture():
                 text_elem.ReleaseMouse()
             else:
@@ -60,8 +60,8 @@ class QueueUtilizWidget(wx.Panel):
         return 'Queue Utilization'
 
     def UpdateWidgetData(self):
-        for sim_path, pct_bar in zip(self.container_sim_paths, self._utiliz_bars):
-            utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(sim_path)
+        for elem_path, pct_bar in zip(self.container_elem_paths, self._utiliz_bars):
+            utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(elem_path)
             pct_bar.UpdateUtilizPct(utiliz_pct)
 
 class UtilizBar(wx.Panel):

@@ -262,7 +262,7 @@ public:
 
         schema.addTable("CollectionElems")
             .addColumn("CollectionID", dt::int32_t)
-            .addColumn("SimPath", dt::string_t);
+            .addColumn("ElemPath", dt::string_t);
 
         schema.addTable("CollectionData")
             .addColumn("TimeVal", timestamp_->getDataType())
@@ -300,7 +300,7 @@ public:
             .addColumn("Period", dt::int32_t);
 
         schema.addTable("ElementClocks")
-            .addColumn("SimPath", dt::string_t)
+            .addColumn("ElemPath", dt::string_t)
             .addColumn("ClockName", dt::string_t);
     }
 

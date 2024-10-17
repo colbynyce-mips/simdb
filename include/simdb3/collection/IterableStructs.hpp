@@ -87,7 +87,7 @@ public:
         collection_pkey_ = record1->getId();
 
         auto record2 = db_mgr->INSERT(SQL_TABLE("CollectionElems"),
-                                      SQL_COLUMNS("CollectionID", "SimPath"),
+                                      SQL_COLUMNS("CollectionID", "ElemPath"),
                                       SQL_VALUES(collection_pkey_, std::get<1>(container_)));
 
         auto elem_id = record2->getId();
