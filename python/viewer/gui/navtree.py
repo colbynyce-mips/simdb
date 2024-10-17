@@ -1,4 +1,4 @@
-import wx
+import wx, os
 from functools import partial
 from viewer.model.simhier import SimHierarchy
 

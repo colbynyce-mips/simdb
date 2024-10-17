@@ -40,9 +40,12 @@ class WidgetCreator:
         tree = event.GetEventObject()
         item = event.GetItem()
         item_parent = tree.GetItemParent(item)
+        if not item_parent.IsOk():
+            event.Skip()
+            return
 
         widget_creation_str = None
-        if tree.GetItemText(item_parent) == 'Systemwide Tools' and tree.GetItemParent(item_parent) == tree.GetRootItem():
+        if tree.GetItemText(item_parent) == 'Systemwide Tools':
             widget_creation_str = tree.GetItemText(item)
         else:
             sim_path = tree.GetItemSimPath(item)
