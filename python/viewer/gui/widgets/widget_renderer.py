@@ -76,11 +76,11 @@ class IterableUtiliz:
         return self._capacities_by_sim_path[sim_path]
 
     def GetUtilizPct(self, sim_path):
-        #self.__CacheUtilizValues()
+        self.__CacheUtilizValues()
         return self._utiliz_pcts_by_sim_path.get(sim_path, 0)
 
     def GetUtilizColor(self, sim_path):
-        #self.__CacheUtilizValues()
+        self.__CacheUtilizValues()
         utiliz_pct = self._utiliz_pcts_by_sim_path.get(sim_path, 0)
         return self.__GetColorForUtilizPct(utiliz_pct)
     
@@ -98,16 +98,8 @@ class IterableUtiliz:
 
     def __CacheUtilizValues(self):
         # We need to get the number of data elements in each simpath blob at this time step.
-        cursor = self.widget_renderer.frame.db.cursor()
-        cmd = 'SELECT CollectionID,NumElems FROM CollectionData WHERE TimeVal={}'.format(self.widget_renderer.tick)
-
-        collection_ids = list(self._capacities_by_collection_id.keys())
-        cmd += ' AND CollectionID IN ({})'.format(','.join(map(str, collection_ids)))
-        cursor.execute(cmd)
-
-        queue_sizes_by_collection_id = {}
-        for collection_id,num_elems in cursor.fetchall():
-            queue_sizes_by_collection_id[collection_id] = num_elems
+        data_retriever = self.widget_renderer.frame.data_retriever
+        queue_sizes_by_collection_id = data_retriever.GetIterableSizesByCollectionID(self.widget_renderer.tick)
 
         self._utiliz_pcts_by_sim_path = {}
         for sim_path in self._all_sim_paths:

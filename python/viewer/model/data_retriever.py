@@ -1,4 +1,4 @@
-import zlib, struct, copy
+import zlib, struct, sys
 
 class DataRetriever:
     def __init__(self, db):
@@ -123,9 +123,66 @@ class DataRetriever:
             collection_id = collection_ids_by_path_id[path_id]
             self._is_sparse_by_collection_id[collection_id] = is_sparse
 
+        self._cached_utiliz_time_val = None
+        self._cached_utiliz_sizes = None
+
     def GetDeserializer(self, sim_path):
         collection_name = self._collection_names_by_simpath[sim_path]
         return self._deserializers_by_collection_name[collection_name]
+    
+    def GetIterableSizesByCollectionID(self, time_val):
+        if self._cached_utiliz_time_val is not None and time_val == self._cached_utiliz_time_val:
+            return self._cached_utiliz_sizes
+
+        ordered_sizes_by_collection_id = {}
+        cmd = 'SELECT DataVals,IsCompressed FROM CollectionData WHERE TimeVal<={} ORDER BY TimeVal DESC LIMIT {}'.format(time_val, self._heartbeat+1)
+        self.cursor.execute(cmd)
+
+        records = []
+        for record in self.cursor.fetchall():
+            records.append(record)
+
+        records.reverse()
+        for all_collections_blob,is_compressed in records:
+            if is_compressed:
+                all_collections_blob = zlib.decompress(all_collections_blob)
+
+            while len(all_collections_blob):
+                cid, size = struct.unpack('hh', all_collections_blob[:4])
+                all_collections_blob = all_collections_blob[4:]
+
+                collection_name = self._collection_names_by_collection_id[cid]
+                deserializer = self._deserializers_by_collection_name[collection_name]
+                elem_num_bytes = deserializer.GetNumBytes()
+
+                is_sparse = self._is_sparse_by_collection_id[cid]
+                if is_sparse:
+                    # This is to handle the extra 2 bytes holding the bucket index.
+                    # We only add this to each container element for sparse containers.
+                    elem_num_bytes += 2
+
+                if size == 65535:
+                    size = -1
+
+                sizes = ordered_sizes_by_collection_id.get(cid, [])
+                sizes.append(size)
+                ordered_sizes_by_collection_id[cid] = sizes
+
+                if size not in (-1,0):
+                    all_collections_blob = all_collections_blob[size*elem_num_bytes:]
+
+        for collection_id,sizes in ordered_sizes_by_collection_id.items():
+            for i in range(len(sizes)-1):
+                if sizes[i] != -1 and sizes[i+1] == -1:
+                    sizes[i+1] = sizes[i]
+
+        sizes_by_collection_id = {}
+        for collection_id,sizes in ordered_sizes_by_collection_id.items():
+            sizes_by_collection_id[collection_id] = sizes[-1]
+        
+        self._cached_utiliz_time_val = time_val
+        self._cached_utiliz_sizes = sizes_by_collection_id
+        return sizes_by_collection_id
 
     # Get all collected data for the given element by its path. These are the
     # same paths that were used in the original calls to addStat(), addStruct(),
