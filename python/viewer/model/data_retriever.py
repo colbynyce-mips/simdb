@@ -20,15 +20,15 @@ class DataRetriever:
                                          'IsContainer':is_container,
                                          'Elements':[]}
 
-        cursor.execute('SELECT PathID,Capacity,IsSparse FROM ContainerMeta')
+        cursor.execute('SELECT CollectionElemID,Capacity,IsSparse FROM ContainerMeta')
         container_meta_by_path_id = {}
-        for path_id,capacity,is_sparse in cursor.fetchall():
-            container_meta_by_path_id[path_id] = {'Capacity':capacity, 'IsSparse':is_sparse}
+        for elem_id,capacity,is_sparse in cursor.fetchall():
+            container_meta_by_path_id[elem_id] = {'Capacity':capacity, 'IsSparse':is_sparse}
 
         cursor.execute('SELECT Id,CollectionID,SimPath FROM CollectionElems')
         self._collection_names_by_simpath = {}
         self._collection_ids_by_simpath = {}
-        for path_id,collection_id,simpath in cursor.fetchall():
+        for elem_id,collection_id,simpath in cursor.fetchall():
             meta_by_collection_id[collection_id]['Elements'].append(simpath)
             self._collection_names_by_simpath[simpath] = self._collection_names_by_collection_id[collection_id]
             self._collection_ids_by_simpath[simpath] = collection_id
@@ -56,16 +56,16 @@ class DataRetriever:
         for collection_name in cursor.fetchall():
             container_collections.add(collection_name[0])
 
-        cursor.execute('SELECT PathID,Capacity,IsSparse FROM ContainerMeta')
+        cursor.execute('SELECT CollectionElemID,Capacity,IsSparse FROM ContainerMeta')
         container_meta_by_path_id = {}
-        for path_id,capacity,is_sparse in cursor.fetchall():
-            container_meta_by_path_id[path_id] = {'Capacity':capacity, 'IsSparse':is_sparse}
+        for elem_id,capacity,is_sparse in cursor.fetchall():
+            container_meta_by_path_id[elem_id] = {'Capacity':capacity, 'IsSparse':is_sparse}
 
         cursor.execute('SELECT Id,SimPath FROM CollectionElems')
         container_meta_by_simpath = {}
-        for path_id,simpath in cursor.fetchall():
-            if path_id in container_meta_by_path_id:
-                container_meta_by_simpath[simpath] = container_meta_by_path_id[path_id]
+        for elem_id,simpath in cursor.fetchall():
+            if elem_id in container_meta_by_path_id:
+                container_meta_by_simpath[simpath] = container_meta_by_path_id[elem_id]
 
         cursor.execute('SELECT CollectionID,FieldName,FieldType,FormatCode FROM StructFields')
         self._deserializers_by_collection_name = {}
@@ -113,15 +113,15 @@ class DataRetriever:
 
         self._is_sparse_by_collection_id = {}
         collection_ids_by_path_id = {}
-        for path_id,collection_id in cursor.fetchall():
-            collection_ids_by_path_id[path_id] = collection_id
+        for elem_id,collection_id in cursor.fetchall():
+            collection_ids_by_path_id[elem_id] = collection_id
             self._is_sparse_by_collection_id[collection_id] = False
 
-        cmd = 'SELECT PathID,IsSparse FROM ContainerMeta'
+        cmd = 'SELECT CollectionElemID,IsSparse FROM ContainerMeta'
         cursor.execute(cmd)
 
-        for path_id,is_sparse in cursor.fetchall():
-            collection_id = collection_ids_by_path_id[path_id]
+        for elem_id,is_sparse in cursor.fetchall():
+            collection_id = collection_ids_by_path_id[elem_id]
             self._is_sparse_by_collection_id[collection_id] = is_sparse
 
         self._cached_utiliz_time_val = None

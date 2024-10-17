@@ -287,7 +287,7 @@ public:
             .addColumn("String", dt::string_t);
 
         schema.addTable("ContainerMeta")
-            .addColumn("PathID", dt::int32_t)
+            .addColumn("CollectionElemID", dt::int32_t)
             .addColumn("Capacity", dt::int32_t)
             .addColumn("IsSparse", dt::int32_t);
 

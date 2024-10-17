@@ -90,13 +90,13 @@ public:
                                       SQL_COLUMNS("CollectionID", "SimPath"),
                                       SQL_VALUES(collection_pkey_, std::get<1>(container_)));
 
-        auto path_id = record2->getId();
+        auto elem_id = record2->getId();
         auto capacity = std::get<2>(container_);
         auto is_sparse = Sparse ? 1 : 0;
 
         db_mgr->INSERT(SQL_TABLE("ContainerMeta"),
-                       SQL_COLUMNS("PathID", "Capacity", "IsSparse"),
-                       SQL_VALUES(path_id, capacity, is_sparse));
+                       SQL_COLUMNS("CollectionElemID", "Capacity", "IsSparse"),
+                       SQL_VALUES(elem_id, capacity, is_sparse));
 
         meta_serializer_.writeMetadata(db_mgr, record1->getId());
         blob_serializer_ = meta_serializer_.createBlobSerializer();

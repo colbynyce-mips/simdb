@@ -53,22 +53,22 @@ class IterableUtiliz:
 
         cursor = self.widget_renderer.frame.db.cursor()
 
-        cursor.execute('SELECT PathID,Capacity FROM ContainerMeta')
+        cursor.execute('SELECT CollectionElemID,Capacity FROM ContainerMeta')
         self._capacities_by_path_id = {}
-        for path_id,capacity in cursor.fetchall():
-            self._capacities_by_path_id[path_id] = capacity
+        for elem_id,capacity in cursor.fetchall():
+            self._capacities_by_path_id[elem_id] = capacity
 
         cursor.execute('SELECT Id,CollectionID,SimPath FROM CollectionElems')
         self._capacities_by_sim_path = {}
         self._capacities_by_collection_id = {}
         self._collection_ids_by_sim_path = {}
         self._all_sim_paths = []
-        for path_id,collection_id,simpath in cursor.fetchall():
-            if path_id not in self._capacities_by_path_id:
+        for elem_id,collection_id,simpath in cursor.fetchall():
+            if elem_id not in self._capacities_by_path_id:
                 continue
 
-            self._capacities_by_sim_path[simpath] = self._capacities_by_path_id[path_id]
-            self._capacities_by_collection_id[collection_id] = self._capacities_by_path_id[path_id]
+            self._capacities_by_sim_path[simpath] = self._capacities_by_path_id[elem_id]
+            self._capacities_by_collection_id[collection_id] = self._capacities_by_path_id[elem_id]
             self._collection_ids_by_sim_path[simpath] = collection_id
             self._all_sim_paths.append(simpath)
 
