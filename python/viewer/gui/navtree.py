@@ -10,15 +10,8 @@ class NavTree(wx.TreeCtrl):
         cursor = frame.db.cursor()
 
         self._root = self.AddRoot("root")
-        self._sim_hier_root = self.AppendItem(self._root, "Sim Hierarchy")
-        self._tree_items_by_db_id = {self.simhier.GetRootID(): self._sim_hier_root }
+        self._tree_items_by_db_id = {self.simhier.GetRootID(): self._root }
         self.__RecurseBuildTree(self.simhier.GetRootID())
-
-        tools_node = self.AppendItem(self.GetRootItem(), "Systemwide Tools")
-        self.AppendItem(tools_node, "Queue Utilization")
-        self.AppendItem(tools_node, "Packet Tracker")
-        self.AppendItem(tools_node, "Scheduling Lines")
-        self.AppendItem(tools_node, "Timeseries Viewer")
 
         self._container_sim_paths = self.simhier.GetContainerSimPaths()
         self._leaf_element_paths_by_tree_item = {}

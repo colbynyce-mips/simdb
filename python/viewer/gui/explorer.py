@@ -1,6 +1,7 @@
 import wx
 from viewer.gui.navtree import NavTree
 from viewer.gui.watchlist import Watchlist
+from viewer.gui.tools import SystemwideTools
 
 class DataExplorer(wx.Notebook):
     def __init__(self, parent, frame):
@@ -8,7 +9,10 @@ class DataExplorer(wx.Notebook):
         self.frame = frame
         self.navtree = NavTree(self, frame)
         self.watchlist = Watchlist(self, frame)
+        self.tools = SystemwideTools(self, frame)
 
         self.AddPage(self.navtree, "NavTree")
         self.AddPage(self.watchlist, "Watchlist")
+        self.AddPage(self.tools, "Tools")
+
         self.SetMinSize((200, 200))
