@@ -258,11 +258,11 @@ public:
         return getDTypeNumBytes(dtype_);
     }
 
-    virtual void writeMetadata(DatabaseManager* db_mgr, const std::string& collection_name) const
+    virtual void writeMetadata(DatabaseManager* db_mgr, const int collection_id) const
     {
         db_mgr->INSERT(SQL_TABLE("StructFields"),
-                       SQL_COLUMNS("CollectionName", "FieldName", "FieldType", "FormatCode"),
-                       SQL_VALUES(collection_name, name_, getFieldDTypeStr(dtype_), static_cast<int>(format_)));
+                       SQL_COLUMNS("CollectionID", "FieldName", "FieldType", "FormatCode"),
+                       SQL_VALUES(collection_id, name_, getFieldDTypeStr(dtype_), static_cast<int>(format_)));
     }
 
 private:
@@ -284,11 +284,11 @@ public:
     {
     }
 
-    virtual void writeMetadata(DatabaseManager* db_mgr, const std::string& collection_name) const override
+    virtual void writeMetadata(DatabaseManager* db_mgr, const int collection_id) const override
     {
         db_mgr->INSERT(SQL_TABLE("StructFields"),
-                       SQL_COLUMNS("CollectionName", "FieldName", "FieldType"),
-                       SQL_VALUES(collection_name, getName(), enum_name_));
+                       SQL_COLUMNS("CollectionID", "FieldName", "FieldType"),
+                       SQL_VALUES(collection_id, getName(), enum_name_));
 
         EnumMap<EnumT>::instance()->writeMetadata(db_mgr);
     }
@@ -464,10 +464,10 @@ public:
         fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<int32_t>(), Format::boolalpha));
     }
 
-    void writeMetadata(DatabaseManager* db_mgr, const std::string& collection_name) const
+    void writeMetadata(DatabaseManager* db_mgr, const int collection_id) const
     {
         for (auto& field : fields_) {
-            field->writeMetadata(db_mgr, collection_name);
+            field->writeMetadata(db_mgr, collection_id);
         }
     }
 
@@ -506,9 +506,9 @@ public:
         return schema_.getStructNumBytes();
     }
 
-    void writeMetadata(DatabaseManager* db_mgr, const std::string& collection_name) const
+    void writeMetadata(DatabaseManager* db_mgr, const int collection_id) const
     {
-        schema_.writeMetadata(db_mgr, collection_name);
+        schema_.writeMetadata(db_mgr, collection_id);
     }
 
     std::unique_ptr<StructBlobSerializer> createBlobSerializer()
@@ -589,7 +589,7 @@ public:
                            SQL_VALUES(collection_pkey_, std::get<1>(tup)));
         }
 
-        meta_serializer_.writeMetadata(db_mgr, getName());
+        meta_serializer_.writeMetadata(db_mgr, record->getId());
         blob_serializer_ = meta_serializer_.createBlobSerializer();
         finalized_ = true;
     }

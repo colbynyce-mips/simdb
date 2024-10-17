@@ -271,7 +271,7 @@ public:
             .createIndexOn("TimeVal");
 
         schema.addTable("StructFields")
-            .addColumn("CollectionName", dt::string_t)
+            .addColumn("CollectionID", dt::int32_t)
             .addColumn("FieldName", dt::string_t)
             .addColumn("FieldType", dt::string_t)
             .addColumn("FormatCode", dt::int32_t);
@@ -290,10 +290,6 @@ public:
             .addColumn("PathID", dt::int32_t)
             .addColumn("Capacity", dt::int32_t)
             .addColumn("IsSparse", dt::int32_t);
-
-        schema.addTable("IterableBlobMeta")
-            .addColumn("CollectionDataID", dt::int32_t)
-            .addColumn("SparseValidFlags", dt::blob_t);
 
         schema.addTable("FormatOpts")
             .addColumn("ScalarElemID", dt::int32_t)

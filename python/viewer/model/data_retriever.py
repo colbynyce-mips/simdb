@@ -67,9 +67,10 @@ class DataRetriever:
             if path_id in container_meta_by_path_id:
                 container_meta_by_simpath[simpath] = container_meta_by_path_id[path_id]
 
-        cursor.execute('SELECT CollectionName,FieldName,FieldType,FormatCode FROM StructFields')
+        cursor.execute('SELECT CollectionID,FieldName,FieldType,FormatCode FROM StructFields')
         self._deserializers_by_collection_name = {}
-        for collection_name,field_name,field_type,format_code in cursor.fetchall():
+        for collection_id,field_name,field_type,format_code in cursor.fetchall():
+            collection_name = self._collection_names_by_collection_id[collection_id]
             if collection_name not in self._deserializers_by_collection_name:
                 if collection_name not in container_collections:
                     deserializer = StructDeserializer(strings_by_int, enums_by_name, self._element_idxs_by_simpath, cursor)

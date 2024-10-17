@@ -98,7 +98,7 @@ public:
                        SQL_COLUMNS("PathID", "Capacity", "IsSparse"),
                        SQL_VALUES(path_id, capacity, is_sparse));
 
-        meta_serializer_.writeMetadata(db_mgr, getName());
+        meta_serializer_.writeMetadata(db_mgr, record1->getId());
         blob_serializer_ = meta_serializer_.createBlobSerializer();
         pipeline_heartbeat_ = heartbeat;
         finalized_ = true;
