@@ -82,7 +82,7 @@ class DataRetriever:
             deserializer.AddField(field_name, field_type, format_code)
 
         cmd = 'SELECT Name,DataType FROM Collections WHERE IsContainer=0 AND DataType IN ({})'
-        pods = ['int8_t','int16_t','int32_t','int64_t','uint8_t','uint16_t','uint32_t','uint64_t','double','float']
+        pods = ['int8_t','int16_t','int32_t','int64_t','uint8_t','uint16_t','uint32_t','uint64_t','double','float','bool']
         cmd = cmd.format(','.join('"'+pod+'"' for pod in pods))
         cursor.execute(cmd)
 
@@ -90,9 +90,42 @@ class DataRetriever:
             assert collection_name not in self._deserializers_by_collection_name
             self._deserializers_by_collection_name[collection_name] = StatsDeserializer(data_type, self._element_idxs_by_simpath, cursor)
 
+        cmd = 'SELECT TimeVal FROM CollectionData'
+        cursor.execute(cmd)
+
+        self._time_vals = []
+        for time_val in cursor.fetchall():
+            self._time_vals.append(self._FormatTimeVal(time_val[0]))
+
+        cmd = 'SELECT Heartbeat FROM CollectionGlobals'
+        cursor.execute(cmd)
+
+        self._heartbeat = 5
+        for heartbeat in cursor.fetchall():
+            self._heartbeat = heartbeat[0]
+
+        # Need mapping from collection_id to IsSparse
+        # We have mapping from path_id to IsSparse
+        # Need mapping from collection_id to path_id
+        cmd = 'SELECT Id,CollectionID FROM CollectionElems'
+        cursor.execute(cmd)
+
+        self._is_sparse_by_collection_id = {}
+        collection_ids_by_path_id = {}
+        for path_id,collection_id in cursor.fetchall():
+            collection_ids_by_path_id[path_id] = collection_id
+            self._is_sparse_by_collection_id[collection_id] = False
+
+        cmd = 'SELECT PathID,IsSparse FROM ContainerMeta'
+        cursor.execute(cmd)
+
+        for path_id,is_sparse in cursor.fetchall():
+            collection_id = collection_ids_by_path_id[path_id]
+            self._is_sparse_by_collection_id[collection_id] = is_sparse
+
     def GetDeserializer(self, sim_path):
         collection_name = self._collection_names_by_simpath[sim_path]
-        return self._deserializers_by_collection_name[collection_name]    
+        return self._deserializers_by_collection_name[collection_name]
 
     # Get all collected data for the given element by its path. These are the
     # same paths that were used in the original calls to addStat(), addStruct(),
@@ -100,17 +133,62 @@ class DataRetriever:
     def Unpack(self, elem_path, time_range=None):
         cursor = self.cursor
         collection_id = self._collection_ids_by_simpath[elem_path]
-        cmd = 'SELECT Id,TimeVal,DataVals FROM CollectionData WHERE CollectionID={} '.format(collection_id)
+        cmd = 'SELECT TimeVal,DataVals,IsCompressed FROM CollectionData '
 
         if time_range is not None:
+            cmd += 'WHERE '
             if type(time_range) in (int,float):
                 time_range = (time_range, time_range)
 
             assert type(time_range) in (list,tuple) and len(time_range) == 2
+            where_clauses = []
             if time_range[0] >= 0:
-                cmd += 'AND TimeVal>={} '.format(time_range[0])
+                # Find the first time value that is greater than or equal to the lower bound.
+                start_time = None
+                for i,time_val in enumerate(self._time_vals):
+                    if time_val >= time_range[0]:
+                        # Look back a bit to ensure we get all the data, keeping in mind that
+                        # for up to self._heartbeat data captures, we may only find the carry-
+                        # forward data from the last time we wrote the data to the database.
+                        #
+                        #    TimeVal     DataVals
+                        #    --------    --------
+                        #    40          [1,2,3]
+                        #    41          carry-forward
+                        #    42          [4,5,6]
+                        #    43          carry-forward
+                        #    44          carry-forward
+                        #    45          carry-forward   <-- user wants data from here...
+                        #    46          carry-forward
+                        #    47          carry-forward
+                        #    48          [7,8,9]
+                        #    49          carry-forward   <-- ...to here
+                        #
+                        # If the user wants data from 45-49, we need to read data starting from
+                        # time 40. We will end up producing this data in memory:
+                        #
+                        #    40          [1,2,3]
+                        #    41          [1,2,3]        (carry-forward)
+                        #    42          [4,5,6]
+                        #    43          [4,5,6]        (carry-forward)
+                        #    44          [4,5,6]        (carry-forward)
+                        #    45          [4,5,6]        (carry-forward)    <-- start here
+                        #    46          [4,5,6]        (carry-forward)
+                        #    47          [4,5,6]        (carry-forward)
+                        #    48          [7,8,9]
+                        #    49          [7,8,9]        (carry-forward)    <-- end here
+                        #
+                        start_idx = i - self._heartbeat
+                        start_idx = max(0, start_idx)
+                        start_time = self._time_vals[start_idx]
+                        break
+
+                where_clauses.append(' TimeVal>={} '.format(start_time))
+
             if time_range[1] >= 0:
-                cmd += 'AND TimeVal<={} '.format(time_range[1])
+                where_clauses.append(' TimeVal<={} '.format(time_range[1]))
+
+            cmd += ' AND '.join(where_clauses)
 
         cursor.execute(cmd)
 
@@ -120,13 +198,27 @@ class DataRetriever:
         collection_name = self._collection_names_by_simpath[elem_path]
         deserializer = self._deserializers_by_collection_name[collection_name]
 
-        for collection_data_id, time_val, data_blob in cursor.fetchall():
-            time_vals.append(self._FormatTimeVal(time_val))
-            if data_blob is None or len(data_blob) == 0:
-                data_vals.append(None)
-            else:
-                data_blob = zlib.decompress(data_blob)
-                data_vals.append(deserializer.Unpack(data_blob, elem_path, collection_data_id))
+        # Get a list of the collection's data blobs in the form:
+        # [(time_val, collection_blob), (time_val, collection_blob), ...]
+        collection_data_blobs = []
+
+        for time_val, all_collections_blob, is_compressed in cursor.fetchall():
+            collection_blob_at_time_val = self._ExtractRawDataBlob(all_collections_blob, is_compressed, collection_id)
+            collection_data_blobs.append([self._FormatTimeVal(time_val), collection_blob_at_time_val])
+
+        # Fill in the carry-forward data blobs
+        for i in range(0, len(collection_data_blobs)-1):
+            if collection_data_blobs[i+1][1] == -1 and collection_data_blobs[i][1] != -1:
+                collection_data_blobs[i+1][1] = collection_data_blobs[i][1]
+
+        if time_range is not None:
+            for time_val, collection_blob in collection_data_blobs:
+                if time_val >= time_range[0]:
+                    time_vals.append(time_val)
+                    if collection_blob is not None:
+                        data_vals.append(deserializer.Unpack(collection_blob, elem_path))
+                    else:
+                        data_vals.append(None)
 
         return {'TimeVals': time_vals, 'DataVals': data_vals}
 
@@ -137,6 +229,34 @@ class DataRetriever:
             return float(time_val)
         else:
             return time_val
+        
+    def _ExtractRawDataBlob(self, all_collections_blob, is_compressed, collection_id):
+        if is_compressed:
+            all_collections_blob = zlib.decompress(all_collections_blob)
+
+        while len(all_collections_blob):
+            cid, size = struct.unpack('hh', all_collections_blob[:4])
+            all_collections_blob = all_collections_blob[4:]
+
+            collection_name = self._collection_names_by_collection_id[cid]
+            deserializer = self._deserializers_by_collection_name[collection_name]
+            elem_num_bytes = deserializer.GetNumBytes()
+
+            is_sparse = self._is_sparse_by_collection_id[cid]
+            if is_sparse:
+                # This is to handle the extra 2 bytes holding the bucket index.
+                # We only add this to each container element for sparse containers.
+                elem_num_bytes += 2
+
+            if cid == collection_id:
+                if size in (65535,-1):
+                    return -1
+                elif size == 0:
+                    return None
+                else:
+                    return all_collections_blob[:size*elem_num_bytes]
+            elif size not in (65535,-1, 0):
+                all_collections_blob = all_collections_blob[size*elem_num_bytes:]
 
 class EnumDef:
     def __init__(self, name, int_type):
@@ -192,7 +312,8 @@ class StatsDeserializer(Deserializer):
         'uint32_t':4,
         'uint64_t':8,
         'float'   :4,
-        'double'  :8
+        'double'  :8,
+        'bool'    :4
     }
 
     FORMAT_CODES_MAP = {
@@ -205,7 +326,8 @@ class StatsDeserializer(Deserializer):
         'uint32_t':'I',
         'uint64_t':'Q',
         'float'   :'f',
-        'double'  :'d'
+        'double'  :'d',
+        'bool'    :'i'
     }
 
     def __init__(self, data_type, element_idxs_by_simpath, cursor):
@@ -214,14 +336,22 @@ class StatsDeserializer(Deserializer):
         self._format = StatsDeserializer.FORMAT_CODES_MAP[data_type]
         self._cast = float if data_type in ('float','double') else int
         self._element_idxs_by_simpath = element_idxs_by_simpath
+        self._isbool = data_type == 'bool'
 
-    def Unpack(self, data_blob, elem_path, collection_data_id):
+    def Unpack(self, data_blob, elem_path):
         elem_idx = self._element_idxs_by_simpath[elem_path]
         start = elem_idx * self._scalar_num_bytes
         end = start + self._scalar_num_bytes
         raw_bytes = data_blob[start:end]
         val = struct.unpack(self._format, raw_bytes)[0]
-        return self._cast(val)
+        val = self._cast(val)
+        if self._isbool:
+            val = bool(val)
+
+        return val
+    
+    def GetNumBytes(self):
+        return self._scalar_num_bytes
 
 class StructDeserializer(Deserializer):
     def __init__(self, strings_by_int, enums_by_name, element_idxs_by_simpath, cursor):
@@ -262,7 +392,7 @@ class StructDeserializer(Deserializer):
     def GetFieldNames(self):
         return [formatter.field_name for formatter in self._field_formatters]
 
-    def Unpack(self, data_blob, elem_path, collection_data_id, apply_offset=True):
+    def Unpack(self, data_blob, elem_path, apply_offset=True):
         struct_num_bytes = self.GetStructNumBytes()
         elem_idx = self._element_idxs_by_simpath[elem_path]
 
@@ -315,6 +445,9 @@ class StructDeserializer(Deserializer):
             num_bytes += num_bytes_by_format_code[code]
 
         return num_bytes
+    
+    def GetNumBytes(self):
+        return self.GetStructNumBytes()
 
 class IterableDeserializer(StructDeserializer):
     def __init__(self, strings_by_int, enums_by_name, container_meta_by_simpath, element_idxs_by_simpath, cursor):
@@ -322,7 +455,7 @@ class IterableDeserializer(StructDeserializer):
         self._container_meta_by_simpath = container_meta_by_simpath
         self._element_idxs_by_simpath = element_idxs_by_simpath
 
-    def Unpack(self, data_blob, elem_path, collection_data_id):
+    def Unpack(self, data_blob, elem_path):
         res = []
         struct_num_bytes = self.GetStructNumBytes()
         sparse = self._container_meta_by_simpath[elem_path]['IsSparse']
@@ -331,37 +464,20 @@ class IterableDeserializer(StructDeserializer):
             while len(data_blob) > 0:
                 struct_blob = data_blob[:struct_num_bytes]
                 data_blob = data_blob[struct_num_bytes:]
-                res.append(StructDeserializer.Unpack(self, struct_blob, elem_path, collection_data_id, False))
+                res.append(StructDeserializer.Unpack(self, struct_blob, elem_path, False))
         else:
-            cmd = 'SELECT SparseValidFlags FROM IterableBlobMeta WHERE CollectionDataID={}'.format(collection_data_id)
-            cursor = self.cursor
-            cursor.execute(cmd)
-
-            flags = None
-            for flags in cursor.fetchall():
-                flags = flags[0]
-
-            # Try-catch to silence an exception. Note the IterableBlobMeta table will soon go away.
-            try:
-                assert flags is not None and len(flags) > 0
-                flags = zlib.decompress(flags)
-                flags = struct.unpack('i'*int(len(data_blob) / struct_num_bytes), flags)
-                assert len(flags) == len(data_blob) / struct_num_bytes
-            except Exception as e:
-                return res
-
-            flag_idx = 0
+            capacity = self._container_meta_by_simpath[elem_path]['Capacity']
+            res = [None for i in range(capacity)]
             while len(data_blob) > 0:
-                struct_blob = data_blob[:struct_num_bytes]
-                data_blob = data_blob[struct_num_bytes:]
-                if flags[flag_idx]:
-                    res.append(StructDeserializer.Unpack(self, struct_blob, elem_path, collection_data_id, False))
-                else:
-                    res.append(None)
-
-                flag_idx += 1
+                bucket_idx = struct.unpack('h', data_blob[:2])[0]
+                struct_blob = data_blob[2:2+struct_num_bytes]
+                res[bucket_idx] = StructDeserializer.Unpack(self, struct_blob, elem_path, False)
+                data_blob = data_blob[2+struct_num_bytes:]
 
         return res
+    
+    def GetNumBytes(self):
+        return self.GetStructNumBytes()
 
 class Formatter:
     def __init__(self, field_name):

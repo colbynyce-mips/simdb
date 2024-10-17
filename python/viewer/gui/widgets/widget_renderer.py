@@ -76,12 +76,12 @@ class IterableUtiliz:
         return self._capacities_by_sim_path[sim_path]
 
     def GetUtilizPct(self, sim_path):
-        self.__CacheUtilizValues()
-        return self._utiliz_pcts_by_sim_path.get(sim_path, float('nan'))
+        #self.__CacheUtilizValues()
+        return self._utiliz_pcts_by_sim_path.get(sim_path, 0)
 
     def GetUtilizColor(self, sim_path):
-        self.__CacheUtilizValues()
-        utiliz_pct = self._utiliz_pcts_by_sim_path.get(sim_path, float('nan'))
+        #self.__CacheUtilizValues()
+        utiliz_pct = self._utiliz_pcts_by_sim_path.get(sim_path, 0)
         return self.__GetColorForUtilizPct(utiliz_pct)
     
     def ConvertUtilizPctToColor(self, utiliz_pct):

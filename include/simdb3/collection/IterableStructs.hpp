@@ -233,7 +233,7 @@ private:
     writeStruct_(const ElemT& el, CollectionBuffer& buffer, uint16_t bucket_idx)
     {
         if (Sparse) {
-            buffer.writeBytes(&bucket_idx, sizeof(uint16_t));
+            buffer.writeBucket(bucket_idx);
         }
 
         blob_serializer_->writeStruct(&el, buffer);

@@ -56,7 +56,15 @@ public:
         memcpy(dest + sizeof(uint16_t), &num_elems, sizeof(uint16_t));
     }
 
-    void writeBytes(const void* data, size_t num_bytes)
+    void writeBucket(uint16_t bucket_id)
+    {
+        all_collection_data_.resize(all_collection_data_.size() + sizeof(uint16_t));
+        auto dest = all_collection_data_.data() + all_collection_data_.size() - sizeof(uint16_t);
+        memcpy(dest, &bucket_id, sizeof(uint16_t));
+    }
+
+    template <typename T>
+    void writeBytes(const T* data, size_t num_bytes)
     {
         all_collection_data_.resize(all_collection_data_.size() + num_bytes);
         auto dest = all_collection_data_.data() + all_collection_data_.size() - num_bytes;
@@ -66,6 +74,15 @@ public:
 private:
     std::vector<char> &all_collection_data_;
 };
+
+template <>
+inline void CollectionBuffer::writeBytes<bool>(const bool* data, size_t num_bytes)
+{
+    for (size_t idx = 0; idx < num_bytes; ++idx) {
+        int32_t val = data[idx] ? 1 : 0;
+        writeBytes(&val, sizeof(int32_t));
+    }
+}
 
 /*!
  * \class CollectionBase
