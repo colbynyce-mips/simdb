@@ -1,7 +1,7 @@
 import wx
 from viewer.gui.widgets.queue_utiliz import QueueUtilizWidget
 from viewer.gui.widgets.packet_tracker import PacketTrackerWidget
-from viewer.gui.widgets.live_editor import LiveEditorWidget
+from viewer.gui.widgets.scheduling_lines import SchedulingLinesWidget
 from viewer.gui.widgets.timeseries_viewer import TimeseriesViewerWidget
 from viewer.gui.widgets.scalar_statistic import ScalarStatistic
 from viewer.gui.widgets.scalar_struct import ScalarStruct
@@ -21,8 +21,8 @@ class WidgetCreator:
             return QueueUtilizWidget(widget_container, self.frame)
         elif widget_creation_key == 'Packet Tracker':
             return PacketTrackerWidget(widget_container, self.frame)
-        elif widget_creation_key == 'Live Editor':
-            return LiveEditorWidget(widget_container, self.frame)
+        elif widget_creation_key == 'Scheduling Lines':
+            return SchedulingLinesWidget(widget_container, self.frame)
         elif widget_creation_key == 'Timeseries Viewer':
             return TimeseriesViewerWidget(widget_container, self.frame)
         elif widget_creation_key.find('$') != -1:
