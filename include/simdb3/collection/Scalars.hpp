@@ -149,13 +149,9 @@ public:
         for (const auto& pair : stats_) {
             const auto& stat = pair.first;
 
-            auto record = db_mgr->INSERT(SQL_TABLE("CollectionElems"),
-                                         SQL_COLUMNS("CollectionID", "SimPath"),
-                                         SQL_VALUES(collection_pkey_, stat.getPath()));
-
-            db_mgr->INSERT(SQL_TABLE("FormatOpts"),
-                           SQL_COLUMNS("ScalarElemID", "FormatCode"),
-                           SQL_VALUES(record->getId(), static_cast<int>(stat.getFormat())));
+            db_mgr->INSERT(SQL_TABLE("CollectionElems"),
+                           SQL_COLUMNS("CollectionID", "SimPath"),
+                           SQL_VALUES(collection_pkey_, stat.getPath()));
         }
 
         finalized_ = true;

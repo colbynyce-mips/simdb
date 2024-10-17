@@ -291,10 +291,6 @@ public:
             .addColumn("Capacity", dt::int32_t)
             .addColumn("IsSparse", dt::int32_t);
 
-        schema.addTable("FormatOpts")
-            .addColumn("ScalarElemID", dt::int32_t)
-            .addColumn("FormatCode", dt::int32_t);
-
         schema.addTable("ElementTreeNodes")
             .addColumn("Name", dt::string_t)
             .addColumn("ParentID", dt::int32_t);
