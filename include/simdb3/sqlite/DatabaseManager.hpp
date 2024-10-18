@@ -541,21 +541,112 @@ inline void Collections::finalizeCollections_()
 {
     db_conn_->safeTransaction([&]() {
         auto root = createElementTree_();
+        assignElementMetadata_(root.get());
+        serializeElementTree_(root.get());
+
         for (auto& collection : collections_) {
-            collection->finalize(db_mgr_, root.get(), pipeline_heartbeat_);
-            root.reset();
-        }
-
-        for (const auto& kvp : clk_periods_) {
-            db_mgr_->INSERT(SQL_TABLE("Clocks"), SQL_COLUMNS("Name", "Period"), SQL_VALUES(kvp.first, kvp.second));
-        }
-
-        for (const auto& kvp : clks_by_location_) {
-            db_mgr_->INSERT(SQL_TABLE("ElementClocks"), SQL_COLUMNS("ElemPath", "ClockName"), SQL_VALUES(kvp.first, kvp.second));
+            collection->setHeartbeat(pipeline_heartbeat_);
+            collection->finalize(db_mgr_);
         }
 
         return true;
     });
+}
+
+/// One-time creation of a TreeNode data structure for all collections to be serialized
+/// to SimDB.
+inline std::unique_ptr<TreeNode> Collections::createElementTree_()
+{
+    std::vector<std::string> all_element_paths;
+    for (const auto& collection : collections_) {
+        for (const auto& path : collection->getElemPaths()) {
+            all_element_paths.push_back(path);
+        }
+    }
+
+    return buildTree(all_element_paths);
+}
+
+/// Assign clock ID's, collection ID's, collection offsets, and widget types to all
+/// elements in the tree.
+inline void Collections::assignElementMetadata_(TreeNode* root)
+{
+    std::unordered_map<std::string, int> clk_ids_by_name;
+    for (const auto& kvp : clk_periods_) {
+        auto record = db_mgr_->INSERT(SQL_TABLE("Clocks"), SQL_COLUMNS("Name", "Period"), SQL_VALUES(kvp.first, kvp.second));
+        auto id = record->getId();
+        clk_ids_by_name[kvp.first] = id;
+    }
+
+    std::unordered_map<CollectionBase*, int> collection_ids;
+    for (const auto& collection : collections_) {
+        auto collection_id = collection->writeCollectionMetadata(db_mgr_);
+        collection_ids[collection.get()] = collection_id;
+    }
+
+    // Iterative breadth-first search. Get a mapping from leaf node location to collection ID.
+    std::queue<TreeNode*> nodes;
+    std::unordered_set<TreeNode*> visited;
+    nodes.push(root);
+
+    std::unordered_map<std::string, TreeNode*> leaf_nodes_by_location;
+    while (!nodes.empty()) {
+        auto node = nodes.front();
+        nodes.pop();
+        if (visited.insert(node).second) {
+            const auto loc = node->getLocation();
+            if (node->children.empty()) {
+                leaf_nodes_by_location[loc] = node;
+            }
+
+            auto iter = clks_by_location_.find(loc);
+            if (iter != clks_by_location_.end()) {
+                const auto& clk_name = iter->second;
+                auto iter2 = clk_ids_by_name.find(clk_name);
+                if (iter2 != clk_ids_by_name.end()) {
+                    const auto id = iter2->second;
+                    node->clk_id = id;
+                }
+            }
+
+            for (const auto& child : node->children) {
+                nodes.push(child.get());
+            }
+        }
+    }
+
+    // Assign collection IDs to leaf nodes
+    for (const auto& kvp : leaf_nodes_by_location) {
+        const auto& loc = kvp.first;
+        TreeNode* leaf = kvp.second;
+        for (const auto& collection : collections_) {
+            if (collection->hasElement(loc)) {
+                const auto id = collection_ids[collection.get()];
+                leaf->collection_id = id;
+                const auto offset = collection->getElementOffset(loc);
+                leaf->collection_offset = offset;
+                const auto widget_type = collection->getWidgetType(loc);
+                leaf->widget_type = widget_type;
+                break;
+            }
+        }
+    }
+}
+
+/// Write all element metadata to the ElementTreeNodes table.
+inline void Collections::serializeElementTree_(TreeNode* start, const int parent_db_id)
+{
+    if (!start) {
+        return;
+    }
+
+    auto node_record = db_mgr_->INSERT(SQL_TABLE("ElementTreeNodes"),
+                                       SQL_COLUMNS("Name", "ParentID", "ClockID", "CollectionID", "CollectionOffset", "WidgetType"),
+                                       SQL_VALUES(start->name, parent_db_id, start->clk_id, start->collection_id, start->collection_offset, start->widget_type));
+
+    for (const auto& child : start->children) {
+        serializeElementTree_(child.get(), node_record->getId());
+    }
 }
 
 /// Called manually during simulation to trigger automatic collection of all collections.

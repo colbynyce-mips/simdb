@@ -189,7 +189,7 @@ public:
         return enum_name_;
     }
 
-    void writeMetadata(DatabaseManager* db_mgr) const
+    void serializeDefn(DatabaseManager* db_mgr) const
     {
         if (!serialized_) {
             auto dtype = getFieldDTypeEnum<enum_int_t>();
@@ -258,11 +258,11 @@ public:
         return getDTypeNumBytes(dtype_);
     }
 
-    virtual void writeMetadata(DatabaseManager* db_mgr, const int collection_id) const
+    virtual void serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const
     {
         db_mgr->INSERT(SQL_TABLE("StructFields"),
-                       SQL_COLUMNS("CollectionID", "FieldName", "FieldType", "FormatCode"),
-                       SQL_VALUES(collection_id, name_, getFieldDTypeStr(dtype_), static_cast<int>(format_)));
+                       SQL_COLUMNS("StructName", "FieldName", "FieldType", "FormatCode"),
+                       SQL_VALUES(struct_name, name_, getFieldDTypeStr(dtype_), static_cast<int>(format_)));
     }
 
 private:
@@ -284,13 +284,13 @@ public:
     {
     }
 
-    virtual void writeMetadata(DatabaseManager* db_mgr, const int collection_id) const override
+    virtual void serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const override
     {
         db_mgr->INSERT(SQL_TABLE("StructFields"),
-                       SQL_COLUMNS("CollectionID", "FieldName", "FieldType"),
-                       SQL_VALUES(collection_id, getName(), enum_name_));
+                       SQL_COLUMNS("StructName", "FieldName", "FieldType"),
+                       SQL_VALUES(struct_name, getName(), enum_name_));
 
-        EnumMap<EnumT>::instance()->writeMetadata(db_mgr);
+        EnumMap<EnumT>::instance()->serializeDefn(db_mgr);
     }
 
 private:
@@ -464,10 +464,13 @@ public:
         fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<int32_t>(), Format::boolalpha));
     }
 
-    void writeMetadata(DatabaseManager* db_mgr, const int collection_id) const
+    void serializeDefn(DatabaseManager* db_mgr) const
     {
-        for (auto& field : fields_) {
-            field->writeMetadata(db_mgr, collection_id);
+        static std::unordered_set<std::string> serialized_structs;
+        if (serialized_structs.insert(struct_name_).second) {
+            for (auto& field : fields_) {
+                field->serializeDefn(db_mgr, struct_name_);
+            }
         }
     }
 
@@ -506,9 +509,9 @@ public:
         return schema_.getStructNumBytes();
     }
 
-    void writeMetadata(DatabaseManager* db_mgr, const int collection_id) const
+    void serializeDefn(DatabaseManager* db_mgr) const
     {
-        schema_.writeMetadata(db_mgr, collection_id);
+        schema_.serializeDefn(db_mgr);
     }
 
     std::unique_ptr<StructBlobSerializer> createBlobSerializer()
@@ -567,29 +570,74 @@ public:
         return name_;
     }
 
+    /// Get if the given element path ("root.child1.child2") is in this collection.
+    bool hasElement(const std::string& element_path) const override
+    {
+        for (const auto& tup : structs_) {
+            if (std::get<1>(tup) == element_path) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// Get the element offset in the collection. This is for collections where we
+    /// pack all stats of the same data type into the same collection buffer, specifically
+    /// StatCollection<T> and ScalarStructCollection<T>.
+    int getElementOffset(const std::string& element_path) const override
+    {
+        for (size_t idx = 0; idx < structs_.size(); ++idx) {
+            if (std::get<1>(structs_[idx]) == element_path) {
+                return idx;
+            }
+        }
+        return -1;
+    }
+
+    /// Get the type of widget that should be displayed when the given element
+    /// is dragged-and-dropped onto the Argos widget canvas.
+    std::string getWidgetType(const std::string& element_path) const override
+    {
+        if (hasElement(element_path)) {
+            return "StructViewer";
+        }
+        return "";
+    }
+
+    /// Write metadata about this collection to the database.
+    /// Returns the collection's primary key in the Collections table.
+    int writeCollectionMetadata(DatabaseManager* db_mgr) override
+    {
+        if (collection_pkey_ != -1) {
+            return collection_pkey_;
+        }
+
+        auto record = db_mgr->INSERT(SQL_TABLE("Collections"),
+                                     SQL_COLUMNS("Name", "DataType", "IsContainer", "IsSparse", "Capacity"),
+                                     SQL_VALUES(name_, meta_serializer_.getStructName(), 0, 0, (int)structs_.size()));
+
+        collection_pkey_ = record->getId();
+        return collection_pkey_;
+    }
+
+    /// Set the heartbeat for this collection. This is the max number of cycles
+    /// that we employ the optimization "only write to the database if the collected
+    /// data is different from the last collected data". This prevents Argos from
+    /// having to go back more than N cycles to find the last known value.
+    void setHeartbeat(const size_t heartbeat) override
+    {
+        (void)heartbeat;
+    }
+
     /// \brief  Write metadata about this collection to the database.
     /// \throws Throws an exception if called more than once.
-    void finalize(DatabaseManager* db_mgr, TreeNode* root, size_t) override
+    void finalize(DatabaseManager* db_mgr) override
     {
         if (finalized_) {
             throw DBException("Cannot call finalize() on a collection more than once");
         }
 
-        serializeElementTree(db_mgr, root);
-
-        auto record = db_mgr->INSERT(SQL_TABLE("Collections"),
-                                     SQL_COLUMNS("Name", "DataType", "IsContainer"),
-                                     SQL_VALUES(name_, meta_serializer_.getStructName(), 0));
-
-        collection_pkey_ = record->getId();
-
-        for (const auto& tup : structs_) {
-            db_mgr->INSERT(SQL_TABLE("CollectionElems"),
-                           SQL_COLUMNS("CollectionID", "ElemPath"),
-                           SQL_VALUES(collection_pkey_, std::get<1>(tup)));
-        }
-
-        meta_serializer_.writeMetadata(db_mgr, record->getId());
+        meta_serializer_.serializeDefn(db_mgr);
         blob_serializer_ = meta_serializer_.createBlobSerializer();
         finalized_ = true;
     }

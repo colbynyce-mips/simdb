@@ -70,37 +70,69 @@ public:
         return name_;
     }
 
+    /// Get if the given element path ("root.child1.child2") is in this collection.
+    bool hasElement(const std::string& element_path) const override
+    {
+        return element_path == std::get<1>(container_);
+    }
+
+    /// Get the element offset in the collection. This is for collections where we
+    /// pack all stats of the same data type into the same collection buffer, specifically
+    /// StatCollection<T> and ScalarStructCollection<T>.
+    int getElementOffset(const std::string& element_path) const override
+    {
+        (void)element_path;
+        return -1;
+    }
+
+    /// Get the type of widget that should be displayed when the given element
+    /// is dragged-and-dropped onto the Argos widget canvas.
+    std::string getWidgetType(const std::string& element_path) const override
+    {
+        if (hasElement(element_path)) {
+            return "QueueTable";
+        }
+        return "";
+    }
+
+    /// Write metadata about this collection to the database.
+    /// Returns the collection's primary key in the Collections table.
+    int writeCollectionMetadata(DatabaseManager* db_mgr) override
+    {
+        if (collection_pkey_ != -1) {
+            return collection_pkey_;
+        }
+
+        auto record = db_mgr->INSERT(SQL_TABLE("Collections"),
+                                     SQL_COLUMNS("Name", "DataType", "IsContainer", "IsSparse", "Capacity"),
+                                     SQL_VALUES(name_, meta_serializer_.getStructName(), 1, Sparse ? 1 : 0, std::get<2>(container_)));
+
+        collection_pkey_ = record->getId();
+        return collection_pkey_;
+    }
+
+    /// Set the heartbeat for this collection. This is the max number of cycles
+    /// that we employ the optimization "only write to the database if the collected
+    /// data is different from the last collected data". This prevents Argos from
+    /// having to go back more than N cycles to find the last known value.
+    void setHeartbeat(const size_t heartbeat) override
+    {
+        if (heartbeat == 0) {
+            throw DBException("Heartbeat must be greater than zero");
+        }
+        pipeline_heartbeat_ = heartbeat;
+    }
+
     /// \brief  Write metadata about this collection to the database.
     /// \throws Throws an exception if called more than once.
-    void finalize(DatabaseManager* db_mgr, TreeNode* root, size_t heartbeat) override
+    void finalize(DatabaseManager* db_mgr) override
     {
         if (finalized_) {
             throw DBException("Cannot call finalize() on a collection more than once");
         }
 
-        serializeElementTree(db_mgr, root);
-
-        auto record1 = db_mgr->INSERT(SQL_TABLE("Collections"),
-                                      SQL_COLUMNS("Name", "DataType", "IsContainer"),
-                                      SQL_VALUES(name_, meta_serializer_.getStructName(), 1));
-
-        collection_pkey_ = record1->getId();
-
-        auto record2 = db_mgr->INSERT(SQL_TABLE("CollectionElems"),
-                                      SQL_COLUMNS("CollectionID", "ElemPath"),
-                                      SQL_VALUES(collection_pkey_, std::get<1>(container_)));
-
-        auto elem_id = record2->getId();
-        auto capacity = std::get<2>(container_);
-        auto is_sparse = Sparse ? 1 : 0;
-
-        db_mgr->INSERT(SQL_TABLE("ContainerMeta"),
-                       SQL_COLUMNS("CollectionElemID", "Capacity", "IsSparse"),
-                       SQL_VALUES(elem_id, capacity, is_sparse));
-
-        meta_serializer_.writeMetadata(db_mgr, record1->getId());
+        meta_serializer_.serializeDefn(db_mgr);
         blob_serializer_ = meta_serializer_.createBlobSerializer();
-        pipeline_heartbeat_ = heartbeat;
         finalized_ = true;
     }
 
