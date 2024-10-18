@@ -189,11 +189,10 @@ public:
         (void)heartbeat;
     }
 
-    /// \brief  Write metadata about this collection to the database.
+    /// \brief  Finalize this collection.
     /// \throws Throws an exception if called more than once.
-    void finalize(DatabaseManager* db_mgr) override
+    void finalize() override
     {
-        (void)db_mgr;
         finalized_ = true;
     }
 

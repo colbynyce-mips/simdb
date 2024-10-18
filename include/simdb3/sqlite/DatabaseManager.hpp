@@ -546,7 +546,7 @@ inline void Collections::finalizeCollections_()
 
         for (auto& collection : collections_) {
             collection->setHeartbeat(pipeline_heartbeat_);
-            collection->finalize(db_mgr_);
+            collection->finalize();
         }
 
         return true;

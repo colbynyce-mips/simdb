@@ -120,8 +120,8 @@ public:
     /// having to go back more than N cycles to find the last known value.
     virtual void setHeartbeat(const size_t heartbeat) = 0;
 
-    /// Write metadata about this collection to the database.
-    virtual void finalize(DatabaseManager* db_mgr) = 0;
+    /// Finalize this collection.
+    virtual void finalize() = 0;
 
     /// Collect all values in this collection into one data vector
     /// and write the values to the database.

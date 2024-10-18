@@ -108,6 +108,8 @@ public:
                                      SQL_VALUES(name_, meta_serializer_.getStructName(), 1, Sparse ? 1 : 0, std::get<2>(container_)));
 
         collection_pkey_ = record->getId();
+        meta_serializer_.serializeDefn(db_mgr);
+
         return collection_pkey_;
     }
 
@@ -123,15 +125,14 @@ public:
         pipeline_heartbeat_ = heartbeat;
     }
 
-    /// \brief  Write metadata about this collection to the database.
+    /// \brief  Finalize this collection.
     /// \throws Throws an exception if called more than once.
-    void finalize(DatabaseManager* db_mgr) override
+    void finalize() override
     {
         if (finalized_) {
             throw DBException("Cannot call finalize() on a collection more than once");
         }
 
-        meta_serializer_.serializeDefn(db_mgr);
         blob_serializer_ = meta_serializer_.createBlobSerializer();
         finalized_ = true;
     }
