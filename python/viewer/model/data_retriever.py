@@ -1,42 +1,49 @@
-import zlib, struct, sys
+import zlib, struct, copy
 
 class DataRetriever:
-    def __init__(self, db):
+    def __init__(self, db, simhier):
         self._db = db
         self.cursor = db.cursor()
         cursor = self.cursor
 
-        cursor.execute('SELECT TimeType FROM CollectionGlobals LIMIT 1')
-        for row in cursor.fetchall():
-            self._time_type = row[0]
+        cursor.execute('SELECT TimeType,Heartbeat FROM CollectionGlobals')
+        self._time_type, self._heartbeat = cursor.fetchone()
 
-        cursor.execute('SELECT Id,Name,DataType,IsContainer FROM Collections')
+        cursor.execute('SELECT Id,Name,DataType,IsContainer,IsSparse,Capacity FROM Collections')
         meta_by_collection_id = {}
         self._collection_names_by_collection_id = {}
-        for id,name,dtype,is_container in cursor.fetchall():
+        for id,name,dtype,is_container,is_sparse,capacity in cursor.fetchall():
             self._collection_names_by_collection_id[id] = name
             meta_by_collection_id[id] = {'Name':name,
                                          'DataType':dtype,
                                          'IsContainer':is_container,
-                                         'Elements':[]}
+                                         'Elements':[],
+                                         'IsSparse':is_sparse,
+                                         'Capacity':capacity}
 
-        cursor.execute('SELECT CollectionElemID,Capacity,IsSparse FROM ContainerMeta')
-        container_meta_by_path_id = {}
-        for elem_id,capacity,is_sparse in cursor.fetchall():
-            container_meta_by_path_id[elem_id] = {'Capacity':capacity, 'IsSparse':is_sparse}
+        container_meta_by_elem_path = {}
+        for elem_path in simhier.GetItemElemPaths():
+            collection_id = simhier.GetCollectionID(elem_path)
+            meta = copy.deepcopy(meta_by_collection_id[collection_id])
+            del meta['Name']
+            del meta['Elements']
+            container_meta_by_elem_path[elem_path] = meta_by_collection_id[collection_id]
 
-        cursor.execute('SELECT Id,CollectionID,ElemPath FROM CollectionElems')
         self._collection_names_by_elem_path = {}
-        self._collection_ids_by_elem_path = {}
-        for elem_id,collection_id,elem_path in cursor.fetchall():
-            meta_by_collection_id[collection_id]['Elements'].append(elem_path)
+        for elem_path in simhier.GetItemElemPaths():
+            collection_id = simhier.GetCollectionID(elem_path)
             self._collection_names_by_elem_path[elem_path] = self._collection_names_by_collection_id[collection_id]
+
+        self._collection_ids_by_elem_path = {}
+        for elem_path in simhier.GetItemElemPaths():
+            collection_id = simhier.GetCollectionID(elem_path)
             self._collection_ids_by_elem_path[elem_path] = collection_id
 
         self._element_idxs_by_elem_path = {}
-        for collection_id,meta in meta_by_collection_id.items():
-            for i,elem_path in enumerate(meta['Elements']):
-                self._element_idxs_by_elem_path[elem_path] = i
+        cursor.execute('SELECT Id,CollectionOffset FROM ElementTreeNodes')
+        for elem_id,offset in cursor.fetchall():
+            elem_path = simhier.GetElemPath(elem_id)
+            self._element_idxs_by_elem_path[elem_path] = offset
 
         cursor.execute('SELECT IntVal,String FROM StringMap')
         strings_by_int = {}
@@ -51,36 +58,38 @@ class DataRetriever:
 
             enums_by_name[enum_name].AddEntry(enum_str, enum_blob)
 
-        cursor.execute('SELECT Name FROM Collections WHERE IsContainer=1')
-        container_collections = set()
-        for collection_name in cursor.fetchall():
-            container_collections.add(collection_name[0])
+        cursor.execute('SELECT DISTINCT(StructName) FROM StructFields')
+        struct_names = []
+        for struct_name in cursor.fetchall():
+            struct_names.append(struct_name[0])
 
-        cursor.execute('SELECT CollectionElemID,Capacity,IsSparse FROM ContainerMeta')
-        container_meta_by_path_id = {}
-        for elem_id,capacity,is_sparse in cursor.fetchall():
-            container_meta_by_path_id[elem_id] = {'Capacity':capacity, 'IsSparse':is_sparse}
+        cursor.execute('SELECT Name,IsContainer FROM Collections WHERE DataType IN ({})'.format(','.join('"'+name+'"' for name in struct_names)))
+        iterable_struct_collection_names = set()
+        scalar_struct_collection_names = set()
+        for collection_name,is_container in cursor.fetchall():
+            if is_container:
+                iterable_struct_collection_names.add(collection_name)
+            else:
+                scalar_struct_collection_names.add(collection_name)
 
-        cursor.execute('SELECT Id,ElemPath FROM CollectionElems')
-        container_meta_by_elem_path = {}
-        for elem_id,elem_path in cursor.fetchall():
-            if elem_id in container_meta_by_path_id:
-                container_meta_by_elem_path[elem_path] = container_meta_by_path_id[elem_id]
-
-        cursor.execute('SELECT CollectionID,FieldName,FieldType,FormatCode FROM StructFields')
+        cursor.execute('SELECT Id,Name,DataType,IsContainer FROM Collections WHERE DataType IN ({})'.format(','.join('"'+name+'"' for name in struct_names)))
         self._deserializers_by_collection_name = {}
-        for collection_id,field_name,field_type,format_code in cursor.fetchall():
-            collection_name = self._collection_names_by_collection_id[collection_id]
-            if collection_name not in self._deserializers_by_collection_name:
-                if collection_name not in container_collections:
-                    deserializer = StructDeserializer(strings_by_int, enums_by_name, self._element_idxs_by_elem_path, cursor)
-                else:
-                    deserializer = IterableDeserializer(strings_by_int, enums_by_name, container_meta_by_elem_path, self._element_idxs_by_elem_path, cursor)
 
+        for collection_id,collection_name,struct_name,is_container in cursor.fetchall():
+            assert collection_name not in self._deserializers_by_collection_name
+            if struct_name not in struct_names:
+                continue
+
+            if collection_name in scalar_struct_collection_names:
+                deserializer = StructDeserializer(strings_by_int, enums_by_name, self._element_idxs_by_elem_path, cursor)
+                self._deserializers_by_collection_name[collection_name] = deserializer
+            elif collection_name in iterable_struct_collection_names:
+                deserializer = IterableDeserializer(strings_by_int, enums_by_name, container_meta_by_elem_path, self._element_idxs_by_elem_path, cursor)
                 self._deserializers_by_collection_name[collection_name] = deserializer
 
-            deserializer = self._deserializers_by_collection_name[collection_name]
-            deserializer.AddField(field_name, field_type, format_code)
+            cursor.execute('SELECT FieldName,FieldType,FormatCode FROM StructFields WHERE StructName="{}"'.format(struct_name))
+            for field_name,field_type,format_code in cursor.fetchall():
+                deserializer.AddField(field_name, field_type, format_code)
 
         cmd = 'SELECT Name,DataType FROM Collections WHERE IsContainer=0 AND DataType IN ({})'
         pods = ['int8_t','int16_t','int32_t','int64_t','uint8_t','uint16_t','uint32_t','uint64_t','double','float','bool']
@@ -98,34 +107,28 @@ class DataRetriever:
         for time_val in cursor.fetchall():
             self._time_vals.append(self._FormatTimeVal(time_val[0]))
 
-        cmd = 'SELECT Heartbeat FROM CollectionGlobals'
-        cursor.execute(cmd)
-
-        self._heartbeat = 5
-        for heartbeat in cursor.fetchall():
-            self._heartbeat = heartbeat[0]
-
-        # Need mapping from collection_id to IsSparse
-        # We have mapping from path_id to IsSparse
-        # Need mapping from collection_id to path_id
-        cmd = 'SELECT Id,CollectionID FROM CollectionElems'
+        cmd = 'SELECT Id,IsSparse FROM Collections'
         cursor.execute(cmd)
 
         self._is_sparse_by_collection_id = {}
-        collection_ids_by_path_id = {}
-        for elem_id,collection_id in cursor.fetchall():
-            collection_ids_by_path_id[elem_id] = collection_id
-            self._is_sparse_by_collection_id[collection_id] = False
-
-        cmd = 'SELECT CollectionElemID,IsSparse FROM ContainerMeta'
-        cursor.execute(cmd)
-
-        for elem_id,is_sparse in cursor.fetchall():
-            collection_id = collection_ids_by_path_id[elem_id]
+        for collection_id,is_sparse in cursor.fetchall():
             self._is_sparse_by_collection_id[collection_id] = is_sparse
 
         self._cached_utiliz_time_val = None
         self._cached_utiliz_sizes = None
+
+        # Sanity checks to ensure that no element path contains 'root.'
+        for elem_path,_ in container_meta_by_elem_path.items():
+            assert elem_path.find('root.') == -1
+
+        for elem_path,_ in self._collection_names_by_elem_path.items():
+            assert elem_path.find('root.') == -1
+
+        for elem_path,_ in self._collection_ids_by_elem_path.items():
+            assert elem_path.find('root.') == -1
+
+        for elem_path,_ in self._element_idxs_by_elem_path.items():
+            assert elem_path.find('root.') == -1
 
     def GetDeserializer(self, elem_path):
         collection_name = self._collection_names_by_elem_path[elem_path]

@@ -5,6 +5,7 @@ from viewer.gui.inspector import DataInspector
 from viewer.gui.widgets.widget_renderer import WidgetRenderer
 from viewer.gui.widgets.widget_creator import WidgetCreator
 from viewer.model.data_retriever import DataRetriever
+from viewer.model.simhier import SimHierarchy
 
 class ArgosFrame(wx.Frame):
     def __init__(self, db_path, view_settings):
@@ -12,9 +13,10 @@ class ArgosFrame(wx.Frame):
         
         self.db = sqlite3.connect(db_path)
         self.view_settings = view_settings
+        self.simhier = SimHierarchy(self.db)
         self.widget_renderer = WidgetRenderer(self)
         self.widget_creator = WidgetCreator(self)
-        self.data_retriever = DataRetriever(self.db)
+        self.data_retriever = DataRetriever(self.db, self.simhier)
 
         self.frame_splitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
         self.explorer = DataExplorer(self.frame_splitter, self)
@@ -31,10 +33,6 @@ class ArgosFrame(wx.Frame):
         self.SetSizer(sizer)
         self.Layout()
         self.Maximize()
-
-    @property
-    def simhier(self):
-        return self.explorer.navtree.simhier
 
     def PostLoad(self):
         self.widget_creator.BindToWidgetSource(self.explorer.navtree)

@@ -1,13 +1,11 @@
 import wx, os
 from functools import partial
-from viewer.model.simhier import SimHierarchy
 
 class NavTree(wx.TreeCtrl):
     def __init__(self, parent, frame):
         super(NavTree, self).__init__(parent, style=wx.TR_DEFAULT_STYLE | wx.TR_HIDE_ROOT | wx.TR_LINES_AT_ROOT)
         self.frame = frame
-        self.simhier = SimHierarchy(frame.db)
-        cursor = frame.db.cursor()
+        self.simhier = frame.simhier
 
         self._root = self.AddRoot("root")
         self._tree_items_by_db_id = {self.simhier.GetRootID(): self._root }
@@ -26,6 +24,16 @@ class NavTree(wx.TreeCtrl):
 
         self.__utiliz_image_list = frame.widget_renderer.utiliz_handler.CreateUtilizImageList()
         self.SetImageList(self.__utiliz_image_list)
+
+        # Sanity checks to ensure that no element path contains 'root.'
+        for _,elem_path in self._leaf_element_paths_by_tree_item.items():
+            assert elem_path.find('root.') == -1
+
+        for elem_path in self._container_elem_paths:
+            assert elem_path.find('root.') == -1
+
+        for elem_path,_ in self._tree_items_by_elem_path.items():
+            assert elem_path.find('root.') == -1
 
     def UpdateUtilizBitmaps(self):
         for elem_path in self._container_elem_paths:

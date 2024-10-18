@@ -7,7 +7,7 @@ class WidgetRenderer:
         cursor.execute('SELECT MIN(TimeVal), MAX(TimeVal) FROM CollectionData')
         self._start_tick, self._end_tick = cursor.fetchone()
         self._current_tick = self._start_tick
-        self._utiliz_handler = IterableUtiliz(self)
+        self._utiliz_handler = IterableUtiliz(self, frame.simhier)
 
     @property
     def tick(self):
@@ -47,28 +47,23 @@ class WidgetRenderer:
         page.UpdateWidgets()
 
 class IterableUtiliz:
-    def __init__(self, widget_renderer):
+    def __init__(self, widget_renderer, simhier):
         self.widget_renderer = widget_renderer
         self._utiliz_pcts_by_elem_path = {}
-
-        cursor = self.widget_renderer.frame.db.cursor()
-
-        cursor.execute('SELECT CollectionElemID,Capacity FROM ContainerMeta')
-        self._capacities_by_path_id = {}
-        for elem_id,capacity in cursor.fetchall():
-            self._capacities_by_path_id[elem_id] = capacity
-
-        cursor.execute('SELECT Id,CollectionID,ElemPath FROM CollectionElems')
         self._capacities_by_elem_path = {}
         self._capacities_by_collection_id = {}
         self._collection_ids_by_elem_path = {}
         self._all_elem_paths = []
-        for elem_id,collection_id,elem_path in cursor.fetchall():
-            if elem_id not in self._capacities_by_path_id:
-                continue
 
-            self._capacities_by_elem_path[elem_path] = self._capacities_by_path_id[elem_id]
-            self._capacities_by_collection_id[collection_id] = self._capacities_by_path_id[elem_id]
+        self._capacities_by_elem_id = {}
+        for elem_path in simhier.GetItemElemPaths():
+            elem_id = simhier.GetElemID(elem_path)
+            collection_id = simhier.GetCollectionID(elem_path)
+            capacity = simhier.GetCollectionCapacity(collection_id)
+
+            self._capacities_by_elem_id[elem_id] = capacity
+            self._capacities_by_elem_path[elem_path] = capacity
+            self._capacities_by_collection_id[collection_id] = capacity
             self._collection_ids_by_elem_path[elem_path] = collection_id
             self._all_elem_paths.append(elem_path)
 

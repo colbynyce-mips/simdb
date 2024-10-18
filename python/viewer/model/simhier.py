@@ -20,7 +20,7 @@ class SimHierarchy:
 
         def GetLineage(elem_id, parent_ids_by_child_id):
             lineage = []
-            while elem_id not in (None,0):
+            while elem_id not in (None,0,self._root_id):
                 lineage.append(elem_id)
                 elem_id = parent_ids_by_child_id.get(elem_id)
 
@@ -42,11 +42,12 @@ class SimHierarchy:
         self._elem_paths_by_id = elem_paths_by_id
         self._elem_ids_by_path = {v: k for k, v in elem_paths_by_id.items()}
 
-        cmd = 'SELECT CollectionID,ElemPath FROM CollectionElems'
+        cmd = 'SELECT Id,CollectionID FROM ElementTreeNodes WHERE Id IN ({}) AND CollectionID != -1'.format(','.join(map(str, elem_paths_by_id.keys())))
         cursor.execute(cmd)
 
         collection_ids_by_elem_path = {}
-        for collection_id, elem_path in cursor.fetchall():
+        for node_id, collection_id in cursor.fetchall():
+            elem_path = elem_paths_by_id[node_id]
             collection_ids_by_elem_path[elem_path] = collection_id
 
         elem_paths_by_collection_id = {}
@@ -55,39 +56,56 @@ class SimHierarchy:
             elem_paths.append(elem_path)
             elem_paths_by_collection_id[collection_id] = elem_paths
 
-        cmd = 'SELECT Id,DataType,IsContainer FROM Collections'
+        cmd = 'SELECT Id,DataType,IsContainer,Capacity FROM Collections'
         cursor.execute(cmd)
 
         self._scalar_stats_elem_paths = []
         self._scalar_structs_elem_paths = []
         self._container_elem_paths = []
 
-        for collection_id, data_type, is_container in cursor.fetchall():
+        self._collection_id_by_elem_path = collection_ids_by_elem_path
+        self._data_type_by_collection_id = {}
+        self._is_container_by_collection_id = {}
+        self._capacities_by_collection_id = {}
+
+        for collection_id, data_type, is_container, capacity in cursor.fetchall():
+            self._data_type_by_collection_id[collection_id] = data_type
+            self._is_container_by_collection_id[collection_id] = is_container
+            self._capacities_by_collection_id[collection_id] = capacity
+
             for elem_path in elem_paths_by_collection_id[collection_id]:
-                if data_type in ('int8_t', 'int16_t', 'int32_t', 'int64_t', 'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'float', 'double'):
+                if data_type in ('int8_t', 'int16_t', 'int32_t', 'int64_t', 'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'float', 'double', 'bool'):
                     self._scalar_stats_elem_paths.append(elem_path)
                 elif is_container:
                     self._container_elem_paths.append(elem_path)
                 else:
                     self._scalar_structs_elem_paths.append(elem_path)
 
-        self._collection_id_by_elem_path = {}
-        cursor.execute("SELECT CollectionID,ElemPath FROM CollectionElems")
-        rows = cursor.fetchall()
-        for row in rows:
-            self._collection_id_by_elem_path[row[1]] = row[0]
+        # Sanity checks to ensure that no element path contains 'root.'
+        for _,elem_path in self._elem_paths_by_id.items():
+            assert elem_path.find('root.') == -1
 
-        # Iterate over the Collections table and find the DataType and IsContainer for each CollectionID
-        self._data_type_by_collection_id = {}
-        self._is_container_by_collection_id = {}
-        container_collection_ids = []
-        cursor.execute("SELECT Id,DataType,IsContainer FROM Collections")
-        rows = cursor.fetchall()
-        for row in rows:
-            self._data_type_by_collection_id[row[0]] = row[1]
-            self._is_container_by_collection_id[row[0]] = row[2]
-            if row[2]:
-                container_collection_ids.append(row[0])
+        for elem_path,_ in self._elem_ids_by_path.items():
+            assert elem_path.find('root.') == -1
+
+        for elem_path,collection_id in collection_ids_by_elem_path.items():
+            assert elem_path.find('root.') == -1
+
+        for collection_id,elem_paths in elem_paths_by_collection_id.items():
+            for elem_path in elem_paths:
+                assert elem_path.find('root.') == -1
+
+        for elem_path in self._scalar_stats_elem_paths:
+            assert elem_path.find('root.') == -1
+
+        for elem_path in self._scalar_structs_elem_paths:
+            assert elem_path.find('root.') == -1
+
+        for elem_path in self._container_elem_paths:
+            assert elem_path.find('root.') == -1
+
+        for elem_path,_ in self._collection_id_by_elem_path.items():
+            assert elem_path.find('root.') == -1
 
     def GetLeafDataType(self, elem_path):
         collection_id = self._collection_id_by_elem_path[elem_path]
@@ -104,6 +122,15 @@ class SimHierarchy:
     
     def GetElemPath(self, db_id):
         return self._elem_paths_by_id[db_id]
+    
+    def GetElemID(self, elem_path):
+        return self._elem_ids_by_path.get(elem_path)
+    
+    def GetCollectionID(self, elem_path):
+        return self._collection_id_by_elem_path.get(elem_path)
+    
+    def GetCollectionCapacity(self, collection_id):
+        return self._capacities_by_collection_id.get(collection_id)
     
     def GetName(self, db_id):
         return self._elem_names_by_id[db_id]

@@ -18,7 +18,7 @@ struct TreeNode {
 
     int clk_id = -1;
     int collection_id = -1;
-    int collection_offset = -1;
+    int collection_offset = 0;
     std::string widget_type;
 
     TreeNode(const std::string& name, const TreeNode* parent = nullptr)
