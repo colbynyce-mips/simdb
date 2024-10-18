@@ -49,39 +49,39 @@ class WidgetRenderer:
 class IterableUtiliz:
     def __init__(self, widget_renderer):
         self.widget_renderer = widget_renderer
-        self._utiliz_pcts_by_sim_path = {}
+        self._utiliz_pcts_by_elem_path = {}
 
         cursor = self.widget_renderer.frame.db.cursor()
 
-        cursor.execute('SELECT PathID,Capacity FROM ContainerMeta')
+        cursor.execute('SELECT CollectionElemID,Capacity FROM ContainerMeta')
         self._capacities_by_path_id = {}
-        for path_id,capacity in cursor.fetchall():
-            self._capacities_by_path_id[path_id] = capacity
+        for elem_id,capacity in cursor.fetchall():
+            self._capacities_by_path_id[elem_id] = capacity
 
-        cursor.execute('SELECT Id,CollectionID,SimPath FROM CollectionElems')
-        self._capacities_by_sim_path = {}
+        cursor.execute('SELECT Id,CollectionID,ElemPath FROM CollectionElems')
+        self._capacities_by_elem_path = {}
         self._capacities_by_collection_id = {}
-        self._collection_ids_by_sim_path = {}
-        self._all_sim_paths = []
-        for path_id,collection_id,simpath in cursor.fetchall():
-            if path_id not in self._capacities_by_path_id:
+        self._collection_ids_by_elem_path = {}
+        self._all_elem_paths = []
+        for elem_id,collection_id,elem_path in cursor.fetchall():
+            if elem_id not in self._capacities_by_path_id:
                 continue
 
-            self._capacities_by_sim_path[simpath] = self._capacities_by_path_id[path_id]
-            self._capacities_by_collection_id[collection_id] = self._capacities_by_path_id[path_id]
-            self._collection_ids_by_sim_path[simpath] = collection_id
-            self._all_sim_paths.append(simpath)
+            self._capacities_by_elem_path[elem_path] = self._capacities_by_path_id[elem_id]
+            self._capacities_by_collection_id[collection_id] = self._capacities_by_path_id[elem_id]
+            self._collection_ids_by_elem_path[elem_path] = collection_id
+            self._all_elem_paths.append(elem_path)
 
-    def GetCapacity(self, sim_path):
-        return self._capacities_by_sim_path[sim_path]
+    def GetCapacity(self, elem_path):
+        return self._capacities_by_elem_path[elem_path]
 
-    def GetUtilizPct(self, sim_path):
+    def GetUtilizPct(self, elem_path):
         self.__CacheUtilizValues()
-        return self._utiliz_pcts_by_sim_path.get(sim_path, 0)
+        return self._utiliz_pcts_by_elem_path.get(elem_path, 0)
 
-    def GetUtilizColor(self, sim_path):
+    def GetUtilizColor(self, elem_path):
         self.__CacheUtilizValues()
-        utiliz_pct = self._utiliz_pcts_by_sim_path.get(sim_path, 0)
+        utiliz_pct = self._utiliz_pcts_by_elem_path.get(elem_path, 0)
         return self.__GetColorForUtilizPct(utiliz_pct)
     
     def ConvertUtilizPctToColor(self, utiliz_pct):
@@ -97,14 +97,14 @@ class IterableUtiliz:
         return image_list
 
     def __CacheUtilizValues(self):
-        # We need to get the number of data elements in each simpath blob at this time step.
+        # We need to get the number of data elements in each elem_path blob at this time step.
         data_retriever = self.widget_renderer.frame.data_retriever
         queue_sizes_by_collection_id = data_retriever.GetIterableSizesByCollectionID(self.widget_renderer.tick)
 
-        self._utiliz_pcts_by_sim_path = {}
-        for sim_path in self._all_sim_paths:
-            collection_id = self._collection_ids_by_sim_path[sim_path]
-            self._utiliz_pcts_by_sim_path[sim_path] = queue_sizes_by_collection_id[collection_id] / self._capacities_by_collection_id[collection_id]
+        self._utiliz_pcts_by_elem_path = {}
+        for elem_path in self._all_elem_paths:
+            collection_id = self._collection_ids_by_elem_path[elem_path]
+            self._utiliz_pcts_by_elem_path[elem_path] = queue_sizes_by_collection_id[collection_id] / self._capacities_by_collection_id[collection_id]
 
     def __GetColorForUtilizPct(self, utiliz_pct):
         """

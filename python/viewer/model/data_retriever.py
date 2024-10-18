@@ -20,23 +20,23 @@ class DataRetriever:
                                          'IsContainer':is_container,
                                          'Elements':[]}
 
-        cursor.execute('SELECT PathID,Capacity,IsSparse FROM ContainerMeta')
+        cursor.execute('SELECT CollectionElemID,Capacity,IsSparse FROM ContainerMeta')
         container_meta_by_path_id = {}
-        for path_id,capacity,is_sparse in cursor.fetchall():
-            container_meta_by_path_id[path_id] = {'Capacity':capacity, 'IsSparse':is_sparse}
+        for elem_id,capacity,is_sparse in cursor.fetchall():
+            container_meta_by_path_id[elem_id] = {'Capacity':capacity, 'IsSparse':is_sparse}
 
-        cursor.execute('SELECT Id,CollectionID,SimPath FROM CollectionElems')
-        self._collection_names_by_simpath = {}
-        self._collection_ids_by_simpath = {}
-        for path_id,collection_id,simpath in cursor.fetchall():
-            meta_by_collection_id[collection_id]['Elements'].append(simpath)
-            self._collection_names_by_simpath[simpath] = self._collection_names_by_collection_id[collection_id]
-            self._collection_ids_by_simpath[simpath] = collection_id
+        cursor.execute('SELECT Id,CollectionID,ElemPath FROM CollectionElems')
+        self._collection_names_by_elem_path = {}
+        self._collection_ids_by_elem_path = {}
+        for elem_id,collection_id,elem_path in cursor.fetchall():
+            meta_by_collection_id[collection_id]['Elements'].append(elem_path)
+            self._collection_names_by_elem_path[elem_path] = self._collection_names_by_collection_id[collection_id]
+            self._collection_ids_by_elem_path[elem_path] = collection_id
 
-        self._element_idxs_by_simpath = {}
+        self._element_idxs_by_elem_path = {}
         for collection_id,meta in meta_by_collection_id.items():
-            for i,simpath in enumerate(meta['Elements']):
-                self._element_idxs_by_simpath[simpath] = i
+            for i,elem_path in enumerate(meta['Elements']):
+                self._element_idxs_by_elem_path[elem_path] = i
 
         cursor.execute('SELECT IntVal,String FROM StringMap')
         strings_by_int = {}
@@ -56,25 +56,26 @@ class DataRetriever:
         for collection_name in cursor.fetchall():
             container_collections.add(collection_name[0])
 
-        cursor.execute('SELECT PathID,Capacity,IsSparse FROM ContainerMeta')
+        cursor.execute('SELECT CollectionElemID,Capacity,IsSparse FROM ContainerMeta')
         container_meta_by_path_id = {}
-        for path_id,capacity,is_sparse in cursor.fetchall():
-            container_meta_by_path_id[path_id] = {'Capacity':capacity, 'IsSparse':is_sparse}
+        for elem_id,capacity,is_sparse in cursor.fetchall():
+            container_meta_by_path_id[elem_id] = {'Capacity':capacity, 'IsSparse':is_sparse}
 
-        cursor.execute('SELECT Id,SimPath FROM CollectionElems')
-        container_meta_by_simpath = {}
-        for path_id,simpath in cursor.fetchall():
-            if path_id in container_meta_by_path_id:
-                container_meta_by_simpath[simpath] = container_meta_by_path_id[path_id]
+        cursor.execute('SELECT Id,ElemPath FROM CollectionElems')
+        container_meta_by_elem_path = {}
+        for elem_id,elem_path in cursor.fetchall():
+            if elem_id in container_meta_by_path_id:
+                container_meta_by_elem_path[elem_path] = container_meta_by_path_id[elem_id]
 
-        cursor.execute('SELECT CollectionName,FieldName,FieldType,FormatCode FROM StructFields')
+        cursor.execute('SELECT CollectionID,FieldName,FieldType,FormatCode FROM StructFields')
         self._deserializers_by_collection_name = {}
-        for collection_name,field_name,field_type,format_code in cursor.fetchall():
+        for collection_id,field_name,field_type,format_code in cursor.fetchall():
+            collection_name = self._collection_names_by_collection_id[collection_id]
             if collection_name not in self._deserializers_by_collection_name:
                 if collection_name not in container_collections:
-                    deserializer = StructDeserializer(strings_by_int, enums_by_name, self._element_idxs_by_simpath, cursor)
+                    deserializer = StructDeserializer(strings_by_int, enums_by_name, self._element_idxs_by_elem_path, cursor)
                 else:
-                    deserializer = IterableDeserializer(strings_by_int, enums_by_name, container_meta_by_simpath, self._element_idxs_by_simpath, cursor)
+                    deserializer = IterableDeserializer(strings_by_int, enums_by_name, container_meta_by_elem_path, self._element_idxs_by_elem_path, cursor)
 
                 self._deserializers_by_collection_name[collection_name] = deserializer
 
@@ -88,7 +89,7 @@ class DataRetriever:
 
         for collection_name,data_type in cursor.fetchall():
             assert collection_name not in self._deserializers_by_collection_name
-            self._deserializers_by_collection_name[collection_name] = StatsDeserializer(data_type, self._element_idxs_by_simpath, cursor)
+            self._deserializers_by_collection_name[collection_name] = StatsDeserializer(data_type, self._element_idxs_by_elem_path, cursor)
 
         cmd = 'SELECT TimeVal FROM CollectionData'
         cursor.execute(cmd)
@@ -112,22 +113,22 @@ class DataRetriever:
 
         self._is_sparse_by_collection_id = {}
         collection_ids_by_path_id = {}
-        for path_id,collection_id in cursor.fetchall():
-            collection_ids_by_path_id[path_id] = collection_id
+        for elem_id,collection_id in cursor.fetchall():
+            collection_ids_by_path_id[elem_id] = collection_id
             self._is_sparse_by_collection_id[collection_id] = False
 
-        cmd = 'SELECT PathID,IsSparse FROM ContainerMeta'
+        cmd = 'SELECT CollectionElemID,IsSparse FROM ContainerMeta'
         cursor.execute(cmd)
 
-        for path_id,is_sparse in cursor.fetchall():
-            collection_id = collection_ids_by_path_id[path_id]
+        for elem_id,is_sparse in cursor.fetchall():
+            collection_id = collection_ids_by_path_id[elem_id]
             self._is_sparse_by_collection_id[collection_id] = is_sparse
 
         self._cached_utiliz_time_val = None
         self._cached_utiliz_sizes = None
 
-    def GetDeserializer(self, sim_path):
-        collection_name = self._collection_names_by_simpath[sim_path]
+    def GetDeserializer(self, elem_path):
+        collection_name = self._collection_names_by_elem_path[elem_path]
         return self._deserializers_by_collection_name[collection_name]
     
     def GetIterableSizesByCollectionID(self, time_val):
@@ -189,7 +190,7 @@ class DataRetriever:
     # and addContainer().
     def Unpack(self, elem_path, time_range=None):
         cursor = self.cursor
-        collection_id = self._collection_ids_by_simpath[elem_path]
+        collection_id = self._collection_ids_by_elem_path[elem_path]
         cmd = 'SELECT TimeVal,DataVals,IsCompressed FROM CollectionData '
 
         if time_range is not None:
@@ -252,7 +253,7 @@ class DataRetriever:
         time_vals = []
         data_vals = []
 
-        collection_name = self._collection_names_by_simpath[elem_path]
+        collection_name = self._collection_names_by_elem_path[elem_path]
         deserializer = self._deserializers_by_collection_name[collection_name]
 
         # Get a list of the collection's data blobs in the form:
@@ -387,16 +388,16 @@ class StatsDeserializer(Deserializer):
         'bool'    :'i'
     }
 
-    def __init__(self, data_type, element_idxs_by_simpath, cursor):
+    def __init__(self, data_type, element_idxs_by_elem_path, cursor):
         Deserializer.__init__(self, cursor)
         self._scalar_num_bytes = StatsDeserializer.NUM_BYTES_MAP[data_type]
         self._format = StatsDeserializer.FORMAT_CODES_MAP[data_type]
         self._cast = float if data_type in ('float','double') else int
-        self._element_idxs_by_simpath = element_idxs_by_simpath
+        self._element_idxs_by_elem_path = element_idxs_by_elem_path
         self._isbool = data_type == 'bool'
 
     def Unpack(self, data_blob, elem_path):
-        elem_idx = self._element_idxs_by_simpath[elem_path]
+        elem_idx = self._element_idxs_by_elem_path[elem_path]
         start = elem_idx * self._scalar_num_bytes
         end = start + self._scalar_num_bytes
         raw_bytes = data_blob[start:end]
@@ -411,11 +412,11 @@ class StatsDeserializer(Deserializer):
         return self._scalar_num_bytes
 
 class StructDeserializer(Deserializer):
-    def __init__(self, strings_by_int, enums_by_name, element_idxs_by_simpath, cursor):
+    def __init__(self, strings_by_int, enums_by_name, element_idxs_by_elem_path, cursor):
         Deserializer.__init__(self, cursor)
         self._strings_by_int = strings_by_int
         self._enums_by_name = enums_by_name
-        self._element_idxs_by_simpath = element_idxs_by_simpath
+        self._element_idxs_by_elem_path = element_idxs_by_elem_path
         self._field_formatters = []
         self._format = ''
 
@@ -451,7 +452,7 @@ class StructDeserializer(Deserializer):
 
     def Unpack(self, data_blob, elem_path, apply_offset=True):
         struct_num_bytes = self.GetStructNumBytes()
-        elem_idx = self._element_idxs_by_simpath[elem_path]
+        elem_idx = self._element_idxs_by_elem_path[elem_path]
 
         if apply_offset:
             data_blob = data_blob[struct_num_bytes*elem_idx:struct_num_bytes*(elem_idx+1)]
@@ -507,15 +508,15 @@ class StructDeserializer(Deserializer):
         return self.GetStructNumBytes()
 
 class IterableDeserializer(StructDeserializer):
-    def __init__(self, strings_by_int, enums_by_name, container_meta_by_simpath, element_idxs_by_simpath, cursor):
-        StructDeserializer.__init__(self, strings_by_int, enums_by_name, element_idxs_by_simpath, cursor)
-        self._container_meta_by_simpath = container_meta_by_simpath
-        self._element_idxs_by_simpath = element_idxs_by_simpath
+    def __init__(self, strings_by_int, enums_by_name, container_meta_by_elem_path, element_idxs_by_elem_path, cursor):
+        StructDeserializer.__init__(self, strings_by_int, enums_by_name, element_idxs_by_elem_path, cursor)
+        self._container_meta_by_elem_path = container_meta_by_elem_path
+        self._element_idxs_by_elem_path = element_idxs_by_elem_path
 
     def Unpack(self, data_blob, elem_path):
         res = []
         struct_num_bytes = self.GetStructNumBytes()
-        sparse = self._container_meta_by_simpath[elem_path]['IsSparse']
+        sparse = self._container_meta_by_elem_path[elem_path]['IsSparse']
 
         if not sparse:
             while len(data_blob) > 0:
@@ -523,7 +524,7 @@ class IterableDeserializer(StructDeserializer):
                 data_blob = data_blob[struct_num_bytes:]
                 res.append(StructDeserializer.Unpack(self, struct_blob, elem_path, False))
         else:
-            capacity = self._container_meta_by_simpath[elem_path]['Capacity']
+            capacity = self._container_meta_by_elem_path[elem_path]['Capacity']
             res = [None for i in range(capacity)]
             while len(data_blob) > 0:
                 bucket_idx = struct.unpack('h', data_blob[:2])[0]

@@ -42,40 +42,40 @@ class SimHierarchy:
         self._elem_paths_by_id = elem_paths_by_id
         self._elem_ids_by_path = {v: k for k, v in elem_paths_by_id.items()}
 
-        cmd = 'SELECT CollectionID,SimPath FROM CollectionElems'
+        cmd = 'SELECT CollectionID,ElemPath FROM CollectionElems'
         cursor.execute(cmd)
 
-        collection_ids_by_sim_path = {}
-        for collection_id, sim_path in cursor.fetchall():
-            collection_ids_by_sim_path[sim_path] = collection_id
+        collection_ids_by_elem_path = {}
+        for collection_id, elem_path in cursor.fetchall():
+            collection_ids_by_elem_path[elem_path] = collection_id
 
-        sim_paths_by_collection_id = {}
-        for sim_path, collection_id in collection_ids_by_sim_path.items():
-            sim_paths = sim_paths_by_collection_id.get(collection_id, [])
-            sim_paths.append(sim_path)
-            sim_paths_by_collection_id[collection_id] = sim_paths
+        elem_paths_by_collection_id = {}
+        for elem_path, collection_id in collection_ids_by_elem_path.items():
+            elem_paths = elem_paths_by_collection_id.get(collection_id, [])
+            elem_paths.append(elem_path)
+            elem_paths_by_collection_id[collection_id] = elem_paths
 
         cmd = 'SELECT Id,DataType,IsContainer FROM Collections'
         cursor.execute(cmd)
 
-        self._scalar_stats_sim_paths = []
-        self._scalar_structs_sim_paths = []
-        self._container_sim_paths = []
+        self._scalar_stats_elem_paths = []
+        self._scalar_structs_elem_paths = []
+        self._container_elem_paths = []
 
         for collection_id, data_type, is_container in cursor.fetchall():
-            for sim_path in sim_paths_by_collection_id[collection_id]:
+            for elem_path in elem_paths_by_collection_id[collection_id]:
                 if data_type in ('int8_t', 'int16_t', 'int32_t', 'int64_t', 'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'float', 'double'):
-                    self._scalar_stats_sim_paths.append(sim_path)
+                    self._scalar_stats_elem_paths.append(elem_path)
                 elif is_container:
-                    self._container_sim_paths.append(sim_path)
+                    self._container_elem_paths.append(elem_path)
                 else:
-                    self._scalar_structs_sim_paths.append(sim_path)
+                    self._scalar_structs_elem_paths.append(elem_path)
 
-        self._collection_id_by_sim_path = {}
-        cursor.execute("SELECT CollectionID,SimPath FROM CollectionElems")
+        self._collection_id_by_elem_path = {}
+        cursor.execute("SELECT CollectionID,ElemPath FROM CollectionElems")
         rows = cursor.fetchall()
         for row in rows:
-            self._collection_id_by_sim_path[row[1]] = row[0]
+            self._collection_id_by_elem_path[row[1]] = row[0]
 
         # Iterate over the Collections table and find the DataType and IsContainer for each CollectionID
         self._data_type_by_collection_id = {}
@@ -89,8 +89,8 @@ class SimHierarchy:
             if row[2]:
                 container_collection_ids.append(row[0])
 
-    def GetLeafDataType(self, sim_path):
-        collection_id = self._collection_id_by_sim_path[sim_path]
+    def GetLeafDataType(self, elem_path):
+        collection_id = self._collection_id_by_elem_path[elem_path]
         return self._data_type_by_collection_id[collection_id]
     
     def GetRootID(self):
@@ -102,28 +102,28 @@ class SimHierarchy:
     def GetChildIDs(self, db_id):
         return self._child_ids_by_parent_id.get(db_id, [])
     
-    def GetSimPath(self, db_id):
+    def GetElemPath(self, db_id):
         return self._elem_paths_by_id[db_id]
     
     def GetName(self, db_id):
         return self._elem_names_by_id[db_id]
     
-    def GetSimPaths(self):
+    def GetElemPaths(self):
         return self._elem_paths_by_id.values()
 
-    def GetScalarStatsSimPaths(self):
-        return copy.deepcopy(self._scalar_stats_sim_paths)
+    def GetScalarStatsElemPaths(self):
+        return copy.deepcopy(self._scalar_stats_elem_paths)
     
-    def GetScalarStructsSimPaths(self):
-        return copy.deepcopy(self._scalar_structs_sim_paths)
+    def GetScalarStructsElemPaths(self):
+        return copy.deepcopy(self._scalar_structs_elem_paths)
     
-    def GetContainerSimPaths(self):
-        return copy.deepcopy(self._container_sim_paths)
+    def GetContainerElemPaths(self):
+        return copy.deepcopy(self._container_elem_paths)
 
-    def GetItemSimPaths(self):
-        sim_paths = self.GetScalarStatsSimPaths() + self.GetScalarStructsSimPaths() + self.GetContainerSimPaths()
-        sim_paths.sort()
-        return sim_paths
+    def GetItemElemPaths(self):
+        elem_paths = self.GetScalarStatsElemPaths() + self.GetScalarStructsElemPaths() + self.GetContainerElemPaths()
+        elem_paths.sort()
+        return elem_paths
 
     def __RecurseBuildHierarchy(self, cursor, parent_id, child_ids_by_parent_id):
         cursor.execute("SELECT Id FROM ElementTreeNodes WHERE ParentID={}".format(parent_id))

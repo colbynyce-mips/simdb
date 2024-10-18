@@ -103,15 +103,47 @@ public:
         return name_;
     }
 
-    /// \brief  Write metadata about this collection to the database.
-    /// \throws Throws an exception if called more than once.
-    void finalize(DatabaseManager* db_mgr, TreeNode* root, size_t) override
+    /// Get if the given element path ("root.child1.child2") is in this collection.
+    bool hasElement(const std::string& element_path) const override
     {
-        if (finalized_) {
-            throw DBException("Cannot call finalize() on a collection more than once");
+        for (const auto& pair : stats_) {
+            if (pair.first.getPath() == element_path) {
+                return true;
+            }
         }
+        return false;
+    }
 
-        serializeElementTree(db_mgr, root);
+    /// Get the element offset in the collection. This is for collections where we
+    /// pack all stats of the same data type into the same collection buffer, specifically
+    /// StatCollection<T> and ScalarStructCollection<T>.
+    int getElementOffset(const std::string& element_path) const override
+    {
+        for (size_t idx = 0; idx < stats_.size(); ++idx) {
+            if (stats_[idx].first.getPath() == element_path) {
+                return (int)idx;
+            }
+        }
+        return -1;
+    }
+
+    /// Get the type of widget that should be displayed when the given element
+    /// is dragged-and-dropped onto the Argos widget canvas.
+    std::string getWidgetType(const std::string& element_path) const override
+    {
+        if (hasElement(element_path)) {
+            return "Timeseries";
+        }
+        return "";
+    }
+
+    /// Write metadata about this collection to the database.
+    /// Returns the collection's primary key in the Collections table.
+    int writeCollectionMetadata(DatabaseManager* db_mgr) override
+    {
+        if (collection_pkey_ != -1) {
+            return collection_pkey_;
+        }
 
         std::string data_type;
         if (std::is_same<DataT, uint8_t>::value) {
@@ -141,23 +173,26 @@ public:
         }
 
         auto record = db_mgr->INSERT(SQL_TABLE("Collections"),
-                                     SQL_COLUMNS("Name", "DataType", "IsContainer"),
-                                     SQL_VALUES(name_, data_type, 0));
+                                     SQL_COLUMNS("Name", "DataType", "IsContainer", "IsSparse", "Capacity"),
+                                     SQL_VALUES(name_, data_type, 0, 0, (int)stats_.size()));
 
         collection_pkey_ = record->getId();
+        return collection_pkey_;
+    }
 
-        for (const auto& pair : stats_) {
-            const auto& stat = pair.first;
+    /// Set the heartbeat for this collection. This is the max number of cycles
+    /// that we employ the optimization "only write to the database if the collected
+    /// data is different from the last collected data". This prevents Argos from
+    /// having to go back more than N cycles to find the last known value.
+    void setHeartbeat(const size_t heartbeat) override
+    {
+        (void)heartbeat;
+    }
 
-            auto record = db_mgr->INSERT(SQL_TABLE("CollectionElems"),
-                                         SQL_COLUMNS("CollectionID", "SimPath"),
-                                         SQL_VALUES(collection_pkey_, stat.getPath()));
-
-            db_mgr->INSERT(SQL_TABLE("FormatOpts"),
-                           SQL_COLUMNS("ScalarElemID", "FormatCode"),
-                           SQL_VALUES(record->getId(), static_cast<int>(stat.getFormat())));
-        }
-
+    /// \brief  Finalize this collection.
+    /// \throws Throws an exception if called more than once.
+    void finalize() override
+    {
         finalized_ = true;
     }
 

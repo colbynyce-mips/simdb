@@ -22,7 +22,7 @@ class Watchlist(wx.TreeCtrl):
     def GetWatchedSimElems(self):
         return self._watched_sim_elems
     
-    def GetItemSimPath(self, item):
+    def GetItemElemPath(self, item):
         if not item.IsOk():
             return None
 
@@ -53,13 +53,13 @@ class Watchlist(wx.TreeCtrl):
         self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
 
     def __UpdateUtilizBitmaps(self, item):
-        item_path = self.GetItemSimPath(item)
+        item_path = self.GetItemElemPath(item)
         if item_path is None:
             return
 
         if item_path in self._watched_sim_elems:
             simhier = self.frame.explorer.navtree.simhier
-            if item_path in simhier.GetContainerSimPaths():
+            if item_path in simhier.GetContainerElemPaths():
                 utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(item_path)
                 image_idx = int(utiliz_pct * 100)
                 self.SetItemImage(item, image_idx)
@@ -101,13 +101,6 @@ class Watchlist(wx.TreeCtrl):
             for elem in self._watched_sim_elems:
                 self.AppendItem(watchlist_root, elem)
 
-            tools_root = self.AppendItem(self.GetRootItem(), "Systemwide Tools")
-            self._undeletable_items.append(tools_root)
-            self._undeletable_items.append(self.AppendItem(tools_root, "Queue Utilization"))
-            self._undeletable_items.append(self.AppendItem(tools_root, "Packet Tracker"))
-            self._undeletable_items.append(self.AppendItem(tools_root, "Live Editor"))
-            self._undeletable_items.append(self.AppendItem(tools_root, "Timeseries Viewer"))
-
             self.ExpandAll()
 
     def __RenderHierView(self, *args, **kwargs):
@@ -138,26 +131,11 @@ class Watchlist(wx.TreeCtrl):
             watchlist_root = self.AppendItem(self.GetRootItem(), "Watchlist")
             items_by_path["Root.Watchlist"] = watchlist_root
 
-            tools_root = self.AppendItem(self.GetRootItem(), "Systemwide Tools")
-            items_by_path["Root.Watchlist.Systemwide Tools"] = tools_root
-
-            tool = self.AppendItem(tools_root, "Queue Utilization")
-            items_by_path["Root.Watchlist.Systemwide Tools.Queue Utilization"] = tool
-
-            tool = self.AppendItem(tools_root, "Packet Tracker")
-            items_by_path["Root.Watchlist.Systemwide Tools.Packet Tracker"] = tool
-
-            tool = self.AppendItem(tools_root, "Live Editor")
-            items_by_path["Root.Watchlist.Systemwide Tools.Live Editor"] = tool
-
-            tool = self.AppendItem(tools_root, "Timeseries Viewer")
-            items_by_path["Root.Watchlist.Systemwide Tools.Timeseries Viewer"] = tool
-
             for _, item in items_by_path.items():
                 self._undeletable_items.append(item)
 
             # Honor the same hierarchy as the NavTree
-            navtree_leaf_paths = self.frame.explorer.navtree.simhier.GetItemSimPaths()
+            navtree_leaf_paths = self.frame.explorer.navtree.simhier.GetItemElemPaths()
 
             for path in navtree_leaf_paths:
                 if path not in self._watched_sim_elems:
@@ -218,7 +196,7 @@ class Watchlist(wx.TreeCtrl):
         hier_view = menu.Append(-1, "Hierarchical View")
         self.Bind(wx.EVT_MENU, self.__RenderHierView, hier_view)
 
-        elem_path = self.GetItemSimPath(item)
+        elem_path = self.GetItemElemPath(item)
         if elem_path in self._watched_sim_elems:
             menu.AppendSeparator()
             remove_from_watchlist = menu.Append(-1, "Remove from Watchlist")
@@ -248,7 +226,7 @@ class Watchlist(wx.TreeCtrl):
         self.__RenderWatchlist()
 
     def __RecurseGetWatchedSimElems(self, item, watched_sim_elems):
-        item_path = self.GetItemSimPath(item)
+        item_path = self.GetItemElemPath(item)
         if item_path in self._watched_sim_elems:
             watched_sim_elems.append(item_path)
 

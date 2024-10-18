@@ -39,3 +39,4 @@ class ArgosFrame(wx.Frame):
     def PostLoad(self):
         self.widget_creator.BindToWidgetSource(self.explorer.navtree)
         self.widget_creator.BindToWidgetSource(self.explorer.watchlist)
+        self.widget_creator.BindToWidgetSource(self.explorer.tools)

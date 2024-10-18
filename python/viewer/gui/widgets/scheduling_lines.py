@@ -1,17 +1,17 @@
 import wx
     
-class LiveEditorWidget(wx.Panel):
+class SchedulingLinesWidget(wx.Panel):
     def __init__(self, parent, frame):
         super().__init__(parent)
         self.frame = frame
 
         self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.sizer.Add(wx.StaticText(self, label='Live Editor'), 0, wx.EXPAND)
+        self.sizer.Add(wx.StaticText(self, label='Scheduling Lines'), 0, wx.EXPAND)
         self.SetSizer(self.sizer)
         self.Layout()
 
     def GetWidgetCreationString(self):
-        return 'Live Editor'
+        return 'Scheduling Lines'
 
     def UpdateWidgetData(self):
         pass

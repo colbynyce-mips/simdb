@@ -15,12 +15,12 @@ inline void serializeElementTree(DatabaseManager* db_mgr,
         return;
     }
 
-    auto root_record = db_mgr->INSERT(SQL_TABLE("ElementTreeNodes"),
-                                      SQL_COLUMNS("Name", "ParentID"),
-                                      SQL_VALUES(start->name, parent_db_id));
+    auto node_record = db_mgr->INSERT(SQL_TABLE("ElementTreeNodes"),
+                                      SQL_COLUMNS("Name", "ParentID", "ClockID"),
+                                      SQL_VALUES(start->name, parent_db_id, start->clk_id));
 
     for (const auto& child : start->children) {
-        serializeElementTree(db_mgr, child.get(), root_record->getId());
+        serializeElementTree(db_mgr, child.get(), node_record->getId());
     }
 }
 

@@ -98,8 +98,30 @@ public:
     /// Get the name of this collection.
     virtual std::string getName() const = 0;
 
+    /// Get if the given element path ("root.child1.child2") is in this collection.
+    virtual bool hasElement(const std::string& element_path) const = 0;
+
+    /// Get the element offset in the collection. This is for collections where we
+    /// pack all stats of the same data type into the same collection buffer, specifically
+    /// StatCollection<T> and ScalarStructCollection<T>.
+    virtual int getElementOffset(const std::string& element_path) const = 0;
+
+    /// Get the type of widget that should be displayed when the given element
+    /// is dragged-and-dropped onto the Argos widget canvas.
+    virtual std::string getWidgetType(const std::string& element_path) const = 0;
+
     /// Write metadata about this collection to the database.
-    virtual void finalize(DatabaseManager* db_mgr, TreeNode* root, size_t heartbeat) = 0;
+    /// Returns the collection's primary key in the Collections table.
+    virtual int writeCollectionMetadata(DatabaseManager* db_mgr) = 0;
+
+    /// Set the heartbeat for this collection. This is the max number of cycles
+    /// that we employ the optimization "only write to the database if the collected
+    /// data is different from the last collected data". This prevents Argos from
+    /// having to go back more than N cycles to find the last known value.
+    virtual void setHeartbeat(const size_t heartbeat) = 0;
+
+    /// Finalize this collection.
+    virtual void finalize() = 0;
 
     /// Collect all values in this collection into one data vector
     /// and write the values to the database.
@@ -258,11 +280,9 @@ public:
         schema.addTable("Collections")
             .addColumn("Name", dt::string_t)
             .addColumn("DataType", dt::string_t)
-            .addColumn("IsContainer", dt::int32_t);
-
-        schema.addTable("CollectionElems")
-            .addColumn("CollectionID", dt::int32_t)
-            .addColumn("SimPath", dt::string_t);
+            .addColumn("IsContainer", dt::int32_t)
+            .addColumn("IsSparse", dt::int32_t)
+            .addColumn("Capacity", dt::int32_t);
 
         schema.addTable("CollectionData")
             .addColumn("TimeVal", timestamp_->getDataType())
@@ -271,7 +291,7 @@ public:
             .createIndexOn("TimeVal");
 
         schema.addTable("StructFields")
-            .addColumn("CollectionName", dt::string_t)
+            .addColumn("StructName", dt::int32_t)
             .addColumn("FieldName", dt::string_t)
             .addColumn("FieldType", dt::string_t)
             .addColumn("FormatCode", dt::int32_t);
@@ -286,30 +306,17 @@ public:
             .addColumn("IntVal", dt::int32_t)
             .addColumn("String", dt::string_t);
 
-        schema.addTable("ContainerMeta")
-            .addColumn("PathID", dt::int32_t)
-            .addColumn("Capacity", dt::int32_t)
-            .addColumn("IsSparse", dt::int32_t);
-
-        schema.addTable("IterableBlobMeta")
-            .addColumn("CollectionDataID", dt::int32_t)
-            .addColumn("SparseValidFlags", dt::blob_t);
-
-        schema.addTable("FormatOpts")
-            .addColumn("ScalarElemID", dt::int32_t)
-            .addColumn("FormatCode", dt::int32_t);
-
         schema.addTable("ElementTreeNodes")
             .addColumn("Name", dt::string_t)
-            .addColumn("ParentID", dt::int32_t);
+            .addColumn("ParentID", dt::int32_t)
+            .addColumn("ClockID", dt::int32_t)
+            .addColumn("CollectionID", dt::int32_t)
+            .addColumn("CollectionOffset", dt::int32_t)
+            .addColumn("WidgetType", dt::string_t);
 
         schema.addTable("Clocks")
             .addColumn("Name", dt::string_t)
             .addColumn("Period", dt::int32_t);
-
-        schema.addTable("ElementClocks")
-            .addColumn("SimPath", dt::string_t)
-            .addColumn("ClockName", dt::string_t);
     }
 
     /// Add a clock with the given name and period.
@@ -399,17 +406,16 @@ private:
     /// One-time finalization of all collections. Called by friend class DatabaseManager.
     void finalizeCollections_();
 
-    std::unique_ptr<TreeNode> createElementTree_()
-    {
-        std::vector<std::string> all_element_paths;
-        for (const auto& collection : collections_) {
-            for (const auto& path : collection->getElemPaths()) {
-                all_element_paths.push_back(path);
-            }
-        }
+    /// One-time creation of a TreeNode data structure for all collections to be serialized
+    /// to SimDB.
+    std::unique_ptr<TreeNode> createElementTree_();
 
-        return buildTree(all_element_paths);
-    }
+    /// Assign clock ID's, collection ID's, collection offsets, and widget types to all
+    /// elements in the tree.
+    void assignElementMetadata_(TreeNode* root);
+
+    /// Write all element metadata to the ElementTreeNodes table.
+    void serializeElementTree_(TreeNode* root, const int parent_db_id = 0);
 
     /// DatabaseManager. Needed so we can call finalize() and collect() on the
     /// CollectionBase objects.
