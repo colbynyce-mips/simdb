@@ -49,26 +49,8 @@ class WidgetRenderer:
 class IterableUtiliz:
     def __init__(self, widget_renderer, simhier):
         self.widget_renderer = widget_renderer
+        self.simhier = simhier
         self._utiliz_pcts_by_elem_path = {}
-        self._capacities_by_elem_path = {}
-        self._capacities_by_collection_id = {}
-        self._collection_ids_by_elem_path = {}
-        self._all_elem_paths = []
-
-        self._capacities_by_elem_id = {}
-        for elem_path in simhier.GetItemElemPaths():
-            elem_id = simhier.GetElemID(elem_path)
-            collection_id = simhier.GetCollectionID(elem_path)
-            capacity = simhier.GetCollectionCapacity(collection_id)
-
-            self._capacities_by_elem_id[elem_id] = capacity
-            self._capacities_by_elem_path[elem_path] = capacity
-            self._capacities_by_collection_id[collection_id] = capacity
-            self._collection_ids_by_elem_path[elem_path] = collection_id
-            self._all_elem_paths.append(elem_path)
-
-    def GetCapacity(self, elem_path):
-        return self._capacities_by_elem_path[elem_path]
 
     def GetUtilizPct(self, elem_path):
         self.__CacheUtilizValues()
@@ -97,9 +79,10 @@ class IterableUtiliz:
         queue_sizes_by_collection_id = data_retriever.GetIterableSizesByCollectionID(self.widget_renderer.tick)
 
         self._utiliz_pcts_by_elem_path = {}
-        for elem_path in self._all_elem_paths:
-            collection_id = self._collection_ids_by_elem_path[elem_path]
-            self._utiliz_pcts_by_elem_path[elem_path] = queue_sizes_by_collection_id[collection_id] / self._capacities_by_collection_id[collection_id]
+        for elem_path in self.simhier.GetItemElemPaths():
+            collection_id = self.simhier.GetCollectionID(elem_path)
+            capacity = self.simhier.GetCapacityByCollectionID(collection_id)
+            self._utiliz_pcts_by_elem_path[elem_path] = queue_sizes_by_collection_id[collection_id] / capacity
 
     def __GetColorForUtilizPct(self, utiliz_pct):
         """

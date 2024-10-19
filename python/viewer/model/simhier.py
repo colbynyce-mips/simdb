@@ -129,8 +129,13 @@ class SimHierarchy:
     def GetCollectionID(self, elem_path):
         return self._collection_id_by_elem_path.get(elem_path)
     
-    def GetCollectionCapacity(self, collection_id):
+    def GetCapacityByCollectionID(self, collection_id):
         return self._capacities_by_collection_id.get(collection_id)
+    
+    def GetCapacityByElemPath(self, elem_path):
+        collection_id = self.GetCollectionID(elem_path)
+        capacity = self.GetCapacityByCollectionID(collection_id)
+        return capacity
     
     def GetName(self, db_id):
         return self._elem_names_by_id[db_id]

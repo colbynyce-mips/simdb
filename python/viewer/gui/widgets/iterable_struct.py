@@ -9,7 +9,7 @@ class IterableStruct(wx.Panel):
         self.deserializer = frame.data_retriever.GetDeserializer(elem_path)
 
         self._field_names = self.deserializer.GetFieldNames()
-        self.capacity = frame.widget_renderer.utiliz_handler.GetCapacity(elem_path)
+        self.capacity = frame.simhier.GetCapacityByElemPath(elem_path)
         self.grid = wx.grid.Grid(self)
         self.grid.CreateGrid(self.capacity, len(self._field_names), wx.grid.Grid.GridSelectNone)
         self.grid.EnableEditing(False)

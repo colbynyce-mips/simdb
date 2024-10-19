@@ -16,4 +16,4 @@ class ScalarStatistic(wx.Panel):
 
     def UpdateWidgetData(self):
         widget_renderer = self.frame.widget_renderer
-        print ("QueueUtilizWidget UpdateWidgetData called at tick %d" % widget_renderer.tick)
+        print ("ScalarStatistic UpdateWidgetData called at tick %d" % widget_renderer.tick)

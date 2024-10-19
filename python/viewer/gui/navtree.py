@@ -11,7 +11,6 @@ class NavTree(wx.TreeCtrl):
         self._tree_items_by_db_id = {self.simhier.GetRootID(): self._root }
         self.__RecurseBuildTree(self.simhier.GetRootID())
 
-        self._container_elem_paths = self.simhier.GetContainerElemPaths()
         self._leaf_element_paths_by_tree_item = {}
         for db_id, tree_item in self._tree_items_by_db_id.items():
             if not self.GetChildrenCount(tree_item):
@@ -29,14 +28,11 @@ class NavTree(wx.TreeCtrl):
         for _,elem_path in self._leaf_element_paths_by_tree_item.items():
             assert elem_path.find('root.') == -1
 
-        for elem_path in self._container_elem_paths:
-            assert elem_path.find('root.') == -1
-
         for elem_path,_ in self._tree_items_by_elem_path.items():
             assert elem_path.find('root.') == -1
 
     def UpdateUtilizBitmaps(self):
-        for elem_path in self._container_elem_paths:
+        for elem_path in self.simhier.GetContainerElemPaths():
             utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(elem_path)
             image_idx = int(utiliz_pct * 100)
             item = self._tree_items_by_elem_path[elem_path]
