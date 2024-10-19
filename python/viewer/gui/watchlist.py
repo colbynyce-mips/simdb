@@ -19,6 +19,8 @@ class Watchlist(wx.TreeCtrl):
         self._utiliz_image_list = frame.widget_renderer.utiliz_handler.CreateUtilizImageList()
         self.SetImageList(self._utiliz_image_list)
 
+        self._tooltips_by_item = {}
+
     def GetWatchedSimElems(self):
         return self._watched_sim_elems
     
@@ -44,6 +46,7 @@ class Watchlist(wx.TreeCtrl):
         self.GetParent().ChangeSelection(1)
 
     def UpdateUtilizBitmaps(self):
+        self._tooltips_by_item = {}
         self.__UpdateUtilizBitmaps(self.GetRootItem())
 
     def ExpandAll(self):
@@ -64,9 +67,16 @@ class Watchlist(wx.TreeCtrl):
                 utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(elem_path)
                 image_idx = int(utiliz_pct * 100)
                 self.SetItemImage(item, image_idx)
+
+                capacity = simhier.GetCapacityByElemPath(elem_path)
+                size = int(capacity * utiliz_pct)
+                tooltip = '{}\nUtilization: {}% ({}/{} bins filled)'.format(elem_path, round(utiliz_pct*100), size, capacity)
+                self._tooltips_by_item[item] = tooltip
             elif simhier.GetWidgetType(elem_id) == 'Timeseries':
                 image_idx = self._utiliz_image_list.GetImageCount() - 1
                 self.SetItemImage(item, image_idx)
+                tooltip = '{}\nNo utilization data available for timeseries stats'.format(elem_path)
+                self._tooltips_by_item[item] = tooltip
 
         child, cookie = self.GetFirstChild(item)
         while child.IsOk():
@@ -106,6 +116,8 @@ class Watchlist(wx.TreeCtrl):
                 self.AppendItem(watchlist_root, elem)
 
             self.ExpandAll()
+
+        self.UpdateUtilizBitmaps()
 
     def __RenderHierView(self, *args, **kwargs):
         self._mode = 'hier'
@@ -160,10 +172,12 @@ class Watchlist(wx.TreeCtrl):
 
             self.ExpandAll()
 
+        self.UpdateUtilizBitmaps()
+
     def __ProcessTooltip(self, event):
         item = event.GetItem()
-        event.SetToolTip(self.GetItemText(item))
-        event.Skip()
+        tooltip = self._tooltips_by_item.get(item, '')
+        event.SetToolTip(tooltip)
 
     def __OnRightClick(self, event):
         item = self.HitTest(event.GetPosition())
@@ -240,4 +254,4 @@ class Watchlist(wx.TreeCtrl):
             child, cookie = self.GetNextChild(item, cookie)
 
     def __OnItemExpanded(self, event):
-        self.__UpdateUtilizBitmaps(event.GetItem())
+        self.UpdateUtilizBitmaps()
