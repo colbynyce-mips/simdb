@@ -71,6 +71,11 @@ class IterableUtiliz:
             utiliz_bitmap = self.__CreateBitmap(utiliz_color)
             image_list.Add(utiliz_bitmap)
 
+        # We reserve a utiliz value of -1% to represent timeseries data (no utiliz for non-queues)
+        utiliz_color = (255, 255, 255)
+        utiliz_bitmap = self.__CreateBitmap(utiliz_color, draw_x_for_empty=True)
+        image_list.Add(utiliz_bitmap)
+
         return image_list
 
     def __CacheUtilizValues(self):
@@ -114,7 +119,7 @@ class IterableUtiliz:
         
         return (r, g, b)
 
-    def __CreateBitmap(self, utiliz_color, size=(16, 16)):
+    def __CreateBitmap(self, utiliz_color, size=(16, 16), draw_x_for_empty=False):
         """
         Creates a bitmap from an RGB color.
         
@@ -149,7 +154,7 @@ class IterableUtiliz:
 
         # Draw a diagonal line from the top-left to the bottom-right and bottom-left to the top-right
         # for empty queues.
-        if tuple(utiliz_color) == (255, 255, 255):
+        if tuple(utiliz_color) == (255, 255, 255) and draw_x_for_empty:
             mem_dc.SetPen(wx.Pen(wx.BLACK, 1))
             mem_dc.DrawLine(1, 1, interior_image_width, interior_image_height)  # Top-left to bottom-right
             mem_dc.DrawLine(1, interior_image_height, interior_image_width, 1)  # Bottom-left to top-right

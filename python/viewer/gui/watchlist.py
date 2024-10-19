@@ -53,15 +53,19 @@ class Watchlist(wx.TreeCtrl):
         self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
 
     def __UpdateUtilizBitmaps(self, item):
-        item_path = self.GetItemElemPath(item)
-        if item_path is None:
+        elem_path = self.GetItemElemPath(item)
+        if elem_path is None:
             return
 
-        if item_path in self._watched_sim_elems:
+        if elem_path in self._watched_sim_elems:
             simhier = self.frame.explorer.navtree.simhier
-            if item_path in simhier.GetContainerElemPaths():
-                utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(item_path)
+            elem_id = simhier.GetElemID(elem_path)
+            if simhier.GetWidgetType(elem_id) == 'QueueTable':
+                utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(elem_path)
                 image_idx = int(utiliz_pct * 100)
+                self.SetItemImage(item, image_idx)
+            elif simhier.GetWidgetType(elem_id) == 'Timeseries':
+                image_idx = self._utiliz_image_list.GetImageCount() - 1
                 self.SetItemImage(item, image_idx)
 
         child, cookie = self.GetFirstChild(item)

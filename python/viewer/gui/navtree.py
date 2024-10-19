@@ -32,11 +32,17 @@ class NavTree(wx.TreeCtrl):
             assert elem_path.find('root.') == -1
 
     def UpdateUtilizBitmaps(self):
-        for elem_path in self.simhier.GetContainerElemPaths():
-            utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(elem_path)
-            image_idx = int(utiliz_pct * 100)
-            item = self._tree_items_by_elem_path[elem_path]
-            self.SetItemImage(item, image_idx)
+        for elem_path in self.simhier.GetElemPaths():
+            elem_id = self.simhier.GetElemID(elem_path)
+            if self.simhier.GetWidgetType(elem_id) == 'QueueTable':
+                utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(elem_path)
+                image_idx = int(utiliz_pct * 100)
+                item = self._tree_items_by_elem_path[elem_path]
+                self.SetItemImage(item, image_idx)
+            elif self.simhier.GetWidgetType(elem_id) == 'Timeseries':
+                image_idx = self.__utiliz_image_list.GetImageCount() - 1
+                item = self._tree_items_by_elem_path[elem_path]
+                self.SetItemImage(item, image_idx)
 
     def ExpandAll(self):
         self.Unbind(wx.EVT_TREE_ITEM_EXPANDED)
@@ -49,9 +55,6 @@ class NavTree(wx.TreeCtrl):
 
     def __RecurseBuildTree(self, parent_id):
         for child_id in self.simhier.GetChildIDs(parent_id):
-            if self.simhier.GetWidgetType(child_id) not in (None, 'QueueTable', ''):
-                continue
-
             child_name = self.simhier.GetName(child_id)
             child = self.AppendItem(self._tree_items_by_db_id[parent_id], child_name)
             self._tree_items_by_db_id[child_id] = child
