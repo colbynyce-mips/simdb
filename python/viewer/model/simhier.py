@@ -14,9 +14,11 @@ class SimHierarchy:
                 parent_ids_by_child_id[child_id] = parent_id
 
         elem_names_by_id = {}
-        cursor.execute("SELECT Id,Name FROM ElementTreeNodes")
-        for row in cursor.fetchall():
-            elem_names_by_id[row[0]] = row[1]
+        self._widget_types_by_elem_id = {}
+        cursor.execute("SELECT Id,Name,WidgetType FROM ElementTreeNodes")
+        for id,name,widget_type in cursor.fetchall():
+            elem_names_by_id[id] = name
+            self._widget_types_by_elem_id[id] = widget_type
 
         def GetLineage(elem_id, parent_ids_by_child_id):
             lineage = []
@@ -114,14 +116,14 @@ class SimHierarchy:
     def GetRootID(self):
         return self._root_id
 
-    def GetParentID(self, db_id):
-        return self._parent_ids_by_child_id[db_id]
+    def GetParentID(self, elem_id):
+        return self._parent_ids_by_child_id[elem_id]
 
-    def GetChildIDs(self, db_id):
-        return self._child_ids_by_parent_id.get(db_id, [])
+    def GetChildIDs(self, elem_id):
+        return self._child_ids_by_parent_id.get(elem_id, [])
     
-    def GetElemPath(self, db_id):
-        return self._elem_paths_by_id[db_id]
+    def GetElemPath(self, elem_id):
+        return self._elem_paths_by_id[elem_id]
     
     def GetElemID(self, elem_path):
         return self._elem_ids_by_path.get(elem_path)
@@ -137,8 +139,8 @@ class SimHierarchy:
         capacity = self.GetCapacityByCollectionID(collection_id)
         return capacity
     
-    def GetName(self, db_id):
-        return self._elem_names_by_id[db_id]
+    def GetName(self, elem_id):
+        return self._elem_names_by_id[elem_id]
     
     def GetElemPaths(self):
         return self._elem_paths_by_id.values()
@@ -156,6 +158,9 @@ class SimHierarchy:
         elem_paths = self.GetScalarStatsElemPaths() + self.GetScalarStructsElemPaths() + self.GetContainerElemPaths()
         elem_paths.sort()
         return elem_paths
+    
+    def GetWidgetType(self, elem_id):
+        return self._widget_types_by_elem_id[elem_id]
 
     def __RecurseBuildHierarchy(self, cursor, parent_id, child_ids_by_parent_id):
         cursor.execute("SELECT Id FROM ElementTreeNodes WHERE ParentID={}".format(parent_id))

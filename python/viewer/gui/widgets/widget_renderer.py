@@ -125,7 +125,36 @@ class IterableUtiliz:
         Returns:
         - wx.Bitmap: A bitmap representing the specified color.
         """
-        width, height = size
-        image = wx.Image(width, height)
-        image.SetRGB(wx.Rect(0, 0, width, height), *utiliz_color)
-        return wx.Bitmap(image)
+        border_width = 1
+        bordered_image_width, bordered_image_height = size
+        interior_image_width = bordered_image_width - 2 * border_width
+        interior_image_height = bordered_image_height - 2 * border_width
+
+        interior_image = wx.Image(interior_image_width, interior_image_height)
+        interior_image.SetRGB(wx.Rect(0, 0, interior_image_width, interior_image_height), *utiliz_color)
+
+        # Create a new image with a black border
+        bordered_image = wx.Bitmap(bordered_image_width, bordered_image_height)
+
+        mem_dc = wx.MemoryDC(bordered_image)
+        mem_dc.SetBackground(wx.Brush(utiliz_color))  # Background color for the bordered image
+        mem_dc.Clear()
+
+        # Draw the black border
+        mem_dc.SetBrush(wx.Brush(wx.BLACK))
+        mem_dc.DrawRectangle(0, 0, bordered_image_width, bordered_image_height)
+
+        # Draw the original image with an offset for the border
+        mem_dc.DrawBitmap(interior_image.ConvertToBitmap(), border_width, border_width)
+
+        # Draw a diagonal line from the top-left to the bottom-right and bottom-left to the top-right
+        # for empty queues.
+        if tuple(utiliz_color) == (255, 255, 255):
+            mem_dc.SetPen(wx.Pen(wx.BLACK, 1))
+            mem_dc.DrawLine(1, 1, interior_image_width, interior_image_height)  # Top-left to bottom-right
+            mem_dc.DrawLine(1, interior_image_height, interior_image_width, 1)  # Bottom-left to top-right
+
+        # Clean up
+        mem_dc.SelectObject(wx.NullBitmap)
+
+        return bordered_image

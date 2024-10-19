@@ -49,6 +49,9 @@ class NavTree(wx.TreeCtrl):
 
     def __RecurseBuildTree(self, parent_id):
         for child_id in self.simhier.GetChildIDs(parent_id):
+            if self.simhier.GetWidgetType(child_id) not in (None, 'QueueTable', ''):
+                continue
+
             child_name = self.simhier.GetName(child_id)
             child = self.AppendItem(self._tree_items_by_db_id[parent_id], child_name)
             self._tree_items_by_db_id[child_id] = child
