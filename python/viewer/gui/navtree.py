@@ -21,8 +21,11 @@ class NavTree(wx.TreeCtrl):
         self.Bind(wx.EVT_RIGHT_DOWN, self.__OnRightClick)
         self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
 
-        self.__utiliz_image_list = frame.widget_renderer.utiliz_handler.CreateUtilizImageList()
-        self.SetImageList(self.__utiliz_image_list)
+        self._utiliz_image_list = frame.widget_renderer.utiliz_handler.CreateUtilizImageList()
+        self.SetImageList(self._utiliz_image_list)
+
+        self._tooltips_by_item = {}
+        self.Bind(wx.EVT_TREE_ITEM_GETTOOLTIP, self.__ProcessTooltip)
 
         # Sanity checks to ensure that no element path contains 'root.'
         for _,elem_path in self._leaf_element_paths_by_tree_item.items():
@@ -39,10 +42,21 @@ class NavTree(wx.TreeCtrl):
                 image_idx = int(utiliz_pct * 100)
                 item = self._tree_items_by_elem_path[elem_path]
                 self.SetItemImage(item, image_idx)
+
+                capacity = self.simhier.GetCapacityByElemPath(elem_path)
+                size = int(capacity * utiliz_pct)
+                tooltip = '{}\nUtilization: {}% ({}/{} bins filled)'.format(elem_path, round(utiliz_pct*100), size, capacity)
             elif self.simhier.GetWidgetType(elem_id) == 'Timeseries':
-                image_idx = self.__utiliz_image_list.GetImageCount() - 1
+                image_idx = self._utiliz_image_list.GetImageCount() - 1
                 item = self._tree_items_by_elem_path[elem_path]
                 self.SetItemImage(item, image_idx)
+                tooltip = '{}\nNo utilization data available for timeseries stats'.format(elem_path)
+            else:
+                item = None 
+                tooltip = None
+
+            if item and tooltip:
+                self._tooltips_by_item[item] = tooltip
 
     def ExpandAll(self):
         self.Unbind(wx.EVT_TREE_ITEM_EXPANDED)
@@ -113,3 +127,7 @@ class NavTree(wx.TreeCtrl):
 
     def __OnItemExpanded(self, event):
         self.UpdateUtilizBitmaps()
+
+    def __ProcessTooltip(self, event):
+        item = event.GetItem()
+        event.SetToolTip(self._tooltips_by_item.get(item, ""))
