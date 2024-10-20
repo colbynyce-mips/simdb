@@ -272,14 +272,13 @@ class DataRetriever:
             if collection_data_blobs[i+1][1] == -1 and collection_data_blobs[i][1] != -1:
                 collection_data_blobs[i+1][1] = collection_data_blobs[i][1]
 
-        if time_range is not None:
-            for time_val, collection_blob in collection_data_blobs:
-                if time_val >= time_range[0]:
-                    time_vals.append(time_val)
-                    if collection_blob is not None:
-                        data_vals.append(deserializer.Unpack(collection_blob, elem_path))
-                    else:
-                        data_vals.append(None)
+        for time_val, collection_blob in collection_data_blobs:
+            if time_range is None or (time_val >= time_range[0] and time_val <= time_range[1]):
+                time_vals.append(time_val)
+                if collection_blob is not None:
+                    data_vals.append(deserializer.Unpack(collection_blob, elem_path))
+                else:
+                    data_vals.append(None)
 
         return {'TimeVals': time_vals, 'DataVals': data_vals}
 
