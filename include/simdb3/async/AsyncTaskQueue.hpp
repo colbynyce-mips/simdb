@@ -156,6 +156,7 @@ public:
         }
 
         if (auto_flush_mb_ > 0 && queue_size_bytes_ >= auto_flush_mb_ * 1024 * 1024) {
+            std::cout << "Auto-flushing " << queue_size_bytes_ / 1024 / 1024 << " MB to the database" << std::endl;
             flushQueue();
         }
 
