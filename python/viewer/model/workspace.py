@@ -11,6 +11,6 @@ class Workspace:
         self._frame.Bind(wx.EVT_CLOSE, self.__OnCloseFrame)
 
     def __OnCloseFrame(self, event):
-        self._view_settings.Save(self._frame)
+        self._view_settings.Save()
         self._frame.Unbind(wx.EVT_CLOSE)
         self._frame.Destroy()
