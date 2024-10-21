@@ -179,7 +179,9 @@ public:
             time_type = "INT";
         }
 
-        INSERT(SQL_TABLE("CollectionGlobals"), SQL_COLUMNS("TimeType", "Heartbeat"), SQL_VALUES(time_type, (int)collections_->getHeartbeat()));
+        INSERT(SQL_TABLE("CollectionGlobals"),
+               SQL_COLUMNS("TimeType", "Heartbeat"),
+               SQL_VALUES(time_type, (int)collections_->getHeartbeat()));
     }
 
     /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
@@ -587,13 +589,9 @@ inline void Collections::collectAll()
         task_count = db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
     }
 
-    if (num_tasks_highwater_mark_ == 0) {
-        // Start with a highwater mark of 5 so we do not inadvertently lower the compression
-        // level too soon. We want to give the worker thread a chance to catch up.
-        num_tasks_highwater_mark_ = 5;
-    } else if (task_count > num_tasks_highwater_mark_ && compression_level_ > 0) {
-        num_tasks_highwater_mark_ = task_count * 2;
+    if (task_count > num_tasks_highwater_mark_ && compression_level_ > 1) {
         ++num_times_highwater_mark_exceeded_;
+        num_tasks_highwater_mark_ = 0;
         if (num_times_highwater_mark_exceeded_ >= 3) {
             if (compression_level_ > 1) {
                 std::cout << "SimDB collections worker thread is falling behind. Lowering compression level to "
@@ -603,7 +601,6 @@ inline void Collections::collectAll()
             }
             --compression_level_;
             num_times_highwater_mark_exceeded_ = 0;
-            num_tasks_highwater_mark_ = 0;
         }
     } else if (task_count > num_tasks_highwater_mark_) {
         auto task_queue = db_mgr_->getConnection()->getTaskQueue();

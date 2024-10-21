@@ -253,7 +253,7 @@ public:
         schema.addTable("CollectionGlobals")
             .addColumn("TimeType", dt::string_t)
             .addColumn("Heartbeat", dt::int32_t)
-            .setColumnDefaultValue("Heartbeat", 5);
+            .setColumnDefaultValue("Heartbeat", 10);
 
         schema.addTable("Collections")
             .addColumn("Name", dt::string_t)
@@ -431,7 +431,7 @@ private:
     /// database if the collected data is different from the last collected data".
     /// This prevents Argos from having to go back more than N cycles to find the
     /// last known value.
-    size_t pipeline_heartbeat_ = 5;
+    size_t pipeline_heartbeat_ = 10;
 
     /// Quick lookup to ensure that element paths are all unique.
     std::unordered_set<std::string> element_paths_;
@@ -457,8 +457,9 @@ private:
     int compression_level_ = 6;
 
     /// Keep track of the "highwater mark" representing the number of tasks in the queue at
-    /// the time of each collection.
-    size_t num_tasks_highwater_mark_ = 0;
+    /// the time of each collection. Start with a highwater mark of 5 so we do not inadvertently
+    /// lower the compression level too soon. We want to give the worker thread a chance to catch up.
+    size_t num_tasks_highwater_mark_ = 5;
 
     /// Keep track of how many times the highwater mark is exceeded. When it reaches 3, we will
     /// decrement the compression level to make it go faster and reset this count back to 0.

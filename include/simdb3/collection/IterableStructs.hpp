@@ -268,7 +268,7 @@ private:
     /// The heartbeat interval for this collection. This is the max number of collection
     /// cycles that can pass before we force a write to the database, even if the data
     /// hasn't changed.
-    size_t pipeline_heartbeat_ = 5;
+    size_t pipeline_heartbeat_ = 10;
 
     /// Number of times we have carried forward the current container data without
     /// writing it to the database. This is used together with the heartbeat to 
