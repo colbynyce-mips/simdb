@@ -34,7 +34,25 @@ class ArgosFrame(wx.Frame):
         self.Layout()
         self.Maximize()
 
+<<<<<<< Updated upstream
     def PostLoad(self):
         self.widget_creator.BindToWidgetSource(self.explorer.navtree)
         self.widget_creator.BindToWidgetSource(self.explorer.watchlist)
         self.widget_creator.BindToWidgetSource(self.explorer.tools)
+=======
+<<<<<<< Updated upstream
+    @property
+    def simhier(self):
+        return self.explorer.navtree.simhier
+
+    def PostLoad(self):
+        self.widget_creator.BindToWidgetSource(self.explorer.navtree)
+        self.widget_creator.BindToWidgetSource(self.explorer.watchlist)
+=======
+    def PostLoad(self, view_file):
+        self.widget_creator.BindToWidgetSource(self.explorer.navtree)
+        self.widget_creator.BindToWidgetSource(self.explorer.watchlist)
+        self.widget_creator.BindToWidgetSource(self.explorer.tools)
+        self.view_settings.PostLoad(self, view_file)
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes

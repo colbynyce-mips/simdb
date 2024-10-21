@@ -55,6 +55,48 @@ class Watchlist(wx.TreeCtrl):
         self.UpdateUtilizBitmaps()
         self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
 
+    def GetCurrentViewSettings(self):
+        settings = {}
+        settings['grouping_mode'] = self._mode
+        settings['watched_sim_elem_paths'] = self._watched_sim_elems
+        return settings
+
+    def ApplyViewSettings(self, settings):
+        import pdb; pdb.set_trace()
+        grouping_mode = settings['grouping_mode']
+        watched_sim_elem_paths = settings['watched_sim_elem_paths']
+
+        self._watched_sim_elems = watched_sim_elem_paths
+        self._mode = grouping_mode
+        self.__RenderWatchlist()
+
+    def GetItemElemPath(self, item):
+        if not item or not item.IsOk():
+            return None
+
+        node_names = []
+        while item and item != self.GetRootItem():
+            node_name = self.GetItemText(item)
+            node_names.append(node_name)
+            item = self.GetItemParent(item)
+
+        node_names.reverse()
+        return '.'.join(node_names)
+    
+    def __GetExpandedElemPaths(self, start_item):
+        expanded_items = []
+        if start_item.IsOk() and self.IsExpanded(start_item):
+            if start_item != self.GetRootItem():
+                elem_path = self.GetItemElemPath(start_item)
+                expanded_items.append(elem_path)
+
+            child = self.GetFirstChild(start_item)[0]
+            while child.IsOk():
+                expanded_items.extend(self.__GetExpandedElemPaths(child))
+                child = self.GetNextSibling(child)
+
+        return expanded_items
+
     def __UpdateUtilizBitmaps(self, item):
         elem_path = self.GetItemElemPath(item)
         if elem_path is None:
