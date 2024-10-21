@@ -6,29 +6,6 @@ class ViewSettings:
         self._current_view_file = None
         self._frame = None
 
-    def Save(self, frame):
-        settings = {
-            'NavTree': frame.explorer.navtree.GetCurrentViewSettings(),
-            'Watchlist': frame.explorer.watchlist.GetCurrentViewSettings(),
-            'PlaybackBar': frame.playback_bar.GetCurrentViewSettings(),
-            'Inspector': frame.inspector.GetCurrentViewSettings()
-        }
-
-        if not self.__SettingsChanged(settings):
-            return
-
-        # Create a file dialog for saving the file
-        with wx.FileDialog(None, "Save Argos View", wildcard="AVF files (*.avf)|*.avf|All files (*.*)|*.*",
-                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT, defaultDir=self._views_dir) as dlg:
-            if dlg.ShowModal() == wx.ID_OK:
-                path = dlg.GetPath()
-                if not path.endswith('.avf'):
-                    path += '.avf'
-
-                with open(path, 'w') as fout:
-                    yaml.dump(settings, fout)
-                    self._current_view_file = path
-
     def GetViewFiles(self):
         if self._views_dir is None:
             return []
@@ -58,6 +35,29 @@ class ViewSettings:
             self._frame.explorer.watchlist.ApplyViewSettings(settings['Watchlist'])
             self._frame.playback_bar.ApplyViewSettings(settings['PlaybackBar'])
             self._frame.inspector.ApplyViewSettings(settings['Inspector'])
+
+    def Save(self):
+        settings = {
+            'NavTree': self._frame.explorer.navtree.GetCurrentViewSettings(),
+            'Watchlist': self._frame.explorer.watchlist.GetCurrentViewSettings(),
+            'PlaybackBar': self._frame.playback_bar.GetCurrentViewSettings(),
+            'Inspector': self._frame.inspector.GetCurrentViewSettings()
+        }
+
+        if not self.__SettingsChanged(settings):
+            return
+
+        # Create a file dialog for saving the file
+        with wx.FileDialog(None, "Save Argos View", wildcard="AVF files (*.avf)|*.avf|All files (*.*)|*.*",
+                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT, defaultDir=self._views_dir) as dlg:
+            if dlg.ShowModal() == wx.ID_OK:
+                path = dlg.GetPath()
+                if not path.endswith('.avf'):
+                    path += '.avf'
+
+                with open(path, 'w') as fout:
+                    yaml.dump(settings, fout)
+                    self._current_view_file = path
 
     def __SettingsChanged(self, new_settings):
         if self._current_view_file is None:
