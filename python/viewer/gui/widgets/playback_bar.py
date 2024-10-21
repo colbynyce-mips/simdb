@@ -86,6 +86,20 @@ class PlaybackBar(wx.Panel):
         self.current_tick_text.SetLabel('tick:{}'.format(tick))
         self.current_cyc_text.SetLabel('tick:{}'.format(tick))
 
+    def GetCurrentViewSettings(self):
+        settings = {}
+        settings['selected_clock'] = self.clock_combobox.GetValue()
+        settings['current_tick'] = self.cyc_slider.GetValue()
+        return settings
+
+    def ApplyViewSettings(self, settings):
+        selected_clock = settings['selected_clock']
+        current_tick = settings['current_tick']
+
+        self.clock_combobox.SetValue(selected_clock)
+        widget_renderer = self.frame.widget_renderer
+        widget_renderer.GoToTick(current_tick)
+
     def __OnStep(self, event, step):
         widget_renderer = self.frame.widget_renderer
         cur_tick = widget_renderer.tick

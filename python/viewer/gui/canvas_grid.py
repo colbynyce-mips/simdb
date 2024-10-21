@@ -47,7 +47,35 @@ class CanvasGrid(wx.Panel):
         self.container = WidgetContainer(self)
         sizer.Add(self.container, 1, wx.EXPAND)
         self.Layout()
+
+    def GetCurrentViewSettings(self):
+        settings = {}
+        self.__RecursivelyGetViewSettings(settings, self.container)
+        return settings
     
+    def ApplyViewSettings(self, settings):
+        # TODO
+        return
+
+    def __RecursivelyGetViewSettings(self, settings, window):
+        if isinstance(window, WidgetContainer):
+            widget = window.GetWidget()
+            settings['window_type'] = 'widget_container'
+            settings['widget_creation_str'] = widget.GetWidgetCreationString() if widget else 'NO_WIDGET'
+        elif isinstance(window, CanvasGrid):
+            self.__RecursivelyGetViewSettings(settings, window.container)
+        elif isinstance(window, wx.SplitterWindow):
+            settings['window_type'] = 'splitter'
+            settings['sash_position'] = window.GetSashPosition()
+            settings['split_mode'] = 'vertical' if window.GetSplitMode() == wx.SPLIT_VERTICAL else 'horizontal'
+            if window.Window1:
+                settings['window1'] = {}
+                self.__RecursivelyGetViewSettings(settings['window1'], window.Window1)
+
+            if window.Window2:
+                settings['window2'] = {}
+                self.__RecursivelyGetViewSettings(settings['window2'], window.Window2)
+
     def __GetWidgetContainers(self, widget_containers):
         if isinstance(self.container, WidgetContainer):
             widget_containers.append(self.container)
