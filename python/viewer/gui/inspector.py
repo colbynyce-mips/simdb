@@ -30,6 +30,17 @@ class DataInspector(wx.Notebook):
         
         self.tabs[selected_tab].ResetLayout()
 
+    def GetCurrentViewSettings(self):
+        settings = {}
+        settings['selected_tab'] = self.GetPageText(self.GetSelection())
+        settings['tab_names'] = [self.GetPageText(i) for i in range(self.GetPageCount() - 1)]
+        settings['tab_settings'] = [tab.GetCurrentViewSettings() for tab in self.tabs]
+        return settings
+
+    def ApplyViewSettings(self, settings):
+        # TODO
+        return
+
     def __AddPlusTab(self):
         super(DataInspector, self).AddPage(wx.Panel(self), "Add Tab")
 
@@ -83,7 +94,6 @@ class DataInspector(wx.Notebook):
             self.Bind(wx.EVT_MENU, partial(self.__OnDeleteTab, tab_idx=hit[0]), delete_item)
 
         # Popup the menu
-        #pos = self.ClientToScreen(pos)
         pos = wx.Point(pos.x, pos.y - 40)
         self.PopupMenu(menu, self.ClientToScreen(pos))
         menu.Destroy()

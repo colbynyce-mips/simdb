@@ -9,14 +9,15 @@ class NavTree(wx.TreeCtrl):
 
         self._root = self.AddRoot("root")
         self._tree_items_by_db_id = {self.simhier.GetRootID(): self._root }
+        self._tree_items_by_elem_path = {}
         self.__RecurseBuildTree(self.simhier.GetRootID())
 
-        self._leaf_element_paths_by_tree_item = {}
+        self._leaf_elem_paths_by_tree_item = {}
         for db_id, tree_item in self._tree_items_by_db_id.items():
             if not self.GetChildrenCount(tree_item):
-                self._leaf_element_paths_by_tree_item[tree_item] = self.simhier.GetElemPath(db_id).replace('root.','')
+                self._leaf_elem_paths_by_tree_item[tree_item] = self.simhier.GetElemPath(db_id).replace('root.','')
 
-        self._tree_items_by_elem_path = {v: k for k, v in self._leaf_element_paths_by_tree_item.items()}
+        self._leaf_tree_items_by_elem_path = {v: k for k, v in self._leaf_elem_paths_by_tree_item.items()}
 
         self.Bind(wx.EVT_RIGHT_DOWN, self.__OnRightClick)
         self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
@@ -28,7 +29,7 @@ class NavTree(wx.TreeCtrl):
         self.Bind(wx.EVT_TREE_ITEM_GETTOOLTIP, self.__ProcessTooltip)
 
         # Sanity checks to ensure that no element path contains 'root.'
-        for _,elem_path in self._leaf_element_paths_by_tree_item.items():
+        for _,elem_path in self._leaf_elem_paths_by_tree_item.items():
             assert elem_path.find('root.') == -1
 
         for elem_path,_ in self._tree_items_by_elem_path.items():
@@ -40,7 +41,7 @@ class NavTree(wx.TreeCtrl):
             if self.simhier.GetWidgetType(elem_id) == 'QueueTable':
                 utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(elem_path)
                 image_idx = int(utiliz_pct * 100)
-                item = self._tree_items_by_elem_path[elem_path]
+                item = self._leaf_tree_items_by_elem_path[elem_path]
                 self.SetItemImage(item, image_idx)
 
                 capacity = self.simhier.GetCapacityByElemPath(elem_path)
@@ -48,7 +49,7 @@ class NavTree(wx.TreeCtrl):
                 tooltip = '{}\nUtilization: {}% ({}/{} bins filled)'.format(elem_path, round(utiliz_pct*100), size, capacity)
             elif self.simhier.GetWidgetType(elem_id) == 'Timeseries':
                 image_idx = self._utiliz_image_list.GetImageCount() - 1
-                item = self._tree_items_by_elem_path[elem_path]
+                item = self._leaf_tree_items_by_elem_path[elem_path]
                 self.SetItemImage(item, image_idx)
                 tooltip = '{}\nNo utilization data available for timeseries stats'.format(elem_path)
             else:
@@ -65,13 +66,61 @@ class NavTree(wx.TreeCtrl):
         self.Bind(wx.EVT_TREE_ITEM_EXPANDED, self.__OnItemExpanded)
 
     def GetItemElemPath(self, item):
-        return self._leaf_element_paths_by_tree_item.get(item, None)
+        if not item or not item.IsOk():
+            return None
+
+        if item in self._leaf_elem_paths_by_tree_item:
+            return self._leaf_elem_paths_by_tree_item[item]
+
+        node_names = []
+        while item and item != self.GetRootItem():
+            node_name = self.GetItemText(item)
+            node_names.append(node_name)
+            item = self.GetItemParent(item)
+
+        node_names.reverse()
+        return '.'.join(node_names)
+    
+    def GetCurrentViewSettings(self):
+        settings = {}
+        settings['expanded_elem_paths'] = self.__GetExpandedElemPaths(self.GetRootItem())
+        settings['selected_elem_path'] = self.GetItemElemPath(self.GetSelection())
+        return settings
+
+    def ApplyViewSettings(self, settings):
+        expanded_elem_paths = settings['expanded_elem_paths']
+        selected_elem_path = settings['selected_elem_path']
+
+        self.CollapseAll()
+        for elem_path in expanded_elem_paths:
+            item = self._tree_items_by_elem_path[elem_path]
+            self.Expand(item)
+
+        if selected_elem_path:
+            item = self._tree_items_by_elem_path[selected_elem_path]
+            self.SelectItem(item)
+            self.EnsureVisible(item)
+
+    def __GetExpandedElemPaths(self, start_item):
+        expanded_items = []
+        if start_item.IsOk() and self.IsExpanded(start_item):
+            if start_item != self.GetRootItem():
+                elem_path = self.GetItemElemPath(start_item)
+                expanded_items.append(elem_path)
+
+            child = self.GetFirstChild(start_item)[0]
+            while child.IsOk():
+                expanded_items.extend(self.__GetExpandedElemPaths(child))
+                child = self.GetNextSibling(child)
+
+        return expanded_items
 
     def __RecurseBuildTree(self, parent_id):
         for child_id in self.simhier.GetChildIDs(parent_id):
             child_name = self.simhier.GetName(child_id)
             child = self.AppendItem(self._tree_items_by_db_id[parent_id], child_name)
             self._tree_items_by_db_id[child_id] = child
+            self._tree_items_by_elem_path[self.simhier.GetElemPath(child_id)] = child
             self.__RecurseBuildTree(child_id)
 
     def __OnRightClick(self, event):
@@ -110,8 +159,8 @@ class NavTree(wx.TreeCtrl):
 
         menu.AppendSeparator()
 
-        if item in self._leaf_element_paths_by_tree_item:
-            elem_path = self._leaf_element_paths_by_tree_item[item]
+        if item in self._leaf_elem_paths_by_tree_item:
+            elem_path = self._leaf_elem_paths_by_tree_item[item]
             if elem_path not in self.frame.explorer.watchlist.GetWatchedSimElems():
                 add_to_watchlist = menu.Append(-1, "Add to Watchlist")
                 self.Bind(wx.EVT_MENU, partial(AddToWatchlist, navtree=self, elem_path=elem_path), add_to_watchlist)
