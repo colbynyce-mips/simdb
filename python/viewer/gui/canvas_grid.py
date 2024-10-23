@@ -48,14 +48,47 @@ class CanvasGrid(wx.Panel):
         sizer.Add(self.container, 1, wx.EXPAND)
         self.Layout()
 
+    def RemoveWidgetContainer(self):
+        if self.container:
+            sizer = self.GetSizer()
+            sizer.Detach(self.container)
+            self.container.Destroy()
+            self.container = None
+            self.Layout()
+
     def GetCurrentViewSettings(self):
         settings = {}
         self.__RecursivelyGetViewSettings(settings, self.container)
         return settings
     
     def ApplyViewSettings(self, settings):
-        # TODO
-        return
+        self.__RecursivelyApplyViewSettings(settings, self)
+
+    def SplitCanvas(self, split_mode):
+        self.RemoveWidgetContainer()
+        if split_mode == 'horizontal':
+            self.__OnSplitHorizontally(None)
+        else:
+            self.__OnSplitVertically(None)
+
+    def __RecursivelyApplyViewSettings(self, settings, window):
+        if settings['window_type'] == 'widget_container':
+            widget_creation_str = settings['widget_creation_str']
+            if widget_creation_str:
+                widget = self.frame.widget_creator.CreateWidget(widget_creation_str, window.container)
+                window.container.SetWidget(widget)
+        elif settings['window_type'] == 'splitter':
+            window.SplitCanvas(settings['split_mode'])
+            splitter = window.container.container
+            window1, window2 = splitter.GetWindow1(), splitter.GetWindow2()
+            if 'window1' in settings:
+                assert window1
+                self.__RecursivelyApplyViewSettings(settings['window1'], window1)
+            if 'window2' in settings:
+                assert window2
+                self.__RecursivelyApplyViewSettings(settings['window2'], window2)
+
+            splitter.SetSashPosition(settings['sash_position'])
 
     def __RecursivelyGetViewSettings(self, settings, window):
         if isinstance(window, WidgetContainer):
@@ -121,7 +154,6 @@ class CanvasGrid(wx.Panel):
 
         split_vertically = menu.Append(-1, "Split left/right")
         split_horizontally = menu.Append(-1, "Split top/bottom")
-        #split_custom = menu.Append(-1, "Split custom")
 
         if isinstance(self.GetParent(), wx.SplitterWindow):
             menu.AppendSeparator()
@@ -130,7 +162,6 @@ class CanvasGrid(wx.Panel):
 
         self.Bind(wx.EVT_MENU, self.__OnSplitVertically, split_vertically)
         self.Bind(wx.EVT_MENU, self.__OnSplitHorizontally, split_horizontally)
-        #self.Bind(wx.EVT_MENU, self.__OnSplitCustom, split_custom)
 
         self.PopupMenu(menu, pos)
 
@@ -179,34 +210,6 @@ class CanvasGrid(wx.Panel):
 
         splitter = self.container.container
         splitter.SetSashPosition(splitter.GetSize().GetHeight() // 2)
-
-    def __OnSplitCustom(self, event):
-        dlg = wx.TextEntryDialog(self, "Enter number of rows and columns separated by a comma:", "Custom Split", value="2,2")
-
-        if dlg.ShowModal() == wx.ID_OK:
-            widget_creation_str = None
-            if self.container:
-                widget = self.container.GetWidget()
-                widget_creation_str = widget.GetWidgetCreationString() if widget else None
-
-            rows, cols = dlg.GetValue().strip().split(',')
-            rows = int(rows)
-            cols = int(cols)
-
-            if self.container:
-                self.container.DestroyAllWidgets()
-
-            self.GetSizer().Clear()
-            self.container = CanvasGrid(self, rows=rows, cols=cols)
-            self.GetSizer().Add(self.container, 1, wx.EXPAND)
-            self.Layout()
-
-            if widget_creation_str:
-                widget_container = self.__FindFirstWidgetContainer(self.container)
-                widget = self.container.frame.widget_creator.CreateWidget(widget_creation_str, widget_container)
-                widget_container.SetWidget(widget)
-
-        dlg.Destroy()
 
     def __FindFirstWidgetContainer(self, container):
         if isinstance(container, WidgetContainer):
@@ -272,10 +275,12 @@ class WidgetContainer(wx.Panel):
             self._widget.Destroy()
 
         self._widget = widget
-        sizer = self.GetSizer()
-        sizer.Add(widget, 1, wx.EXPAND)
-        self.Layout()
 
+        if widget:
+            sizer = self.GetSizer()
+            sizer.Add(widget, 1, wx.EXPAND)
+
+        self.Layout()
         wx.CallAfter(self.__RefreshWidget)
 
     def SetWidgetFocus(self):

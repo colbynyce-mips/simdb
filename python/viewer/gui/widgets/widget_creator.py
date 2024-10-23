@@ -33,6 +33,8 @@ class WidgetCreator:
                 return ScalarStruct(widget_container, self.frame, elem_path)
             elif widget_name == 'IterableStruct':
                 return IterableStruct(widget_container, self.frame, elem_path)
+        elif widget_creation_key == 'NO_WIDGET':
+            return None
         else:
             raise ValueError(f"Unknown widget creation key: {widget_creation_key}")
 
