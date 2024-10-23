@@ -260,15 +260,45 @@ public:
 
     virtual void serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const
     {
+        const auto field_dtype_str = getFieldDTypeStr(dtype_);
+        const auto fmt = static_cast<int>(format_);
+        const auto is_autocolorize_key = (int)isAutocolorizeKey();
+        const auto is_displayed_by_default = (int)isDisplayedByDefault();
+
         db_mgr->INSERT(SQL_TABLE("StructFields"),
-                       SQL_COLUMNS("StructName", "FieldName", "FieldType", "FormatCode"),
-                       SQL_VALUES(struct_name, name_, getFieldDTypeStr(dtype_), static_cast<int>(format_)));
+                       SQL_COLUMNS("StructName", "FieldName", "FieldType", "FormatCode", "IsAutoColorizeKey", "IsDisplayedByDefault"),
+                       SQL_VALUES(struct_name, name_, field_dtype_str, fmt, is_autocolorize_key, is_displayed_by_default));
+    }
+
+    void setIsAutocolorizeKey(bool is_autocolorize_key)
+    {
+        if (is_autocolorize_key_ && !is_autocolorize_key) {
+            throw DBException("Only one column can be used as the autocolorize key");
+        }
+        is_autocolorize_key_ = is_autocolorize_key;
+    }
+
+    bool isAutocolorizeKey() const
+    {
+        return is_autocolorize_key_;
+    }
+
+    void setIsDisplayedByDefault(bool is_displayed_by_default)
+    {
+        is_displayed_by_default_ = is_displayed_by_default;
+    }
+
+    bool isDisplayedByDefault() const
+    {
+        return is_displayed_by_default_;
     }
 
 private:
     std::string name_;
     StructFields dtype_;
     Format format_;
+    bool is_autocolorize_key_ = false;
+    bool is_displayed_by_default_ = true;
 };
 
 /// \class EnumField
@@ -286,9 +316,13 @@ public:
 
     virtual void serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const override
     {
+        const auto field_name = getName();
+        const auto is_autocolorize_key = (int)isAutocolorizeKey();
+        const auto is_displayed_by_default = (int)isDisplayedByDefault();
+
         db_mgr->INSERT(SQL_TABLE("StructFields"),
-                       SQL_COLUMNS("StructName", "FieldName", "FieldType"),
-                       SQL_VALUES(struct_name, getName(), enum_name_));
+                       SQL_COLUMNS("StructName", "FieldName", "FieldType", "IsAutoColorizeKey", "IsDisplayedByDefault"),
+                       SQL_VALUES(struct_name, field_name, enum_name_, is_autocolorize_key, is_displayed_by_default));
 
         EnumMap<EnumT>::instance()->serializeDefn(db_mgr);
     }
@@ -462,6 +496,35 @@ public:
     void addBoolField(const char* name)
     {
         fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<int32_t>(), Format::boolalpha));
+    }
+
+    void setAutoColorizeColumn(const char* name)
+    {
+        bool found = false;
+        for (auto& field : fields_) {
+            if (field->getName() == name) {
+                field->setIsAutocolorizeKey(true);
+                found = true;
+            } else {
+                field->setIsAutocolorizeKey(false);
+            }
+        }
+
+        if (!found) {
+            throw DBException("Field not found: ") << name;
+        }
+    }
+
+    void makeColumnHiddenByDefault(const char* name)
+    {
+        for (auto& field : fields_) {
+            if (field->getName() == name) {
+                field->setIsDisplayedByDefault(false);
+                return;
+            }
+        }
+
+        throw DBException("Field not found: ") << name;
     }
 
     void serializeDefn(DatabaseManager* db_mgr) const

@@ -294,7 +294,11 @@ public:
             .addColumn("StructName", dt::int32_t)
             .addColumn("FieldName", dt::string_t)
             .addColumn("FieldType", dt::string_t)
-            .addColumn("FormatCode", dt::int32_t);
+            .addColumn("FormatCode", dt::int32_t)
+            .addColumn("IsAutoColorizeKey", dt::int32_t)
+            .addColumn("IsDisplayedByDefault", dt::int32_t)
+            .setColumnDefaultValue("IsAutoColorizeKey", 0)
+            .setColumnDefaultValue("IsDisplayedByDefault", 1);
 
         schema.addTable("EnumDefns")
             .addColumn("EnumName", dt::string_t)

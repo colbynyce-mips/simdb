@@ -77,6 +77,13 @@ class IterableStruct(wx.Panel):
         self.grid.AutoSizeColumns()
         self.Layout()
 
+    def GetViewSettings(self):
+        return {}
+    
+    def ApplyViewSettings(self, settings):
+        # TODO
+        pass
+
     def __ClearGrid(self):
         for i in range(self.grid.GetNumberRows()):
             for j in range(self.grid.GetNumberCols()):

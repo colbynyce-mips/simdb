@@ -15,3 +15,9 @@ class TimeseriesViewerWidget(wx.Panel):
 
     def UpdateWidgetData(self):
         pass
+
+    def GetViewSettings(self):
+        return {}
+
+    def ApplyViewSettings(self, settings):
+        pass

@@ -48,6 +48,23 @@ class ScalarStatistic(wx.Panel):
         # Nothing to do since we plot all data
         pass
 
+    def GetViewSettings(self):
+        settings = {}
+        settings['title'] = self.ax.get_title()
+        settings['xlabel'] = self.ax.get_xlabel()
+        settings['ylabel'] = self.ax.get_ylabel()
+        settings['show_xlabel'] = self.ax.get_xaxis().get_visible()
+        settings['show_ylabel'] = self.ax.get_yaxis().get_visible()
+        return settings
+
+    def ApplyViewSettings(self, settings):
+        self.ax.set_title(settings['title'])
+        self.ax.set_xlabel(settings['xlabel'])
+        self.ax.set_ylabel(settings['ylabel'])
+        self.ax.get_xaxis().set_visible(settings['show_xlabel'])
+        self.ax.get_yaxis().set_visible(settings['show_ylabel'])
+        self.Layout()
+
     def __EditWidget(self, event):
         # TODO
         print('Edit widget settings for %s' % self.elem_path)

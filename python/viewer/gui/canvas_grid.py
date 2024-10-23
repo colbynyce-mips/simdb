@@ -61,6 +61,9 @@ class CanvasGrid(wx.Panel):
             widget_creation_str = settings['widget_creation_str']
             if widget_creation_str:
                 widget = self.frame.widget_creator.CreateWidget(widget_creation_str, window.container)
+                if 'widget_settings' in settings:
+                    widget.ApplyViewSettings(settings['widget_settings'])
+
                 window.container.SetWidget(widget)
         elif settings['window_type'] == 'splitter':
             if settings['split_mode'] == 'horizontal':
@@ -84,6 +87,8 @@ class CanvasGrid(wx.Panel):
             widget = window.GetWidget()
             settings['window_type'] = 'widget_container'
             settings['widget_creation_str'] = widget.GetWidgetCreationString() if widget else 'NO_WIDGET'
+            if widget:
+                settings['widget_settings'] = widget.GetViewSettings()
         elif isinstance(window, CanvasGrid):
             self.__RecursivelyGetViewSettings(settings, window.container)
         elif isinstance(window, wx.SplitterWindow):

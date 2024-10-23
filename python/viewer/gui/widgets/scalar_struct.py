@@ -32,3 +32,9 @@ class ScalarStruct(wx.Panel):
             struct_str.append('%s: %s' % (field_name, field_val))
 
         self.struct_text_elem.SetLabel('\n'.join(struct_str))
+
+    def GetViewSettings(self):
+        return {}
+
+    def ApplyViewSettings(self, settings):
+        pass
