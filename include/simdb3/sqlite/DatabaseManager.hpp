@@ -680,7 +680,7 @@ inline void Collections::collectAll()
         task_count = db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
     }
 
-    if (task_count > num_tasks_highwater_mark_ && compression_level_ > 1) {
+    if (task_count > num_tasks_highwater_mark_ && compression_level_ > 0) {
         ++num_times_highwater_mark_exceeded_;
         num_tasks_highwater_mark_ = 0;
         if (num_times_highwater_mark_exceeded_ >= 3) {
