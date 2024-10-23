@@ -26,7 +26,17 @@ class IterableStruct(wx.Panel):
         font = wx.Font(10, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
         location_elem.SetFont(font)
 
+        # Add a ear button (size 16x16) to the left of the time series plot.
+        # Clicking the button will open a dialog to change the plot settings.
+        # Note that we do not add the button to the sizer since we want to
+        # force it to be in the top-left corner of the widget canvas. We do
+        # this with the 'pos' argument to the wx.BitmapButton constructor.
+        gear_btn = wx.BitmapButton(self, bitmap=frame.CreateResourceBitmap('gear.png'), pos=(5,5))
+        gear_btn.Bind(wx.EVT_BUTTON, self.__EditWidget)
+        gear_btn.SetToolTip('Edit widget settings')
+
         row1 = wx.BoxSizer(wx.HORIZONTAL)
+        row1.AddSpacer(30)
         row1.Add(self.utiliz_elem, 0, wx.ALL, 5)
         row1.Add(location_elem, 1, wx.EXPAND | wx.ALL, 5)
 
@@ -72,6 +82,10 @@ class IterableStruct(wx.Panel):
             for j in range(self.grid.GetNumberCols()):
                 self.grid.SetCellValue(i, j, '')
                 self.grid.SetCellBackgroundColour(i, j, wx.WHITE)
+
+    def __EditWidget(self, event):
+        # TODO
+        print('Edit widget settings for %s' % self.elem_path)
 
 class UtilizElement(wx.StaticText):
     def __init__(self, parent, frame, capacity):

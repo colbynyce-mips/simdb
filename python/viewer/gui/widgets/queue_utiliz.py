@@ -9,6 +9,15 @@ class QueueUtilizWidget(wx.Panel):
         self.container_elem_paths = self.frame.simhier.GetContainerElemPaths()
         self.container_elem_paths.sort()
 
+        # Add a ear button (size 16x16) to the left of the time series plot.
+        # Clicking the button will open a dialog to change the plot settings.
+        # Note that we do not add the button to the sizer since we want to
+        # force it to be in the top-left corner of the widget canvas. We do
+        # this with the 'pos' argument to the wx.BitmapButton constructor.
+        gear_btn = wx.BitmapButton(self, bitmap=frame.CreateResourceBitmap('gear.png'), pos=(5,5))
+        gear_btn.Bind(wx.EVT_BUTTON, self.__EditWidget)
+        gear_btn.SetToolTip('Edit widget settings')
+
         # The layout of this widget is like a barchart:
         #
         # sim.path.foo    [28%  XXXXXXXXXX                           ]
@@ -19,8 +28,9 @@ class QueueUtilizWidget(wx.Panel):
         #
         # Where the X's above are shown as a colored heatmap based on the
         # utilization percentage of each queue.
-        self._elem_path_text_boxes = [wx.StaticText(self, label=elem_path) for elem_path in self.container_elem_paths]
-        self._utiliz_bars = [UtilizBar(self, frame) for _ in range(len(self.container_elem_paths))]
+        self.panel = wx.Panel(self)
+        self._elem_path_text_boxes = [wx.StaticText(self.panel, label=elem_path) for elem_path in self.container_elem_paths]
+        self._utiliz_bars = [UtilizBar(self.panel, frame) for _ in range(len(self.container_elem_paths))]
 
         # Change the font to 10-point monospace.
         font = wx.Font(10, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
@@ -32,13 +42,26 @@ class QueueUtilizWidget(wx.Panel):
         sizer.AddGrowableCol(1)
         for elem_path, utiliz_bar in zip(self._elem_path_text_boxes, self._utiliz_bars):
             sizer.Add(elem_path, 1, wx.EXPAND)
-            sizer.Add(utiliz_bar)
+            sizer.Add(utiliz_bar, 1, wx.EXPAND)
 
+        self.panel.SetSizer(sizer)
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.panel, 1, 20, wx.TOP | wx.LEFT)
         self.SetSizer(sizer)
+
         self.Layout()
 
         for text_elem in self._elem_path_text_boxes:
             text_elem.Bind(wx.EVT_LEFT_DOWN, self.__OnSimElemInitDrag)
+
+    def GetWidgetCreationString(self):
+        return 'Queue Utilization'
+
+    def UpdateWidgetData(self):
+        for elem_path, pct_bar in zip(self.container_elem_paths, self._utiliz_bars):
+            utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(elem_path)
+            pct_bar.UpdateUtilizPct(utiliz_pct)
 
     def __OnSimElemInitDrag(self, event):
         text_elem = event.GetEventObject()
@@ -56,17 +79,13 @@ class QueueUtilizWidget(wx.Panel):
 
             event.Skip()
 
-    def GetWidgetCreationString(self):
-        return 'Queue Utilization'
-
-    def UpdateWidgetData(self):
-        for elem_path, pct_bar in zip(self.container_elem_paths, self._utiliz_bars):
-            utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(elem_path)
-            pct_bar.UpdateUtilizPct(utiliz_pct)
+    def __EditWidget(self, event):
+        # TODO
+        print('Edit widget settings for QueueUtilizWidget')
 
 class UtilizBar(wx.Panel):
     def __init__(self, parent, frame):
-        super().__init__(parent)
+        super().__init__(parent, size=(300, 10))
         self.frame = frame
         self.static_text = wx.StaticText(self, label='0%')
         font = wx.Font(8, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)

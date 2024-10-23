@@ -1,4 +1,4 @@
-import wx, sqlite3
+import wx, sqlite3, os
 from viewer.gui.widgets.playback_bar import PlaybackBar
 from viewer.gui.explorer import DataExplorer
 from viewer.gui.inspector import DataInspector
@@ -39,3 +39,11 @@ class ArgosFrame(wx.Frame):
         self.widget_creator.BindToWidgetSource(self.explorer.watchlist)
         self.widget_creator.BindToWidgetSource(self.explorer.tools)
         self.view_settings.PostLoad(self, view_file)
+
+    def CreateResourceBitmap(self, filename, size=(16, 16)):
+        w,h = size
+        resources_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'resources'))
+        filepath = os.path.join(resources_dir, filename)
+        bitmap = wx.Bitmap(filepath, wx.BITMAP_TYPE_PNG)
+        bitmap = bitmap.ConvertToImage().Rescale(w,h).ConvertToBitmap()
+        return bitmap
