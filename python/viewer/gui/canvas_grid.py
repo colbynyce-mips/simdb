@@ -48,14 +48,6 @@ class CanvasGrid(wx.Panel):
         sizer.Add(self.container, 1, wx.EXPAND)
         self.Layout()
 
-    def RemoveWidgetContainer(self):
-        if self.container:
-            sizer = self.GetSizer()
-            sizer.Detach(self.container)
-            self.container.Destroy()
-            self.container = None
-            self.Layout()
-
     def GetCurrentViewSettings(self):
         settings = {}
         self.__RecursivelyGetViewSettings(settings, self.container)
@@ -64,13 +56,6 @@ class CanvasGrid(wx.Panel):
     def ApplyViewSettings(self, settings):
         self.__RecursivelyApplyViewSettings(settings, self)
 
-    def SplitCanvas(self, split_mode):
-        self.RemoveWidgetContainer()
-        if split_mode == 'horizontal':
-            self.__OnSplitHorizontally(None)
-        else:
-            self.__OnSplitVertically(None)
-
     def __RecursivelyApplyViewSettings(self, settings, window):
         if settings['window_type'] == 'widget_container':
             widget_creation_str = settings['widget_creation_str']
@@ -78,7 +63,11 @@ class CanvasGrid(wx.Panel):
                 widget = self.frame.widget_creator.CreateWidget(widget_creation_str, window.container)
                 window.container.SetWidget(widget)
         elif settings['window_type'] == 'splitter':
-            window.SplitCanvas(settings['split_mode'])
+            if settings['split_mode'] == 'horizontal':
+                window.__OnSplitHorizontally(None)
+            else:
+                window.__OnSplitVertically(None)
+
             splitter = window.container.container
             window1, window2 = splitter.GetWindow1(), splitter.GetWindow2()
             if 'window1' in settings:
@@ -275,7 +264,6 @@ class WidgetContainer(wx.Panel):
             self._widget.Destroy()
 
         self._widget = widget
-
         if widget:
             sizer = self.GetSizer()
             sizer.Add(widget, 1, wx.EXPAND)
@@ -299,6 +287,16 @@ class WidgetContainer(wx.Panel):
 
     def GetWidget(self):
         return self._widget
+    
+    def SplitCanvas(self, split_mode, sash_position):
+        assert not self.GetSizer().GetChildren(), 'Cannot split a non-empty widget container'
+
+        if split_mode == 'horizontal':
+            self.SplitHorizontally(WidgetContainer(self), WidgetContainer(self))
+        elif split_mode == 'vertical':
+            self.SplitVertically(WidgetContainer(self), WidgetContainer(self))
+
+        self.SetSashPosition(sash_position)
     
     def __RefreshWidget(self):
         self.UpdateWidgets()

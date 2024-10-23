@@ -38,25 +38,27 @@ class DataInspector(wx.Notebook):
         return settings
 
     def ApplyViewSettings(self, settings):
-        # Delete all tabs except the last one
-        for i in range(self.GetPageCount() - 1):
-            self.DeletePage(0)
-            self.tabs.pop(0)
+        # Reset all tabs
+        for tab in self.tabs:
+            tab.ResetLayout()
 
         self.tabs = []
 
-        # Add the tabs from the settings
-        for tab_name, tab_settings in zip(settings['tab_names'], settings['tab_settings']):
+        # Delete all tabs except the last one
+        while self.GetPageCount() > 1:
+            self.DeletePage(0)
+
+        # Add new tabs
+        for tab_name in settings['tab_names']:
             self.__AddInspectorTab(tab_name)
 
-        # Apply the settings to the tabs
-        for idx,tab_settings in enumerate(settings['tab_settings']):
-            self.tabs[idx].ApplyViewSettings(tab_settings)
+        # Apply settings to each tab
+        for i, tab_settings in enumerate(settings['tab_settings']):
+            self.tabs[i].ApplyViewSettings(tab_settings)
 
-        # Select the tab from the settings
-        tab_name = settings['selected_tab']
+        # Select the tab that was selected before saving the settings
         for i in range(self.GetPageCount() - 1):
-            if self.GetPageText(i) == tab_name:
+            if self.GetPageText(i) == settings['selected_tab']:
                 self.SetSelection(i)
                 break
 
