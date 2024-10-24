@@ -24,6 +24,8 @@ class ScalarStatistic(wx.Panel):
             self.ax = self.figure.add_subplot(111)
             self.ax.plot(self.time_vals, self.data_vals, 'b-')
             self.ax.set_title(self.elem_path)
+            self.ax.set_xlabel('Ticks')
+            self.ax.set_ylabel('Values')
             self.ax.grid()
             self.ax.autoscale()
 
@@ -51,20 +53,74 @@ class ScalarStatistic(wx.Panel):
     def GetViewSettings(self):
         settings = {}
         settings['title'] = self.ax.get_title()
-        settings['xlabel'] = self.ax.get_xlabel()
-        settings['ylabel'] = self.ax.get_ylabel()
-        settings['show_xlabel'] = self.ax.get_xaxis().get_visible()
-        settings['show_ylabel'] = self.ax.get_yaxis().get_visible()
+        settings['xlabel'] = self.ax.xaxis.get_label().get_text()
+        settings['ylabel'] = self.ax.yaxis.get_label().get_text()
+        settings['show_xlabel'] = self.ax.xaxis.get_label().get_visible()
+        settings['show_ylabel'] = self.ax.yaxis.get_label().get_visible()
         return settings
 
     def ApplyViewSettings(self, settings):
         self.ax.set_title(settings['title'])
         self.ax.set_xlabel(settings['xlabel'])
         self.ax.set_ylabel(settings['ylabel'])
-        self.ax.get_xaxis().set_visible(settings['show_xlabel'])
-        self.ax.get_yaxis().set_visible(settings['show_ylabel'])
-        self.Layout()
+        self.ax.xaxis.get_label().set_visible(settings['show_xlabel'])
+        self.ax.yaxis.get_label().set_visible(settings['show_ylabel'])
+        self.canvas.draw()
+        self.Update()
+        self.Refresh()
 
     def __EditWidget(self, event):
-        # TODO
-        print('Edit widget settings for %s' % self.elem_path)
+        dlg = PlotCustomizationDialog(self, **self.GetViewSettings())
+        if dlg.ShowModal() == wx.ID_OK:
+            self.ApplyViewSettings(dlg.GetSettings())
+
+        dlg.Destroy()
+
+class PlotCustomizationDialog(wx.Dialog):
+    def __init__(self, parent, title='Timeseries', xlabel='Time', ylabel='Values', show_xlabel=True, show_ylabel=True):
+        super().__init__(parent, title="Customize Plot", size=(500, 600))
+
+        # Create the main sizer
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Title
+        self.title_text = wx.TextCtrl(self, value=title)
+        sizer.Add(wx.StaticText(self, label="Title:"), 0, wx.ALL | wx.EXPAND, 5)
+        sizer.Add(self.title_text, 0, wx.ALL | wx.EXPAND, 5)
+
+        # X-axis Label
+        self.x_label_text = wx.TextCtrl(self, value=xlabel)
+        sizer.Add(wx.StaticText(self, label="X-axis Label:"), 0, wx.ALL | wx.EXPAND, 5)
+        sizer.Add(self.x_label_text, 0, wx.ALL | wx.EXPAND, 5)
+
+        # Y-axis Label
+        self.y_label_text = wx.TextCtrl(self, value=ylabel)
+        sizer.Add(wx.StaticText(self, label="Y-axis Label:"), 0, wx.ALL | wx.EXPAND, 5)
+        sizer.Add(self.y_label_text, 0, wx.ALL | wx.EXPAND, 5)
+
+        # Checkboxes for showing labels
+        self.show_x_label_checkbox = wx.CheckBox(self, label="Show X-axis Label")
+        self.show_x_label_checkbox.SetValue(show_xlabel)
+        sizer.Add(self.show_x_label_checkbox, 0, wx.ALL | wx.EXPAND, 5)
+
+        self.show_y_label_checkbox = wx.CheckBox(self, label="Show Y-axis Label")
+        self.show_y_label_checkbox.SetValue(show_ylabel)
+        sizer.Add(self.show_y_label_checkbox, 0, wx.ALL | wx.EXPAND, 5)
+
+        # OK and Cancel buttons
+        btn_sizer = wx.StdDialogButtonSizer()
+        btn_sizer.AddButton(wx.Button(self, wx.ID_OK))
+        btn_sizer.AddButton(wx.Button(self, wx.ID_CANCEL))
+        btn_sizer.Realize()
+
+        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER | wx.ALL, 10)
+        self.SetSizer(sizer)
+
+    def GetSettings(self):
+        return {
+            'title': self.title_text.GetValue(),
+            'xlabel': self.x_label_text.GetValue(),
+            'ylabel': self.y_label_text.GetValue(),
+            'show_xlabel': self.show_x_label_checkbox.GetValue(),
+            'show_ylabel': self.show_y_label_checkbox.GetValue(),
+        }
