@@ -6,6 +6,7 @@ from viewer.gui.widgets.widget_renderer import WidgetRenderer
 from viewer.gui.widgets.widget_creator import WidgetCreator
 from viewer.model.data_retriever import DataRetriever
 from viewer.model.simhier import SimHierarchy
+from viewer.gui.widgets.splitter_window import DirtySplitterWindow
 
 class ArgosFrame(wx.Frame):
     def __init__(self, db_path, view_settings):
@@ -18,7 +19,7 @@ class ArgosFrame(wx.Frame):
         self.widget_creator = WidgetCreator(self)
         self.data_retriever = DataRetriever(self, self.db, self.simhier)
 
-        self.frame_splitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
+        self.frame_splitter = DirtySplitterWindow(self, self, style=wx.SP_LIVE_UPDATE)
         self.explorer = DataExplorer(self.frame_splitter, self)
         self.inspector = DataInspector(self.frame_splitter, self)
         self.playback_bar = PlaybackBar(self)

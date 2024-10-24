@@ -1,4 +1,5 @@
 import wx
+from viewer.gui.widgets.splitter_window import DirtySplitterWindow
 
 class CanvasGrid(wx.Panel):
     def __init__(self, parent, rows=1, cols=1):
@@ -8,7 +9,7 @@ class CanvasGrid(wx.Panel):
             self.container = WidgetContainer(self)
             self.Bind(wx.EVT_CONTEXT_MENU, self.__OnContextMenu)
         else:
-            self.container = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
+            self.container = DirtySplitterWindow(self.frame, self, style=wx.SP_LIVE_UPDATE)
             self.__BuildGrid(self.container, rows, cols)
             if not self.container.GetSizer():
                 sizer = wx.BoxSizer(wx.VERTICAL)
@@ -115,8 +116,8 @@ class CanvasGrid(wx.Panel):
         assert rows > 0 and cols > 0
 
         if rows > 1 and cols > 1:
-            top_splitter = wx.SplitterWindow(splitter, style=wx.SP_LIVE_UPDATE)
-            bottom_splitter = wx.SplitterWindow(splitter, style=wx.SP_LIVE_UPDATE)
+            top_splitter = DirtySplitterWindow(self.frame, splitter, style=wx.SP_LIVE_UPDATE)
+            bottom_splitter = DirtySplitterWindow(self.frame, splitter, style=wx.SP_LIVE_UPDATE)
 
             top_grid = CanvasGrid(top_splitter, rows=rows // 2, cols=cols)
             top_sizer = wx.BoxSizer(wx.VERTICAL)
