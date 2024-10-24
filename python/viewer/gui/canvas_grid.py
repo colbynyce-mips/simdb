@@ -278,6 +278,7 @@ class WidgetContainer(wx.Panel):
             sizer.Add(widget, 1, wx.EXPAND)
 
         self.Layout()
+        self.frame.view_settings.dirty = True
         wx.CallAfter(self.__RefreshWidget)
 
     def SetWidgetFocus(self):

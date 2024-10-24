@@ -62,6 +62,35 @@ class ViewSettings:
         self.dirty = False
 
     def Save(self):
+        if not self._dirty:
+            return
+
+        if self.view_file is None:
+            # Ask the user if they want to save the view to a new file
+            dlg = wx.MessageDialog(self._frame, "Save current Argos view to new file?", "Save View", wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION)
+        else:
+            dlg = wx.MessageDialog(self._frame, "Save changes to '{}'?".format(self.view_file), "Save View", wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION)
+
+        result = dlg.ShowModal()
+        dlg.Destroy()
+
+        if result == wx.ID_CANCEL:
+            return
+        
+        view_file = self.view_file
+        if not view_file:
+            with wx.FileDialog(None, "Save Argos View", wildcard="AVF files (*.avf)|*.avf|All files (*.*)|*.*",
+                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT, defaultDir=self._views_dir) as dlg:
+                if dlg.ShowModal() == wx.ID_OK:
+                    path = dlg.GetPath()
+                    if not path.endswith('.avf'):
+                        path += '.avf'
+
+                    view_file = path
+
+        if not view_file:
+            return
+
         settings = {
             'NavTree': self._frame.explorer.navtree.GetCurrentViewSettings(),
             'Watchlist': self._frame.explorer.watchlist.GetCurrentViewSettings(),
@@ -70,28 +99,11 @@ class ViewSettings:
             'Inspector': self._frame.inspector.GetCurrentViewSettings()
         }
 
-        if not self.__SettingsChanged(settings):
-            return
+        with open(view_file, 'w') as fout:
+            yaml.dump(settings, fout)
 
-        # Create a file dialog for saving the file
-        with wx.FileDialog(None, "Save Argos View", wildcard="AVF files (*.avf)|*.avf|All files (*.*)|*.*",
-                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT, defaultDir=self._views_dir) as dlg:
-            if dlg.ShowModal() == wx.ID_OK:
-                path = dlg.GetPath()
-                if not path.endswith('.avf'):
-                    path += '.avf'
-
-                with open(path, 'w') as fout:
-                    yaml.dump(settings, fout)
-                    self.view_file = path
-
-    def __SettingsChanged(self, new_settings):
-        if self.view_file is None:
-            return True
-        
-        with open(self.view_file, 'r') as fin:
-            old_settings = yaml.load(fin, Loader=yaml.FullLoader)
-            return old_settings != new_settings
+        self.view_file = view_file
+        self.dirty = False
 
     def __UpdateTitle(self):
         if self._frame is None:
