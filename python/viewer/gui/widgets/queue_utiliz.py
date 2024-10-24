@@ -63,6 +63,7 @@ class QueueUtilizWidget(wx.Panel):
         self.container_elem_paths.sort()
         self.__LayoutComponents()
         self.UpdateWidgetData()
+        self.frame.view_settings.dirty = True
 
     def __OnSimElemInitDrag(self, event):
         text_elem = event.GetEventObject()

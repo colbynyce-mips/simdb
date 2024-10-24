@@ -180,8 +180,13 @@ class DataRetriever:
         deserializer = self.GetDeserializer(elem_path)
         struct_name = deserializer.struct_name
         assert struct_name in self._displayed_columns_by_struct_name
+
+        if self._displayed_columns_by_struct_name[struct_name] == field_names:
+            return
+
         self._displayed_columns_by_struct_name[struct_name] = copy.deepcopy(field_names)
         self.frame.inspector.RefreshWidgetsOnAllTabs()
+        self.frame.view_settings.dirty = True
 
     def GetDeserializer(self, elem_path):
         collection_name = self._collection_names_by_elem_path[elem_path]

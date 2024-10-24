@@ -181,6 +181,7 @@ class CanvasGrid(wx.Panel):
 
         splitter = self.container.container
         splitter.SetSashPosition(splitter.GetSize().GetWidth() // 2)
+        self.frame.view_settings.dirty = True
 
     def __OnSplitHorizontally(self, event):
         widget_creation_str = None
@@ -204,6 +205,7 @@ class CanvasGrid(wx.Panel):
 
         splitter = self.container.container
         splitter.SetSashPosition(splitter.GetSize().GetHeight() // 2)
+        self.frame.view_settings.dirty = True
 
     def __FindFirstWidgetContainer(self, container):
         if isinstance(container, WidgetContainer):
@@ -226,6 +228,8 @@ class CanvasGrid(wx.Panel):
             containers = inspector.GetCurrentTabWidgetContainers()
             widget = frame.widget_creator.CreateWidget(widget_creation_str, containers[0])
             containers[0].SetWidget(widget)
+
+        frame.view_settings.dirty = True
 
     def __DestroyAllWidgets(self, container):
         if isinstance(container, WidgetContainer):

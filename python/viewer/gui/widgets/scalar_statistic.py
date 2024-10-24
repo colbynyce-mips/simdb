@@ -60,6 +60,9 @@ class ScalarStatistic(wx.Panel):
         return settings
 
     def ApplyViewSettings(self, settings):
+        if settings == self.GetCurrentViewSettings():
+            return
+
         self.ax.set_title(settings['title'])
         self.ax.set_xlabel(settings['xlabel'])
         self.ax.set_ylabel(settings['ylabel'])
@@ -68,6 +71,7 @@ class ScalarStatistic(wx.Panel):
         self.canvas.draw()
         self.Update()
         self.Refresh()
+        self.frame.view_settings.dirty = True
 
     def __EditWidget(self, event):
         dlg = PlotCustomizationDialog(self, **self.GetCurrentViewSettings())

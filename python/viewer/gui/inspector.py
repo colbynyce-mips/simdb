@@ -105,6 +105,7 @@ class DataInspector(wx.Notebook):
                         return
 
                 self.__AddInspectorTab(new_tab_name)
+                self.frame.view_settings.dirty = True
         else:
             self.SetSelection(self.GetPageCount() - 2)
 
@@ -147,7 +148,9 @@ class DataInspector(wx.Notebook):
                     return
 
                 # Set the new name for the selected tab
-                self.SetPageText(tab_idx, new_name)
+                if self.GetPageText(tab_idx) != new_name:
+                    self.SetPageText(tab_idx, new_name)
+                    self.frame.view_settings.dirty = True
         
         dlg.Destroy()
     
@@ -159,5 +162,6 @@ class DataInspector(wx.Notebook):
             # Delete the selected tab
             self.DeletePage(tab_idx)
             self.tabs.pop(tab_idx)
+            self.frame.view_settings.dirty = True
         
         dlg.Destroy()

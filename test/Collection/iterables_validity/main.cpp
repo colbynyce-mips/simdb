@@ -232,7 +232,7 @@ int main()
     verifyBlob(abbreviated_data_set, 6, db_mgr);
 
     // Run a query to get all collection data at cycle 7 and verify the full data set #1 was written.
-    verifyBlob(full_data_set, 7, db_mgr);//yyy
+    verifyBlob(full_data_set, 7, db_mgr);
 
     // Run a query to get all collection data at cycle 8 and verify the abbreviated data set was written.
     verifyBlob(abbreviated_data_set, 8, db_mgr);
@@ -262,7 +262,7 @@ int main()
     verifyBlob(abbreviated_data_set, 14, db_mgr);
 
     // Run a query to get all collection data at cycle 15 and verify the full data set #2 was written.
-    verifyBlob(full_data_set, 15, db_mgr);//yyy
+    verifyBlob(full_data_set, 15, db_mgr);
 
     // Run a query to get all collection data at cycle 16 and verify the abbreviated data set was written.
     verifyBlob(abbreviated_data_set, 16, db_mgr);

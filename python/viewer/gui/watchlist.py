@@ -41,9 +41,13 @@ class Watchlist(wx.TreeCtrl):
         return '.'.join(path_parts).replace('Root.Watchlist.', '')
        
     def AddToWatchlist(self, elem_path):
+        if elem_path in self._watched_sim_elems:
+            return
+
         self._watched_sim_elems.append(elem_path)
         self.__RenderWatchlist()
         self.GetParent().ChangeSelection(1)
+        self.frame.view_settings.dirty = True
 
     def UpdateUtilizBitmaps(self):
         self._tooltips_by_item = {}
@@ -131,6 +135,7 @@ class Watchlist(wx.TreeCtrl):
             self.__RenderHierView()
 
     def __RenderFlatView(self, *args, **kwargs):
+        dirty = self._mode == 'hier'
         self._mode = 'flat'
         self._undeletable_items = []
 
@@ -159,8 +164,10 @@ class Watchlist(wx.TreeCtrl):
             self.ExpandAll()
 
         self.UpdateUtilizBitmaps()
+        self.frame.view_settings.dirty = dirty
 
     def __RenderHierView(self, *args, **kwargs):
+        dirty = self._mode = 'flat'
         self._mode = 'hier'
         self._undeletable_items = []
 
@@ -214,6 +221,7 @@ class Watchlist(wx.TreeCtrl):
             self.ExpandAll()
 
         self.UpdateUtilizBitmaps()
+        self.frame.view_settings.dirty = dirty
 
     def __ProcessTooltip(self, event):
         item = event.GetItem()
@@ -249,11 +257,13 @@ class Watchlist(wx.TreeCtrl):
 
         menu.AppendSeparator()
 
-        flat_view = menu.Append(-1, "Flat View")
-        self.Bind(wx.EVT_MENU, self.__RenderFlatView, flat_view)
+        if self._mode == 'hier':
+            flat_view = menu.Append(-1, "Flat View")
+            self.Bind(wx.EVT_MENU, self.__RenderFlatView, flat_view)
 
-        hier_view = menu.Append(-1, "Hierarchical View")
-        self.Bind(wx.EVT_MENU, self.__RenderHierView, hier_view)
+        if self._mode == 'flat':
+            hier_view = menu.Append(-1, "Hierarchical View")
+            self.Bind(wx.EVT_MENU, self.__RenderHierView, hier_view)
 
         elem_path = self.GetItemElemPath(item)
         if elem_path in self._watched_sim_elems:
@@ -271,8 +281,11 @@ class Watchlist(wx.TreeCtrl):
         event.Skip()
 
     def __RemoveFromWatchlist(self, *args, **kwargs):
+        import pdb; pdb.set_trace()
+        dirty = False
         if 'elem_path' in kwargs:
             elem_path = kwargs['elem_path']
+            dirty = elem_path in self._watched_sim_elems
             self._watched_sim_elems.remove(elem_path)
         else:
             item_to_remove = kwargs['item_to_remove']
@@ -280,9 +293,11 @@ class Watchlist(wx.TreeCtrl):
             self.__RecurseGetWatchedSimElems(item_to_remove, watched_sim_elems)
 
             for sim_elem in watched_sim_elems:
+                dirty |= sim_elem in self._watched_sim_elems
                 self._watched_sim_elems.remove(sim_elem)
 
         self.__RenderWatchlist()
+        self.frame.view_settings.dirty = dirty
 
     def __RecurseGetWatchedSimElems(self, item, watched_sim_elems):
         item_path = self.GetItemElemPath(item)
