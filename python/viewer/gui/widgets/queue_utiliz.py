@@ -1,4 +1,5 @@
 import wx, copy
+from viewer.gui.dialogs.string_list_selection import StringListSelectionDlg
     
 class QueueUtilizWidget(wx.Panel):
     def __init__(self, parent, frame):
@@ -29,31 +30,15 @@ class QueueUtilizWidget(wx.Panel):
         # Where the X's above are shown as a colored heatmap based on the
         # utilization percentage of each queue.
         self.panel = wx.Panel(self)
-        self._elem_path_text_boxes = [wx.StaticText(self.panel, label=elem_path) for elem_path in self.container_elem_paths]
-        self._utiliz_bars = [UtilizBar(self.panel, frame) for _ in range(len(self.container_elem_paths))]
-
-        # Change the font to 10-point monospace.
-        font = wx.Font(10, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        for elem in self._elem_path_text_boxes:
-            elem.SetFont(font)
-
-        # Layout the widgets
-        sizer = wx.FlexGridSizer(2, 0, 10)
-        sizer.AddGrowableCol(1)
-        for elem_path, utiliz_bar in zip(self._elem_path_text_boxes, self._utiliz_bars):
-            sizer.Add(elem_path, 1, wx.EXPAND)
-            sizer.Add(utiliz_bar, 1, wx.EXPAND)
-
-        self.panel.SetSizer(sizer)
+        self._elem_path_text_boxes = []
+        self._utiliz_bars = []
+        self.__LayoutComponents()
 
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.panel, 1, 20, wx.TOP | wx.LEFT)
         self.SetSizer(sizer)
 
         self.Layout()
-
-        for text_elem in self._elem_path_text_boxes:
-            text_elem.Bind(wx.EVT_LEFT_DOWN, self.__OnSimElemInitDrag)
 
     def GetWidgetCreationString(self):
         return 'Queue Utilization'
@@ -73,37 +58,10 @@ class QueueUtilizWidget(wx.Panel):
         paths2 = set(settings['displayed_elem_paths'])
         if paths1 == paths2:
             return
-
-        sizer = self.panel.GetSizer()
-        for elem_path, pct_bar in zip(self.container_elem_paths, self._utiliz_bars):
-            sizer.Detach(elem_path)
-            sizer.Detach(pct_bar)
-
-        sizer.Clear()
-
+        
         self.container_elem_paths = copy.deepcopy(settings['displayed_elem_paths'])
         self.container_elem_paths.sort()
-
-        self._elem_path_text_boxes = [wx.StaticText(self.panel, label=elem_path) for elem_path in self.container_elem_paths]
-        self._utiliz_bars = [UtilizBar(self.panel, self.frame) for _ in range(len(self.container_elem_paths))]
-
-        # Change the font to 10-point monospace.
-        font = wx.Font(10, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        for elem in self._elem_path_text_boxes:
-            elem.SetFont(font)
-
-        # Layout the widgets
-        sizer = wx.FlexGridSizer(2, 0, 10)
-        sizer.AddGrowableCol(1)
-        for elem_path, utiliz_bar in zip(self._elem_path_text_boxes, self._utiliz_bars):
-            sizer.Add(elem_path, 1, wx.EXPAND)
-            sizer.Add(utiliz_bar, 1, wx.EXPAND)
-
-        self.panel.SetSizer(sizer)
-        self.Layout()
-
-        for text_elem in self._elem_path_text_boxes:
-            text_elem.Bind(wx.EVT_LEFT_DOWN, self.__OnSimElemInitDrag)
+        self.__LayoutComponents()
 
     def __OnSimElemInitDrag(self, event):
         text_elem = event.GetEventObject()
@@ -122,8 +80,50 @@ class QueueUtilizWidget(wx.Panel):
             event.Skip()
 
     def __EditWidget(self, event):
-        # TODO
-        print('Edit widget settings for QueueUtilizWidget')
+        dlg = StringListSelectionDlg(self, self.frame.simhier.GetContainerElemPaths(), self.container_elem_paths, 'Displayed queues:')
+        if dlg.ShowModal() == wx.ID_OK:
+            self.ApplyViewSettings({'displayed_elem_paths': dlg.GetSelectedStrings()})
+
+        dlg.Destroy()
+
+    def __LayoutComponents(self):
+        had_sizer = self.panel.GetSizer() is not None
+        if had_sizer:
+            sizer = self.panel.GetSizer()
+            for elem_path, pct_bar in zip(self._elem_path_text_boxes, self._utiliz_bars):
+                sizer.Detach(elem_path)
+                sizer.Detach(pct_bar)
+                elem_path.Destroy()
+                pct_bar.Destroy()
+
+            sizer.Clear()
+            self._elem_path_text_boxes = []
+            self._utiliz_bars = []
+        else:
+            sizer = wx.FlexGridSizer(2, 0, 10)
+            sizer.AddGrowableCol(1)
+            assert len(self._elem_path_text_boxes) == 0
+            assert len(self._utiliz_bars) == 0
+
+        self._elem_path_text_boxes = [wx.StaticText(self.panel, label=elem_path) for elem_path in self.container_elem_paths]
+        self._utiliz_bars = [UtilizBar(self.panel, self.frame) for _ in range(len(self.container_elem_paths))]
+
+        for elem_path, utiliz_bar in zip(self._elem_path_text_boxes, self._utiliz_bars):
+            sizer.Add(elem_path, 1, wx.EXPAND)
+            sizer.Add(utiliz_bar, 1, wx.EXPAND)
+
+        for text_elem in self._elem_path_text_boxes:
+            text_elem.Bind(wx.EVT_LEFT_DOWN, self.__OnSimElemInitDrag)
+
+        font = wx.Font(10, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        for elem in self._elem_path_text_boxes:
+            elem.SetFont(font)
+
+        if not had_sizer:
+            self.panel.SetSizer(sizer)
+
+        self.Layout()
+        self.Refresh()
 
 class UtilizBar(wx.Panel):
     def __init__(self, parent, frame):

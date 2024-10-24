@@ -1,5 +1,6 @@
 import wx, wx.grid
 from collections.abc import Iterable
+from viewer.gui.dialogs.string_list_selection import StringListSelectionDlg
 
 class IterableStruct(wx.Panel):
     def __init__(self, parent, frame, elem_path):
@@ -121,10 +122,10 @@ class IterableStruct(wx.Panel):
 
     def __EditWidget(self, event):
         all_field_names = self.deserializer.GetAllFieldNames()
-        dlg = QueueTableCustomizationDialog(self, all_field_names, self.visible_field_names)
+        dlg = StringListSelectionDlg(self, all_field_names, self.visible_field_names, 'Select columns to display:')
         if dlg.ShowModal() == wx.ID_OK:
             # Note that the data retriever will update all widgets when this method is called
-            self.frame.data_retriever.SetVisibleFieldNames(self.elem_path, dlg.GetVisibleFieldNames())
+            self.frame.data_retriever.SetVisibleFieldNames(self.elem_path, dlg.GetSelectedStrings())
 
         dlg.Destroy()
 
@@ -144,51 +145,3 @@ class UtilizElement(wx.StaticText):
 
         tooltip = 'Utilization: {}% ({}/{} bins filled)'.format(round(utiliz_pct * 100), int(utiliz_pct * self.capacity), self.capacity)
         self.SetToolTip(tooltip)
-
-class QueueTableCustomizationDialog(wx.Dialog):
-    def __init__(self, widget, all_field_names, visible_field_names):
-        super().__init__(widget, title='Customize Widget')
-
-        self.checkboxes = []
-        panel = wx.Panel(self)
-        sizer = wx.BoxSizer(wx.VERTICAL)
-
-        tbox = wx.StaticText(panel, label='Select columns to display:')
-        sizer.Add(tbox, 0, wx.ALL | wx.EXPAND, 5)
- 
-        # Create a checkbox for each item
-        for field_name in all_field_names:
-            checkbox = wx.CheckBox(panel, label=field_name)
-            checkbox.Bind(wx.EVT_CHECKBOX, self.__OnCheckbox)
-            sizer.Add(checkbox, 0, wx.ALL | wx.EXPAND, 5)
-
-            if field_name in visible_field_names:
-                checkbox.SetValue(True)
-            else:
-                checkbox.SetValue(False)
-
-            self.checkboxes.append(checkbox)
-
-        # OK and Cancel buttons
-        self._ok_btn = wx.Button(panel, wx.ID_OK)
-        btn_sizer = wx.StdDialogButtonSizer()
-        btn_sizer.AddButton(self._ok_btn)
-        btn_sizer.AddButton(wx.Button(panel, wx.ID_CANCEL))
-        btn_sizer.Realize()
-
-        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER | wx.ALL, 10)
-        panel.SetSizer(sizer)
-
-        w,h = sizer.GetMinSize()
-        h += 100
-        self.SetSize((w,h))
-        self.Layout()
-        self.Refresh()
-
-    def GetVisibleFieldNames(self):
-        # Return a list of selected items
-        return [checkbox.GetLabel() for checkbox in self.checkboxes if checkbox.IsChecked()]
-
-    def __OnCheckbox(self, event):
-        any_selected = any(checkbox.IsChecked() for checkbox in self.checkboxes)
-        self._ok_btn.Enable(any_selected)
