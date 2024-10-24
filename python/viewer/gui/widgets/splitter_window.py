@@ -1,4 +1,5 @@
 import wx
+from viewer.gui.view_settings import DirtyReasons
 
 class DirtySplitterWindow(wx.SplitterWindow):
     def __init__(self, frame, parent, *args, **kwargs):
@@ -7,5 +8,5 @@ class DirtySplitterWindow(wx.SplitterWindow):
         self.Bind(wx.EVT_SPLITTER_SASH_POS_CHANGED, self.__OnSashPosChanged)
 
     def __OnSashPosChanged(self, event):
-        self.frame.view_settings.dirty = True
+        self.frame.view_settings.SetDirty(reason=DirtyReasons.SashPositionChanged)
         event.Skip()

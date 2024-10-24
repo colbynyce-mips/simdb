@@ -1,5 +1,6 @@
 import wx
 from viewer.gui.widgets.splitter_window import DirtySplitterWindow
+from viewer.gui.view_settings import DirtyReasons
 
 class CanvasGrid(wx.Panel):
     def __init__(self, parent, rows=1, cols=1):
@@ -182,7 +183,7 @@ class CanvasGrid(wx.Panel):
 
         splitter = self.container.container
         splitter.SetSashPosition(splitter.GetSize().GetWidth() // 2)
-        self.frame.view_settings.dirty = True
+        self.frame.view_settings.SetDirty(reason=DirtyReasons.WidgetSplit)
 
     def __OnSplitHorizontally(self, event):
         widget_creation_str = None
@@ -206,7 +207,7 @@ class CanvasGrid(wx.Panel):
 
         splitter = self.container.container
         splitter.SetSashPosition(splitter.GetSize().GetHeight() // 2)
-        self.frame.view_settings.dirty = True
+        self.frame.view_settings.SetDirty(reason=DirtyReasons.WidgetSplit)
 
     def __FindFirstWidgetContainer(self, container):
         if isinstance(container, WidgetContainer):
@@ -230,7 +231,7 @@ class CanvasGrid(wx.Panel):
             widget = frame.widget_creator.CreateWidget(widget_creation_str, containers[0])
             containers[0].SetWidget(widget)
 
-        frame.view_settings.dirty = True
+        frame.view_settings.SetDirty(reason=DirtyReasons.CanvasExploded)
 
     def __DestroyAllWidgets(self, container):
         if isinstance(container, WidgetContainer):
@@ -279,7 +280,7 @@ class WidgetContainer(wx.Panel):
             sizer.Add(widget, 1, wx.EXPAND)
 
         self.Layout()
-        self.frame.view_settings.dirty = True
+        self.frame.view_settings.SetDirty(reason=DirtyReasons.WidgetDropped)
         wx.CallAfter(self.__RefreshWidget)
 
     def SetWidgetFocus(self):

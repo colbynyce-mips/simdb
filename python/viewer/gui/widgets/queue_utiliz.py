@@ -1,6 +1,7 @@
 import wx, copy
 from viewer.gui.dialogs.string_list_selection import StringListSelectionDlg
-    
+from viewer.gui.view_settings import DirtyReasons
+
 class QueueUtilizWidget(wx.Panel):
     def __init__(self, parent, frame):
         super().__init__(parent, size=(800, 500))
@@ -66,7 +67,7 @@ class QueueUtilizWidget(wx.Panel):
         self.container_elem_paths.sort()
         self.__LayoutComponents()
         self.UpdateWidgetData()
-        self.frame.view_settings.dirty = True
+        self.frame.view_settings.SetDirty(reason=DirtyReasons.QueueUtilizChanged)
 
     def __OnSimElemInitDrag(self, event):
         text_elem = event.GetEventObject()

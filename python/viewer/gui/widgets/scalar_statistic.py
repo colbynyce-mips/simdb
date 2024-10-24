@@ -3,6 +3,7 @@ import pylab as pl
 import matplotlib
 import numpy as np
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
+from viewer.gui.view_settings import DirtyReasons
 
 class ScalarStatistic(wx.Panel):
     def __init__(self, parent, frame, elem_path):
@@ -74,7 +75,7 @@ class ScalarStatistic(wx.Panel):
         self.canvas.draw()
         self.Update()
         self.Refresh()
-        self.frame.view_settings.dirty = True
+        self.frame.view_settings.SetDirty(reason=DirtyReasons.TimeseriesChanged)
 
     def __EditWidget(self, event):
         dlg = PlotCustomizationDialog(self, **self.GetCurrentViewSettings())

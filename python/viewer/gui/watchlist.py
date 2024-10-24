@@ -1,5 +1,6 @@
 import wx
 from functools import partial
+from viewer.gui.view_settings import DirtyReasons
 
 class Watchlist(wx.TreeCtrl):
     def __init__(self, parent, frame):
@@ -47,7 +48,7 @@ class Watchlist(wx.TreeCtrl):
         self._watched_sim_elems.append(elem_path)
         self.__RenderWatchlist()
         self.GetParent().ChangeSelection(1)
-        self.frame.view_settings.dirty = True
+        self.frame.view_settings.SetDirty(reason=DirtyReasons.WatchlistAdded)
 
     def UpdateUtilizBitmaps(self):
         self._tooltips_by_item = {}
@@ -172,7 +173,9 @@ class Watchlist(wx.TreeCtrl):
             self.ExpandAll()
 
         self.UpdateUtilizBitmaps()
-        self.frame.view_settings.dirty = dirty
+
+        if dirty:
+            self.frame.view_settings.SetDirty(reason=DirtyReasons.WatchlistOrgChanged)
 
     def __RenderHierView(self, *args, **kwargs):
         dirty = self._mode = 'flat'
@@ -229,7 +232,9 @@ class Watchlist(wx.TreeCtrl):
             self.ExpandAll()
 
         self.UpdateUtilizBitmaps()
-        self.frame.view_settings.dirty = dirty
+
+        if dirty:
+            self.frame.view_settings.SetDirty(reason=DirtyReasons.WatchlistOrgChanged)
 
     def __ProcessTooltip(self, event):
         item = event.GetItem()
@@ -304,7 +309,9 @@ class Watchlist(wx.TreeCtrl):
                 self._watched_sim_elems.remove(sim_elem)
 
         self.__RenderWatchlist()
-        self.frame.view_settings.dirty = dirty
+
+        if dirty:
+            self.frame.view_settings.SetDirty(reason=DirtyReasons.WatchlistRemoved)
 
     def __RecurseGetWatchedSimElems(self, item, watched_sim_elems):
         item_path = self.GetItemElemPath(item)

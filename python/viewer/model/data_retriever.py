@@ -1,4 +1,5 @@
 import zlib, struct, copy
+from viewer.gui.view_settings import DirtyReasons
 
 class DataRetriever:
     def __init__(self, frame, db, simhier):
@@ -194,7 +195,7 @@ class DataRetriever:
 
         self._displayed_columns_by_struct_name[struct_name] = copy.deepcopy(field_names)
         self.frame.inspector.RefreshWidgetsOnAllTabs()
-        self.frame.view_settings.dirty = True
+        self.frame.view_settings.SetDirty(reason=DirtyReasons.QueueTableChanged)
 
     def GetDeserializer(self, elem_path):
         collection_name = self._collection_names_by_elem_path[elem_path]
