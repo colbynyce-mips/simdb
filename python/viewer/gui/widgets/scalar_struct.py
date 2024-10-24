@@ -6,7 +6,7 @@ class ScalarStruct(wx.Panel):
         self.frame = frame
         self.elem_path = elem_path
         self.struct_text_elem = wx.StaticText(self, label='Scalar Struct:\n%s' % elem_path)
-        self._field_names = frame.data_retriever.GetDeserializer(elem_path).GetFieldNames()
+        self._field_names = frame.data_retriever.GetDeserializer(elem_path).GetAllFieldNames()
 
         font = wx.Font(10, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
         self.struct_text_elem.SetFont(font)

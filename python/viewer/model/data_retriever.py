@@ -1,7 +1,8 @@
 import zlib, struct, copy
 
 class DataRetriever:
-    def __init__(self, db, simhier):
+    def __init__(self, frame, db, simhier):
+        self.frame = frame
         self._db = db
         self.cursor = db.cursor()
         cursor = self.cursor
@@ -81,15 +82,32 @@ class DataRetriever:
                 continue
 
             if collection_name in scalar_struct_collection_names:
-                deserializer = StructDeserializer(strings_by_int, enums_by_name, self._element_idxs_by_elem_path, cursor)
+                deserializer = StructDeserializer(self, struct_name, strings_by_int, enums_by_name, self._element_idxs_by_elem_path, cursor)
                 self._deserializers_by_collection_name[collection_name] = deserializer
             elif collection_name in iterable_struct_collection_names:
-                deserializer = IterableDeserializer(strings_by_int, enums_by_name, container_meta_by_elem_path, self._element_idxs_by_elem_path, cursor)
+                deserializer = IterableDeserializer(self, struct_name, strings_by_int, enums_by_name, container_meta_by_elem_path, self._element_idxs_by_elem_path, cursor)
                 self._deserializers_by_collection_name[collection_name] = deserializer
 
             cursor.execute('SELECT FieldName,FieldType,FormatCode FROM StructFields WHERE StructName="{}"'.format(struct_name))
             for field_name,field_type,format_code in cursor.fetchall():
                 deserializer.AddField(field_name, field_type, format_code)
+
+        self._auto_colorize_column_by_struct_name = {}
+        self._displayed_columns_by_struct_name = {}
+
+        for struct_name in struct_names:
+            cmd = 'SELECT FieldName FROM StructFields WHERE StructName="{}" AND IsAutoColorizeKey=1'.format(struct_name)
+            cursor.execute(cmd)
+            auto_colorize_column = [row[0] for row in cursor.fetchall()]
+            assert len(auto_colorize_column) <= 1
+            if len(auto_colorize_column) == 1:
+                self._auto_colorize_column_by_struct_name[struct_name] = auto_colorize_column[0]
+
+            cmd = 'SELECT FieldName FROM StructFields WHERE StructName="{}" AND IsDisplayedByDefault=1'.format(struct_name)
+            cursor.execute(cmd)
+            displayed_columns = [row[0] for row in cursor.fetchall()]
+            assert len(displayed_columns) > 0
+            self._displayed_columns_by_struct_name[struct_name] = displayed_columns
 
         cmd = 'SELECT Name,DataType FROM Collections WHERE IsContainer=0 AND DataType IN ({})'
         pods = ['int8_t','int16_t','int32_t','int64_t','uint8_t','uint16_t','uint32_t','uint64_t','double','float','bool']
@@ -129,6 +147,41 @@ class DataRetriever:
 
         for elem_path,_ in self._element_idxs_by_elem_path.items():
             assert elem_path.find('root.') == -1
+
+    def GetCurrentViewSettings(self):
+        settings = {}
+        assert set(self._displayed_columns_by_struct_name.keys()) == set(self._auto_colorize_column_by_struct_name.keys())
+
+        for struct_name,displayed_columns in self._displayed_columns_by_struct_name.items():
+            assert len(displayed_columns) > 0
+            settings[struct_name] = {'auto_colorize_column':None}
+            settings[struct_name]['displayed_columns'] = copy.deepcopy(displayed_columns)
+        
+        for struct_name,auto_colorize_column in self._auto_colorize_column_by_struct_name.items():
+            assert struct_name in settings
+            settings[struct_name]['auto_colorize_column'] = None if not auto_colorize_column else auto_colorize_column
+
+        return settings
+
+    def ApplyViewSettings(self, settings):
+        self._displayed_columns_by_struct_name = {}
+        self._auto_colorize_column_by_struct_name = {}
+
+        for struct_name,struct_settings in settings.items():
+            displayed_columns = struct_settings['displayed_columns']
+            auto_colorize_column = struct_settings['auto_colorize_column']
+
+            self._displayed_columns_by_struct_name[struct_name] = copy.deepcopy(displayed_columns)
+            self._auto_colorize_column_by_struct_name[struct_name] = auto_colorize_column
+
+        self.frame.inspector.RefreshWidgetsOnAllTabs()
+
+    def SetVisibleFieldNames(self, elem_path, field_names):
+        deserializer = self.GetDeserializer(elem_path)
+        struct_name = deserializer.struct_name
+        assert struct_name in self._displayed_columns_by_struct_name
+        self._displayed_columns_by_struct_name[struct_name] = copy.deepcopy(field_names)
+        self.frame.inspector.RefreshWidgetsOnAllTabs()
 
     def GetDeserializer(self, elem_path):
         collection_name = self._collection_names_by_elem_path[elem_path]
@@ -414,13 +467,16 @@ class StatsDeserializer(Deserializer):
         return self._scalar_num_bytes
 
 class StructDeserializer(Deserializer):
-    def __init__(self, strings_by_int, enums_by_name, element_idxs_by_elem_path, cursor):
+    def __init__(self, data_retriever, struct_name, strings_by_int, enums_by_name, element_idxs_by_elem_path, cursor):
         Deserializer.__init__(self, cursor)
+        self.data_retriever = data_retriever
+        self.struct_name = struct_name
         self._strings_by_int = strings_by_int
         self._enums_by_name = enums_by_name
         self._element_idxs_by_elem_path = element_idxs_by_elem_path
         self._field_formatters = []
         self._format = ''
+        self._all_field_names = []
 
     def AddField(self, field_name, field_type, format_code):
         unpack_format_codes_by_builtin_dtype = {
@@ -448,9 +504,20 @@ class StructDeserializer(Deserializer):
             self._format += self._enums_by_name[field_type].format
 
         self._field_formatters.append(formatter)
+        self._all_field_names.append(field_name)
 
-    def GetFieldNames(self):
-        return [formatter.field_name for formatter in self._field_formatters]
+    def GetAllFieldNames(self):
+        return copy.deepcopy(self._all_field_names)
+
+    def GetVisibleFieldNames(self):
+        visible_field_names = self.data_retriever.GetCurrentViewSettings().get(self.struct_name, {}).get('displayed_columns', [])
+
+        field_names = []
+        for idx,formatter in enumerate(self._field_formatters):
+            if formatter.field_name in visible_field_names:
+                field_names.append(formatter.field_name)
+
+        return field_names
 
     def Unpack(self, data_blob, elem_path, apply_offset=True):
         struct_num_bytes = self.GetStructNumBytes()
@@ -473,11 +540,19 @@ class StructDeserializer(Deserializer):
             'd':8
         }
 
+        visible_field_names = self.data_retriever.GetCurrentViewSettings().get(self.struct_name, {}).get('displayed_columns', [])
+        assert len(visible_field_names) > 0
+
         res = {}
         for i,code in enumerate(self._format):
             nbytes = num_bytes_by_format_code[code]
             tiny_blob = data_blob[:nbytes]
             data_blob = data_blob[nbytes:]
+
+            field_name = self._field_formatters[i].field_name
+            if field_name not in visible_field_names:
+                continue
+
             val = struct.unpack(code, tiny_blob)[0]
             formatter = self._field_formatters[i]
             res[formatter.field_name] = formatter.Format(val)
@@ -510,8 +585,8 @@ class StructDeserializer(Deserializer):
         return self.GetStructNumBytes()
 
 class IterableDeserializer(StructDeserializer):
-    def __init__(self, strings_by_int, enums_by_name, container_meta_by_elem_path, element_idxs_by_elem_path, cursor):
-        StructDeserializer.__init__(self, strings_by_int, enums_by_name, element_idxs_by_elem_path, cursor)
+    def __init__(self, data_retriever, struct_name, strings_by_int, enums_by_name, container_meta_by_elem_path, element_idxs_by_elem_path, cursor):
+        StructDeserializer.__init__(self, data_retriever, struct_name, strings_by_int, enums_by_name, element_idxs_by_elem_path, cursor)
         self._container_meta_by_elem_path = container_meta_by_elem_path
         self._element_idxs_by_elem_path = element_idxs_by_elem_path
 

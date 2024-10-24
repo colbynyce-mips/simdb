@@ -62,6 +62,21 @@ class DataInspector(wx.Notebook):
                 self.SetSelection(i)
                 break
 
+    def RefreshWidgetsOnCurrentTab(self):
+        selected_tab = self.GetSelection()
+        if selected_tab == self.GetPageCount() - 1:
+            return
+
+        self.tabs[selected_tab].UpdateWidgets()
+        self.tabs[selected_tab].Layout()
+        self.tabs[selected_tab].Refresh()
+
+    def RefreshWidgetsOnAllTabs(self):
+        for tab in self.tabs:
+            tab.UpdateWidgets()
+            tab.Layout()
+            tab.Refresh()
+
     def __AddPlusTab(self):
         super(DataInspector, self).AddPage(wx.Panel(self), "Add Tab")
 
