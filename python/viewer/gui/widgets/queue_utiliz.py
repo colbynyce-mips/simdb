@@ -62,6 +62,7 @@ class QueueUtilizWidget(wx.Panel):
         self.container_elem_paths = copy.deepcopy(settings['displayed_elem_paths'])
         self.container_elem_paths.sort()
         self.__LayoutComponents()
+        self.UpdateWidgetData()
 
     def __OnSimElemInitDrag(self, event):
         text_elem = event.GetEventObject()
@@ -145,4 +146,8 @@ class UtilizBar(wx.Panel):
         
         height = self.GetSize().GetHeight()
         width = round(utiliz_pct * 500)
+        if width == 0:
+            assert color == (255, 255, 255)
+            width = 500
+
         self.SetSize((width, height))
