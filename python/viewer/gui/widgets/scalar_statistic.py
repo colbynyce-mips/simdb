@@ -50,7 +50,7 @@ class ScalarStatistic(wx.Panel):
         # Nothing to do since we plot all data
         pass
 
-    def GetViewSettings(self):
+    def GetCurrentViewSettings(self):
         settings = {}
         settings['title'] = self.ax.get_title()
         settings['xlabel'] = self.ax.xaxis.get_label().get_text()
@@ -70,7 +70,7 @@ class ScalarStatistic(wx.Panel):
         self.Refresh()
 
     def __EditWidget(self, event):
-        dlg = PlotCustomizationDialog(self, **self.GetViewSettings())
+        dlg = PlotCustomizationDialog(self, **self.GetCurrentViewSettings())
         if dlg.ShowModal() == wx.ID_OK:
             self.ApplyViewSettings(dlg.GetSettings())
 

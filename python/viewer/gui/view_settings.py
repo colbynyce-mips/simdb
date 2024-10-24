@@ -34,6 +34,7 @@ class ViewSettings:
             self._frame.explorer.navtree.ApplyViewSettings(settings['NavTree'])
             self._frame.explorer.watchlist.ApplyViewSettings(settings['Watchlist'])
             self._frame.playback_bar.ApplyViewSettings(settings['PlaybackBar'])
+            self._frame.data_retriever.ApplyViewSettings(settings['DataRetriever'])
             self._frame.inspector.ApplyViewSettings(settings['Inspector'])
 
     def Save(self):
@@ -41,6 +42,7 @@ class ViewSettings:
             'NavTree': self._frame.explorer.navtree.GetCurrentViewSettings(),
             'Watchlist': self._frame.explorer.watchlist.GetCurrentViewSettings(),
             'PlaybackBar': self._frame.playback_bar.GetCurrentViewSettings(),
+            'DataRetriever': self._frame.data_retriever.GetCurrentViewSettings(),
             'Inspector': self._frame.inspector.GetCurrentViewSettings()
         }
 

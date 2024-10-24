@@ -63,7 +63,7 @@ class QueueUtilizWidget(wx.Panel):
             utiliz_pct = self.frame.widget_renderer.utiliz_handler.GetUtilizPct(elem_path)
             pct_bar.UpdateUtilizPct(utiliz_pct)
 
-    def GetViewSettings(self):
+    def GetCurrentViewSettings(self):
         settings = {}
         settings['displayed_elem_paths'] = self.container_elem_paths
         return settings

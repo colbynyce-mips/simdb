@@ -77,11 +77,14 @@ class IterableStruct(wx.Panel):
         self.grid.AutoSizeColumns()
         self.Layout()
 
-    def GetViewSettings(self):
+    def GetCurrentViewSettings(self):
+        # The view settings that we care about are the auto-colorize column (if any)
+        # and the displayed columns. The DataRetriever class handles those settings.
         return {}
     
     def ApplyViewSettings(self, settings):
-        # TODO
+        # The view settings that we care about are the auto-colorize column (if any)
+        # and the displayed columns. The DataRetriever class handles those settings.
         pass
 
     def __ClearGrid(self):

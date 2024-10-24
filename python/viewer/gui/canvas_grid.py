@@ -88,7 +88,7 @@ class CanvasGrid(wx.Panel):
             settings['window_type'] = 'widget_container'
             settings['widget_creation_str'] = widget.GetWidgetCreationString() if widget else 'NO_WIDGET'
             if widget:
-                settings['widget_settings'] = widget.GetViewSettings()
+                settings['widget_settings'] = widget.GetCurrentViewSettings()
         elif isinstance(window, CanvasGrid):
             self.__RecursivelyGetViewSettings(settings, window.container)
         elif isinstance(window, wx.SplitterWindow):

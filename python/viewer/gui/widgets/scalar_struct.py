@@ -33,7 +33,7 @@ class ScalarStruct(wx.Panel):
 
         self.struct_text_elem.SetLabel('\n'.join(struct_str))
 
-    def GetViewSettings(self):
+    def GetCurrentViewSettings(self):
         return {}
 
     def ApplyViewSettings(self, settings):
