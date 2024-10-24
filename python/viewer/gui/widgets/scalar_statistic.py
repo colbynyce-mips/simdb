@@ -58,6 +58,9 @@ class ScalarStatistic(wx.Panel):
         settings['show_xlabel'] = self.ax.xaxis.get_label().get_visible()
         settings['show_ylabel'] = self.ax.yaxis.get_label().get_visible()
         return settings
+    
+    def GetCurrentUserSettings(self):
+        return {}
 
     def ApplyViewSettings(self, settings):
         if settings == self.GetCurrentViewSettings():

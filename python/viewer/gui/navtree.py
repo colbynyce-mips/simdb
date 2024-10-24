@@ -82,12 +82,20 @@ class NavTree(wx.TreeCtrl):
         return '.'.join(node_names)
     
     def GetCurrentViewSettings(self):
+        # All our settings are in the user settings and do not affect the view file
+        return {}
+    
+    def ApplyViewSettings(self, settings):
+        # All our settings are in the user settings and do not affect the view file
+        return
+    
+    def GetCurrentUserSettings(self):
         settings = {}
         settings['expanded_elem_paths'] = self.__GetExpandedElemPaths(self.GetRootItem())
         settings['selected_elem_path'] = self.GetItemElemPath(self.GetSelection())
         return settings
 
-    def ApplyViewSettings(self, settings):
+    def ApplyUserSettings(self, settings):
         expanded_elem_paths = settings['expanded_elem_paths']
         selected_elem_path = settings['selected_elem_path']
 

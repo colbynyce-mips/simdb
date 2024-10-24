@@ -64,7 +64,7 @@ class Watchlist(wx.TreeCtrl):
         settings['grouping_mode'] = self._mode
         settings['watched_sim_elem_paths'] = self._watched_sim_elems
         return settings
-
+    
     def ApplyViewSettings(self, settings):
         grouping_mode = settings['grouping_mode']
         watched_sim_elem_paths = settings['watched_sim_elem_paths']
@@ -72,6 +72,14 @@ class Watchlist(wx.TreeCtrl):
         self._watched_sim_elems = watched_sim_elem_paths
         self._mode = grouping_mode
         self.__RenderWatchlist()
+
+    def GetCurrentUserSettings(self):
+        # All our settings are in the user settings and do not affect the view file
+        return {}
+
+    def ApplyUserSettings(self, settings):
+        # All our settings are in the user settings and do not affect the view file
+        pass
 
     def GetItemElemPath(self, item):
         if not item or not item.IsOk():
@@ -281,7 +289,6 @@ class Watchlist(wx.TreeCtrl):
         event.Skip()
 
     def __RemoveFromWatchlist(self, *args, **kwargs):
-        import pdb; pdb.set_trace()
         dirty = False
         if 'elem_path' in kwargs:
             elem_path = kwargs['elem_path']

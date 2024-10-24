@@ -39,6 +39,7 @@ class ViewSettings:
         if view_file:
             self.Load(view_file)
 
+        self.__ApplyUserSettings()
         self.dirty = False
     
     def Load(self, view_file):
@@ -62,6 +63,8 @@ class ViewSettings:
         self.dirty = False
 
     def Save(self):
+        self.__SaveUserSettings()
+
         if not self._dirty:
             return
 
@@ -120,3 +123,38 @@ class ViewSettings:
             title += '*'
 
         self._frame.SetTitle(title)
+
+    def __SaveUserSettings(self):
+        settings_dir = os.path.expanduser('~/.argos')
+        if not os.path.exists(settings_dir):
+            os.makedirs(settings_dir)
+        
+        settings_file = os.path.join(settings_dir, 'user_settings.yaml')
+
+        settings = {
+            'NavTree': self._frame.explorer.navtree.GetCurrentUserSettings(),
+            'Watchlist': self._frame.explorer.watchlist.GetCurrentUserSettings(),
+            'PlaybackBar': self._frame.playback_bar.GetCurrentUserSettings(),
+            'DataRetriever': self._frame.data_retriever.GetCurrentUserSettings(),
+            'Inspector': self._frame.inspector.GetCurrentUserSettings()
+        }
+
+        with open(settings_file, 'w') as fout:
+            yaml.dump(settings, fout)
+
+    def __ApplyUserSettings(self):
+        settings_dir = os.path.expanduser('~/.argos')
+        if not os.path.exists(settings_dir):
+            return
+        
+        settings_file = os.path.join(settings_dir, 'user_settings.yaml')
+        if not os.path.exists(settings_file):
+            return
+        
+        with open(settings_file, 'r') as fin:
+            settings = yaml.load(fin, Loader=yaml.FullLoader)
+            self._frame.explorer.navtree.ApplyUserSettings(settings['NavTree'])
+            self._frame.explorer.watchlist.ApplyUserSettings(settings['Watchlist'])
+            self._frame.playback_bar.ApplyUserSettings(settings['PlaybackBar'])
+            self._frame.data_retriever.ApplyUserSettings(settings['DataRetriever'])
+            self._frame.inspector.ApplyUserSettings(settings['Inspector'])

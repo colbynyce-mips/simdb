@@ -89,14 +89,19 @@ class PlaybackBar(wx.Panel):
     def GetCurrentViewSettings(self):
         settings = {}
         settings['selected_clock'] = self.clock_combobox.GetValue()
-        settings['current_tick'] = self.cyc_slider.GetValue()
         return settings
 
     def ApplyViewSettings(self, settings):
         selected_clock = settings['selected_clock']
-        current_tick = settings['current_tick']
-
         self.clock_combobox.SetValue(selected_clock)
+
+    def GetCurrentUserSettings(self):
+        settings = {}
+        settings['current_tick'] = self.cyc_slider.GetValue()
+        return settings
+    
+    def ApplyUserSettings(self, settings):
+        current_tick = settings['current_tick']
         widget_renderer = self.frame.widget_renderer
         widget_renderer.GoToTick(current_tick)
 

@@ -52,6 +52,9 @@ class QueueUtilizWidget(wx.Panel):
         settings = {}
         settings['displayed_elem_paths'] = self.container_elem_paths
         return settings
+    
+    def GetCurrentUserSettings(self):
+        return {}
 
     def ApplyViewSettings(self, settings):
         paths1 = set(self.container_elem_paths)

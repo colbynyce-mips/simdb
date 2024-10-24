@@ -35,6 +35,9 @@ class ScalarStruct(wx.Panel):
 
     def GetCurrentViewSettings(self):
         return {}
+    
+    def GetCurrentUserSettings(self):
+        return {}
 
     def ApplyViewSettings(self, settings):
         pass

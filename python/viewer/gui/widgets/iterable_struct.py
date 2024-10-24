@@ -94,6 +94,9 @@ class IterableStruct(wx.Panel):
         # and the displayed columns. The DataRetriever class handles those settings.
         pass
 
+    def GetCurrentUserSettings(self):
+        return {}
+    
     def __SyncGridViewSettings(self):
         # Remove all column labels
         for i in range(self.grid.GetNumberCols()):

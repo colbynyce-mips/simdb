@@ -162,7 +162,7 @@ class DataRetriever:
             settings[struct_name]['auto_colorize_column'] = None if not auto_colorize_column else auto_colorize_column
 
         return settings
-
+    
     def ApplyViewSettings(self, settings):
         self._displayed_columns_by_struct_name = {}
         self._auto_colorize_column_by_struct_name = {}
@@ -175,6 +175,14 @@ class DataRetriever:
             self._auto_colorize_column_by_struct_name[struct_name] = auto_colorize_column
 
         self.frame.inspector.RefreshWidgetsOnAllTabs()
+
+    def GetCurrentUserSettings(self):
+        # All our settings are in the user settings and do not affect the view file
+        return {}
+
+    def ApplyUserSettings(self, settings):
+        # All our settings are in the user settings and do not affect the view file
+        pass
 
     def SetVisibleFieldNames(self, elem_path, field_names):
         deserializer = self.GetDeserializer(elem_path)

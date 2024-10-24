@@ -32,11 +32,10 @@ class DataInspector(wx.Notebook):
 
     def GetCurrentViewSettings(self):
         settings = {}
-        settings['selected_tab'] = self.GetPageText(self.GetSelection())
         settings['tab_names'] = [self.GetPageText(i) for i in range(self.GetPageCount() - 1)]
         settings['tab_settings'] = [tab.GetCurrentViewSettings() for tab in self.tabs]
         return settings
-
+    
     def ApplyViewSettings(self, settings):
         # Reset all tabs
         for tab in self.tabs:
@@ -56,6 +55,12 @@ class DataInspector(wx.Notebook):
         for i, tab_settings in enumerate(settings['tab_settings']):
             self.tabs[i].ApplyViewSettings(tab_settings)
 
+    def GetCurrentUserSettings(self):
+        settings = {}
+        settings['selected_tab'] = self.GetPageText(self.GetSelection())
+        return settings
+
+    def ApplyUserSettings(self, settings):
         # Select the tab that was selected before saving the settings
         for i in range(self.GetPageCount() - 1):
             if self.GetPageText(i) == settings['selected_tab']:
