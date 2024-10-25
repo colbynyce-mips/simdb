@@ -33,12 +33,13 @@ class ArgosFrame(wx.Frame):
         new_view = file_menu.Append(wx.ID_NEW, '&New View\tCtrl+N', 'Create a new view')
         open_view = file_menu.Append(wx.ID_OPEN, '&Open View\tCtrl+O', 'Open an existing view')
         save_view = file_menu.Append(wx.ID_SAVE, '&Save View\tCtrl+S', 'Save the current view')
-        save_view_as = file_menu.Append(wx.ID_SAVEAS, 'Save View &As...\tCtrl+Shift+S', 'Save the current view as a new .avf file')
+        file_menu.AppendSeparator()
+        exit_argos = file_menu.Append(wx.ID_EXIT, 'E&xit\tAlt+F4', 'Exit Argos')
 
         self.Bind(wx.EVT_MENU, self.__OnNewView, new_view)
         self.Bind(wx.EVT_MENU, self.__OnOpenView, open_view)
         self.Bind(wx.EVT_MENU, self.__OnSaveView, save_view)
-        self.Bind(wx.EVT_MENU, self.__OnSaveViewAs, save_view_as)
+        self.Bind(wx.EVT_MENU, lambda event: self.Close(), exit_argos)
 
         self.menu_bar.Append(file_menu, '&File')
         self.SetMenuBar(self.menu_bar)
@@ -73,6 +74,3 @@ class ArgosFrame(wx.Frame):
 
     def __OnSaveView(self, event):
         self.view_settings.SaveView()
-
-    def __OnSaveViewAs(self, event):
-        self.view_settings.SaveViewAs()

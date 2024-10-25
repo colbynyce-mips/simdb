@@ -260,32 +260,6 @@ class ViewSettings:
         self.SetDirty(False)
         return True
 
-    def SaveViewAs(self, view_file=None):
-        #import pdb; pdb.set_trace()
-
-        #if view_file is None:
-        #    with wx.FileDialog(None, "Save Argos View As", wildcard="AVF files (*.avf)|*.avf|All files (*.*)|*.*",
-        #                    defaultDir=self._views_dir, style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as dlg:
-        #        if dlg.ShowModal() == wx.ID_OK:
-        #            path = dlg.GetPath()
-        #            if not path.endswith('.avf'):
-        #                path += '.avf'
-
-        #            if self.view_file:
-        #                def DoLoad(view_settings, view_file):
-        #                    try:
-        #                        view_settings.Load(view_file)
-        #                    finally:
-        #                        wx.EndBusyCursor()
-
-        #                wx.BeginBusyCursor()
-        #                shutil.copyfile(self.view_file, path)
-        #                wx.CallAfter(DoLoad, self, path)
-        #            else:
-        #                self.SaveViewAs(view_file=os.path.basename(path))
-        #else:
-        pass
-
     def __UpdateTitle(self):
         if self._frame is None:
             return
