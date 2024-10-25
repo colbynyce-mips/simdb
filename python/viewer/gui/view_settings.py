@@ -97,6 +97,7 @@ class ViewSettings:
             self._frame.playback_bar.ApplyViewSettings(settings['PlaybackBar'])
             self._frame.data_retriever.ApplyViewSettings(settings['DataRetriever'])
             self._frame.inspector.ApplyViewSettings(settings['Inspector'])
+            self._frame.widget_renderer.ApplyViewSettings(settings['WidgetRenderer'])
 
         self._frame.inspector.RefreshWidgetsOnAllTabs()
         self.SetDirty(False)
@@ -143,7 +144,8 @@ class ViewSettings:
             'Watchlist': self._frame.explorer.watchlist.GetCurrentViewSettings(),
             'PlaybackBar': self._frame.playback_bar.GetCurrentViewSettings(),
             'DataRetriever': self._frame.data_retriever.GetCurrentViewSettings(),
-            'Inspector': self._frame.inspector.GetCurrentViewSettings()
+            'Inspector': self._frame.inspector.GetCurrentViewSettings(),
+            'WidgetRenderer': self._frame.widget_renderer.GetCurrentViewSettings()
         }
 
         with open(view_file, 'w') as fout:
@@ -181,7 +183,8 @@ class ViewSettings:
             'Watchlist': self._frame.explorer.watchlist.GetCurrentUserSettings(),
             'PlaybackBar': self._frame.playback_bar.GetCurrentUserSettings(),
             'DataRetriever': self._frame.data_retriever.GetCurrentUserSettings(),
-            'Inspector': self._frame.inspector.GetCurrentUserSettings()
+            'Inspector': self._frame.inspector.GetCurrentUserSettings(),
+            'WidgetRenderer': self._frame.widget_renderer.GetCurrentUserSettings()
         }
 
         with open(settings_file, 'w') as fout:
@@ -203,6 +206,7 @@ class ViewSettings:
             self._frame.playback_bar.ApplyUserSettings(settings['PlaybackBar'])
             self._frame.data_retriever.ApplyUserSettings(settings['DataRetriever'])
             self._frame.inspector.ApplyUserSettings(settings['Inspector'])
+            self._frame.widget_renderer.ApplyUserSettings(settings['WidgetRenderer'])
 
 class SaveViewFileDlg(wx.Dialog):
     def __init__(self, prompt='Save to view file?', reasons=None):

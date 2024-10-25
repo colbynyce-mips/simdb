@@ -1,4 +1,5 @@
 import wx
+from viewer.gui import autocoloring
 
 class WidgetRenderer:
     def __init__(self, frame):
@@ -8,6 +9,8 @@ class WidgetRenderer:
         self._start_tick, self._end_tick = cursor.fetchone()
         self._current_tick = self._start_tick
         self._utiliz_handler = IterableUtiliz(self, frame.simhier)
+        self._auto_colors_by_key = {}
+        autocoloring.BuildBrushes('default', 'default')
 
     @property
     def tick(self):
@@ -25,11 +28,30 @@ class WidgetRenderer:
     def utiliz_handler(self):
         return self._utiliz_handler
     
+    def GetCurrentViewSettings(self):
+        return {}
+    
+    def ApplyViewSettings(self, settings):
+        pass
+
+    def GetCurrentUserSettings(self):
+        settings = {}
+        settings['auto_colors_by_key'] = self._auto_colors_by_key
+        return settings
+    
+    def ApplyUserSettings(self, settings):
+        auto_colors_by_key = settings.get('auto_colors_by_key', {})
+        if auto_colors_by_key == self._auto_colors_by_key:
+            return
+
+        self._auto_colors_by_key = settings.get('auto_colors_by_key', {})
+        self.__UpdateWidgetsOnAllTabs()
+    
     def GoToTick(self, tick):
         tick = min(max(tick, self._start_tick), self._end_tick)
         self._current_tick = tick
         self.frame.playback_bar.SyncControls(tick)
-        self.__UpdateWidgets()
+        self.__UpdateWidgetsOnCurrentTab()
 
     def GoToStart(self):
         self.GoToTick(self._start_tick)
@@ -38,10 +60,16 @@ class WidgetRenderer:
         self.GoToTick(self._end_tick)
 
     def GetAutoColor(self, value):
-       # TODO: Plug in autocoloring
-       return (255, 255, 255)
+        if value in self._auto_colors_by_key:
+            return self._auto_colors_by_key[value]
 
-    def __UpdateWidgets(self):
+        brushes = autocoloring.BACKGROUND_BRUSHES
+        idx = len(self._auto_colors_by_key) % len(brushes)
+        color = brushes[idx].GetColour()
+        self._auto_colors_by_key[value] = (color.Red(), color.Green(), color.Blue())
+        return color
+
+    def __UpdateWidgetsOnCurrentTab(self):
         self.frame.explorer.navtree.UpdateUtilizBitmaps()
         self.frame.explorer.watchlist.UpdateUtilizBitmaps()
 
@@ -49,6 +77,9 @@ class WidgetRenderer:
         page_idx = notebook.GetSelection()
         page = notebook.GetPage(page_idx)
         page.UpdateWidgets()
+
+    def __UpdateWidgetsOnAllTabs(self):
+        self.frame.inspector.RefreshWidgetsOnAllTabs()
 
 class IterableUtiliz:
     def __init__(self, widget_renderer, simhier):
