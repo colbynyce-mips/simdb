@@ -108,6 +108,13 @@ class NavTree(wx.TreeCtrl):
             item = self._tree_items_by_elem_path[selected_elem_path]
             self.SelectItem(item)
             self.EnsureVisible(item)
+        else:
+            selected_item = self.GetSelection()
+            if selected_item and selected_item.IsOk():
+                self.SelectItem(selected_item, False)
+
+    def ResetToDefaultViewSettings(self, update_widgets=True):
+        self.ApplyUserSettings({'expanded_elem_paths': [], 'selected_elem_path': None})
 
     def __GetExpandedElemPaths(self, start_item):
         expanded_items = []

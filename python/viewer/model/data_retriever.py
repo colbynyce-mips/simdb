@@ -93,24 +93,7 @@ class DataRetriever:
             for field_name,field_type,format_code in cursor.fetchall():
                 deserializer.AddField(field_name, field_type, format_code)
 
-        self._auto_colorize_column_by_struct_name = {}
-        self._displayed_columns_by_struct_name = {}
-
-        for struct_name in struct_names:
-            cmd = 'SELECT FieldName FROM StructFields WHERE StructName="{}" AND IsAutoColorizeKey=1'.format(struct_name)
-            cursor.execute(cmd)
-            auto_colorize_column = [row[0] for row in cursor.fetchall()]
-            assert len(auto_colorize_column) <= 1
-            if len(auto_colorize_column) == 1:
-                self._auto_colorize_column_by_struct_name[struct_name] = auto_colorize_column[0]
-            else:
-                self._auto_colorize_column_by_struct_name[struct_name] = None
-
-            cmd = 'SELECT FieldName FROM StructFields WHERE StructName="{}" AND IsDisplayedByDefault=1'.format(struct_name)
-            cursor.execute(cmd)
-            displayed_columns = [row[0] for row in cursor.fetchall()]
-            assert len(displayed_columns) > 0
-            self._displayed_columns_by_struct_name[struct_name] = displayed_columns
+        self.ResetToDefaultViewSettings(False)
 
         cmd = 'SELECT Name,DataType FROM Collections WHERE IsContainer=0 AND DataType IN ({})'
         pods = ['int8_t','int16_t','int32_t','int64_t','uint8_t','uint16_t','uint32_t','uint64_t','double','float','bool']
@@ -187,6 +170,34 @@ class DataRetriever:
         # All our settings are in the user settings and do not affect the view file
         pass
 
+    def ResetToDefaultViewSettings(self, update_widgets=True):
+        self.cursor.execute('SELECT DISTINCT(StructName) FROM StructFields')
+        struct_names = []
+        for struct_name in self.cursor.fetchall():
+            struct_names.append(struct_name[0])
+
+        self._auto_colorize_column_by_struct_name = {}
+        self._displayed_columns_by_struct_name = {}
+
+        for struct_name in struct_names:
+            cmd = 'SELECT FieldName FROM StructFields WHERE StructName="{}" AND IsAutoColorizeKey=1'.format(struct_name)
+            self.cursor.execute(cmd)
+            auto_colorize_column = [row[0] for row in self.cursor.fetchall()]
+            assert len(auto_colorize_column) <= 1
+            if len(auto_colorize_column) == 1:
+                self._auto_colorize_column_by_struct_name[struct_name] = auto_colorize_column[0]
+            else:
+                self._auto_colorize_column_by_struct_name[struct_name] = None
+
+            cmd = 'SELECT FieldName FROM StructFields WHERE StructName="{}" AND IsDisplayedByDefault=1'.format(struct_name)
+            self.cursor.execute(cmd)
+            displayed_columns = [row[0] for row in self.cursor.fetchall()]
+            assert len(displayed_columns) > 0
+            self._displayed_columns_by_struct_name[struct_name] = displayed_columns
+
+        if update_widgets:
+            self.frame.inspector.RefreshWidgetsOnAllTabs()
+
     def SetVisibleFieldNames(self, elem_path, field_names):
         deserializer = self.GetDeserializer(elem_path)
         struct_name = deserializer.struct_name
@@ -196,7 +207,8 @@ class DataRetriever:
             return
 
         auto_colorize_col = self.GetAutoColorizeColumn(elem_path)
-        assert auto_colorize_col in field_names
+        if auto_colorize_col not in field_names:
+            self.SetAutoColorizeColumn(elem_path, None)
 
         self._displayed_columns_by_struct_name[struct_name] = copy.deepcopy(field_names)
         self.frame.inspector.RefreshWidgetsOnAllTabs()

@@ -82,6 +82,9 @@ class Watchlist(wx.TreeCtrl):
         # All our settings are in the user settings and do not affect the view file
         pass
 
+    def ResetToDefaultViewSettings(self, update_widgets=True):
+        self.ApplyViewSettings({'grouping_mode': 'flat', 'watched_sim_elem_paths': []})
+
     def GetItemElemPath(self, item):
         if not item or not item.IsOk():
             return None

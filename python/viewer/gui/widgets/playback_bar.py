@@ -91,19 +91,27 @@ class PlaybackBar(wx.Panel):
         settings['selected_clock'] = self.clock_combobox.GetValue()
         return settings
 
-    def ApplyViewSettings(self, settings):
+    def ApplyViewSettings(self, settings, update_widgets=True):
         selected_clock = settings['selected_clock']
         self.clock_combobox.SetValue(selected_clock)
+        if update_widgets:
+            self.frame.inspector.RefreshWidgetsOnAllTabs()
 
     def GetCurrentUserSettings(self):
         settings = {}
         settings['current_tick'] = self.cyc_slider.GetValue()
         return settings
     
-    def ApplyUserSettings(self, settings):
+    def ApplyUserSettings(self, settings, update_widgets=True):
         current_tick = settings['current_tick']
         widget_renderer = self.frame.widget_renderer
-        widget_renderer.GoToTick(current_tick)
+        widget_renderer.GoToTick(current_tick, update_widgets)
+
+    def ResetToDefaultViewSettings(self, update_widgets=True):
+        widget_renderer = self.frame.widget_renderer
+        current_tick = widget_renderer.start_tick
+        self.ApplyUserSettings({'current_tick': current_tick}, False)
+        self.ApplyViewSettings({'selected_clock': '<any clk edge>'}, update_widgets)
 
     def __OnStep(self, event, step):
         widget_renderer = self.frame.widget_renderer

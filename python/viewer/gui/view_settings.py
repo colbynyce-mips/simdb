@@ -1,4 +1,4 @@
-import wx, yaml, os, enum
+import wx, yaml, os, enum, shutil, tempfile
 
 class DirtyReasons(enum.Enum):
     WidgetDropped = 1
@@ -102,29 +102,83 @@ class ViewSettings:
         self._frame.inspector.RefreshWidgetsOnAllTabs()
         self.SetDirty(False)
 
+    def CreateNewView(self):
+        if self._dirty:
+            if self.view_file:
+                if self.__AskToSaveChangesToCurrentView("Save changes to '{}'?".format(self.view_file)) == wx.ID_CANCEL:
+                    return
+
+                self.SaveView(prompt_if_dirty=False)
+                self.__ResetDefaultViewSettings()
+            else:
+                result = self.__AskToSaveChangesToCurrentView("Save current view to new file before creating a new view?")
+                if result == wx.ID_CANCEL:
+                    return
+
+                if result == wx.ID_YES:
+                    view_file = self.__GetViewFileForSave()
+                    if view_file is None:
+                        return
+                    
+                    if os.path.dirname(view_file) != self._views_dir:
+                        msg = f"View file '{os.path.basename(view_file)}'\nis not in the views directory '{self._views_dir}'"
+                        dlg = wx.MessageDialog(None, msg, 'Error', wx.OK | wx.ICON_ERROR)
+                        dlg.ShowModal()
+                        dlg.Destroy()
+                        return
+
+                    self.view_file = view_file
+                    self.SetDirty(True)
+                    self.SaveView(prompt_if_dirty=False)
+                    self.__ResetDefaultViewSettings()
+                else:
+                    self.__ResetDefaultViewSettings()
+        else:
+            # not yet
+            self.__ResetDefaultViewSettings()
+
+    def OpenView(self):
+        with wx.FileDialog(self._frame, "Open file", defaultDir=self._views_dir, 
+                           wildcard="AVF files (*.avf)|*.avf|All files (*.*)|*.*",
+                           style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as dlg:
+            if dlg.ShowModal() == wx.ID_OK:
+                wx.BeginBusyCursor()
+
+                def DoLoad(view_settings, view_file):
+                    view_settings.Load(view_file)
+                    wx.EndBusyCursor()
+
+                wx.CallAfter(DoLoad, self, dlg.GetPath())
+
     # Note that this method returns True if Argos can be closed after calling this method.
-    def Save(self):
+    def SaveView(self, prompt_if_dirty=True, on_frame_closing=False):
         self.__SaveUserSettings()
 
         if not self._dirty:
             return True
 
-        if self.view_file is None:
+        if self.view_file is None and prompt_if_dirty:
             # Ask the user if they want to save the view to a new file
             dlg = SaveViewFileDlg(prompt="Save current Argos view to a new file?", reasons=self._dirty_reasons)
-        else:
+        elif self.view_file is not None and prompt_if_dirty:
             dlg = SaveViewFileDlg(prompt="Save changes to '{}'?".format(self.view_file), reasons=self._dirty_reasons)
+        else:
+            dlg = None
+            result = wx.ID_YES
 
-        result = dlg.ShowModal()
-        dlg.Destroy()
+        if dlg:
+            result = dlg.ShowModal()
+            dlg.Destroy()
+
         if result == wx.ID_CANCEL:
             return False
 
         if result == wx.ID_YES:
             view_file = self.view_file
             if not view_file:
+                assert prompt_if_dirty
                 with wx.FileDialog(None, "Save Argos View", wildcard="AVF files (*.avf)|*.avf|All files (*.*)|*.*",
-                                style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT, defaultDir=self._views_dir) as dlg:
+                                   style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT, defaultDir=self._views_dir) as dlg:
                     if dlg.ShowModal() == wx.ID_OK:
                         path = dlg.GetPath()
                         if not path.endswith('.avf'):
@@ -155,6 +209,32 @@ class ViewSettings:
         self.SetDirty(False)
         return True
 
+    def SaveViewAs(self, view_file=None):
+        #import pdb; pdb.set_trace()
+
+        #if view_file is None:
+        #    with wx.FileDialog(None, "Save Argos View As", wildcard="AVF files (*.avf)|*.avf|All files (*.*)|*.*",
+        #                    defaultDir=self._views_dir, style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as dlg:
+        #        if dlg.ShowModal() == wx.ID_OK:
+        #            path = dlg.GetPath()
+        #            if not path.endswith('.avf'):
+        #                path += '.avf'
+
+        #            if self.view_file:
+        #                def DoLoad(view_settings, view_file):
+        #                    try:
+        #                        view_settings.Load(view_file)
+        #                    finally:
+        #                        wx.EndBusyCursor()
+
+        #                wx.BeginBusyCursor()
+        #                shutil.copyfile(self.view_file, path)
+        #                wx.CallAfter(DoLoad, self, path)
+        #            else:
+        #                self.SaveViewAs(view_file=os.path.basename(path))
+        #else:
+        pass
+
     def __UpdateTitle(self):
         if self._frame is None:
             return
@@ -165,7 +245,7 @@ class ViewSettings:
         if view_file is None:
             view_file = 'unnamed'
 
-        title = 'Argos Viewer: %s' % view_file
+        title = 'Argos Viewer: %s' % os.path.basename(view_file)
         if dirty:
             title += '*'
 
@@ -207,6 +287,43 @@ class ViewSettings:
             self._frame.data_retriever.ApplyUserSettings(settings['DataRetriever'])
             self._frame.inspector.ApplyUserSettings(settings['Inspector'])
             self._frame.widget_renderer.ApplyUserSettings(settings['WidgetRenderer'])
+
+    def __AskToSaveChangesToCurrentView(self, prompt):
+        dlg = SaveViewFileDlg(prompt=prompt, reasons=self._dirty_reasons)
+        result = dlg.ShowModal()
+        dlg.Destroy()
+        return result
+    
+    def __ResetDefaultViewSettings(self):
+        self._frame.explorer.navtree.ResetToDefaultViewSettings(False)
+        self._frame.explorer.watchlist.ResetToDefaultViewSettings(False)
+        self._frame.playback_bar.ResetToDefaultViewSettings(False)
+        self._frame.data_retriever.ResetToDefaultViewSettings(False)
+        self._frame.inspector.ResetToDefaultViewSettings(False)
+        self._frame.widget_renderer.ResetToDefaultViewSettings(False)
+        self._frame.inspector.RefreshWidgetsOnAllTabs()
+
+        self.view_file = None
+        self.SetDirty(False)
+
+    def __GetViewFileForOpen(self):
+        with wx.FileDialog(self._frame, "Open file", defaultDir=self._views_dir, 
+                    wildcard="AVF files (*.avf)|*.avf|All files (*.*)|*.*",
+                    style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as dlg:
+            if dlg.ShowModal() == wx.ID_OK:
+                return dlg.GetPath()
+            else:
+                return None
+            
+    def __GetViewFileForSave(self):
+        with wx.FileDialog(None, "Save Argos View", wildcard="AVF files (*.avf)|*.avf|All files (*.*)|*.*",
+                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT, defaultDir=self._views_dir) as dlg:
+            if dlg.ShowModal() == wx.ID_OK:
+                path = dlg.GetPath()
+                if not path.endswith('.avf'):
+                    path += '.avf'
+
+                return path
 
 class SaveViewFileDlg(wx.Dialog):
     def __init__(self, prompt='Save to view file?', reasons=None):

@@ -45,13 +45,20 @@ class WidgetRenderer:
             return
 
         self._auto_colors_by_key = settings.get('auto_colors_by_key', {})
-        self.__UpdateWidgetsOnAllTabs()
-    
-    def GoToTick(self, tick):
+        self.frame.inspector.RefreshWidgetsOnAllTabs()
+
+    def ResetToDefaultViewSettings(self, update_widgets=True):
+        self._auto_colors_by_key = {}
+        if update_widgets:
+            self.frame.inspector.RefreshWidgetsOnAllTabs()
+
+    def GoToTick(self, tick, update_widgets=True):
         tick = min(max(tick, self._start_tick), self._end_tick)
         self._current_tick = tick
         self.frame.playback_bar.SyncControls(tick)
-        self.__UpdateWidgetsOnCurrentTab()
+
+        if update_widgets:
+            self.__UpdateWidgetsOnCurrentTab()
 
     def GoToStart(self):
         self.GoToTick(self._start_tick)
@@ -77,9 +84,6 @@ class WidgetRenderer:
         page_idx = notebook.GetSelection()
         page = notebook.GetPage(page_idx)
         page.UpdateWidgets()
-
-    def __UpdateWidgetsOnAllTabs(self):
-        self.frame.inspector.RefreshWidgetsOnAllTabs()
 
 class IterableUtiliz:
     def __init__(self, widget_renderer, simhier):
