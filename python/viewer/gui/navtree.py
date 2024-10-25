@@ -144,6 +144,9 @@ class NavTree(wx.TreeCtrl):
             return
         
         item = item[0]
+        if not item.IsOk():
+            return
+
         self.SelectItem(item)
 
         menu = wx.Menu()

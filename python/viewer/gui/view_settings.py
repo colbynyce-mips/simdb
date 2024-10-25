@@ -46,8 +46,15 @@ class ViewSettings:
         return self._view_file
     
     @view_file.setter
-    def view_file(self, value):
-        self._view_file = value
+    def view_file(self, view_file):
+        if view_file and os.path.dirname(view_file) not in ('', self._views_dir):
+            msg = f"View file '{os.path.basename(view_file)}'\nis not in the views directory '{self._views_dir}'"
+            dlg = wx.MessageDialog(None, msg, 'Error', wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+
+        self._view_file = view_file
         self.__UpdateTitle()
 
     @property
@@ -82,14 +89,16 @@ class ViewSettings:
         self.SetDirty(False)
     
     def Load(self, view_file):
-        if not os.path.isfile(view_file) and os.path.isdir(self._views_dir):
-            view_file = os.path.join(self._views_dir, view_file)
-
         if not os.path.isfile(view_file):
-            msg = f"View file '{view_file}' does not exist in directory '{self._views_dir}'"
-            raise RuntimeError(msg)
+            if not os.path.isfile(os.path.join(self._views_dir, view_file)):
+                msg = f"View file '{view_file}' does not exist in directory '{self._views_dir}'"
+                dlg = wx.MessageDialog(None, msg, 'Error', wx.OK | wx.ICON_ERROR)
+                dlg.ShowModal()
+                dlg.Destroy()
+                return
+
+            view_file = os.path.join(self._views_dir, view_file)
         
-        self.view_file = view_file
         with open(view_file, 'r') as fin:
             settings = yaml.load(fin, Loader=yaml.FullLoader)
             self._frame.explorer.navtree.ApplyViewSettings(settings['NavTree'])
@@ -100,15 +109,19 @@ class ViewSettings:
             self._frame.widget_renderer.ApplyViewSettings(settings['WidgetRenderer'])
 
         self._frame.inspector.RefreshWidgetsOnAllTabs()
+        self.view_file = view_file
         self.SetDirty(False)
 
     def CreateNewView(self):
         if self._dirty:
             if self.view_file:
-                if self.__AskToSaveChangesToCurrentView("Save changes to '{}'?".format(self.view_file)) == wx.ID_CANCEL:
+                result = self.__AskToSaveChangesToCurrentView("Save changes to '{}'?".format(self.view_file))
+                if result == wx.ID_CANCEL:
                     return
 
-                self.SaveView(prompt_if_dirty=False)
+                if result == wx.ID_YES:
+                    self.SaveView(prompt_if_dirty=False)
+
                 self.__ResetDefaultViewSettings()
             else:
                 result = self.__AskToSaveChangesToCurrentView("Save current view to new file before creating a new view?")
@@ -120,35 +133,73 @@ class ViewSettings:
                     if view_file is None:
                         return
                     
-                    if os.path.dirname(view_file) != self._views_dir:
-                        msg = f"View file '{os.path.basename(view_file)}'\nis not in the views directory '{self._views_dir}'"
-                        dlg = wx.MessageDialog(None, msg, 'Error', wx.OK | wx.ICON_ERROR)
-                        dlg.ShowModal()
-                        dlg.Destroy()
-                        return
-
                     self.view_file = view_file
                     self.SetDirty(True)
                     self.SaveView(prompt_if_dirty=False)
-                    self.__ResetDefaultViewSettings()
-                else:
-                    self.__ResetDefaultViewSettings()
+
+                self.__ResetDefaultViewSettings()
         else:
-            # not yet
             self.__ResetDefaultViewSettings()
 
     def OpenView(self):
-        with wx.FileDialog(self._frame, "Open file", defaultDir=self._views_dir, 
-                           wildcard="AVF files (*.avf)|*.avf|All files (*.*)|*.*",
-                           style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as dlg:
-            if dlg.ShowModal() == wx.ID_OK:
+        view_file = self.__GetViewFileForOpen()
+        if view_file is None:
+            return
+
+        def DoLoad(view_settings, view_file):
+            try:
+                view_settings.Load(view_file)
+            finally:
+                wx.EndBusyCursor()
+
+        if view_file == self.view_file:
+            msg = f"View file '{os.path.basename(view_file)}' is already open in Argos"
+            dlg = wx.MessageDialog(None, msg, 'Error', wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+        
+        if os.path.dirname(view_file) != self._views_dir:
+            msg = f"View file '{os.path.basename(view_file)}' is not in the views directory:\n'{self._views_dir}'"
+            dlg = wx.MessageDialog(None, msg, 'Error', wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+
+        if self._dirty:
+            if self.view_file:
+                msg = "Save changes to '{}' before opening '{}'?"
+                msg = msg.format(os.path.basename(self.view_file), os.path.basename(view_file))
+                result = self.__AskToSaveChangesToCurrentView(msg)
+                if result == wx.ID_CANCEL:
+                    return
+
+                if result == wx.ID_YES:
+                    self.SaveView(prompt_if_dirty=False)
+
                 wx.BeginBusyCursor()
+                wx.CallAfter(DoLoad, self, view_file)
+            else:
+                msg = "Save current view to new file before opening '{}'?"
+                msg = msg.format(os.path.basename(view_file))
+                result = self.__AskToSaveChangesToCurrentView(msg)
+                if result == wx.ID_CANCEL:
+                    return
 
-                def DoLoad(view_settings, view_file):
-                    view_settings.Load(view_file)
-                    wx.EndBusyCursor()
+                if result == wx.ID_YES:
+                    save_file = self.__GetViewFileForSave()
+                    if save_file is None:
+                        return
 
-                wx.CallAfter(DoLoad, self, dlg.GetPath())
+                    self.view_file = save_file
+                    self.SetDirty(True)
+                    self.SaveView(prompt_if_dirty=False)
+
+                wx.BeginBusyCursor()
+                wx.CallAfter(DoLoad, self, view_file)
+        else:
+            wx.BeginBusyCursor()
+            wx.CallAfter(DoLoad, self, view_file)
 
     # Note that this method returns True if Argos can be closed after calling this method.
     def SaveView(self, prompt_if_dirty=True, on_frame_closing=False):
