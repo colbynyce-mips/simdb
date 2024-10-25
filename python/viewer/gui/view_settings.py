@@ -10,10 +10,11 @@ class DirtyReasons(enum.Enum):
     WatchlistAdded = 7
     WatchlistRemoved = 8
     WatchlistOrgChanged = 9
-    QueueUtilizChanged = 10
-    TimeseriesChanged = 11
-    QueueTableChanged = 12
-    SashPositionChanged = 13
+    QueueUtilizDispQueueChanged = 10
+    TimeseriesPlotSettingsChanged = 11
+    QueueTableDispColsChanged = 12
+    QueueTableAutoColorizeChanged = 13
+    SashPositionChanged = 14
 
 DIRTY_REASONS = {
     DirtyReasons.WidgetDropped: 'A widget was dropped onto the widget canvas',
@@ -25,9 +26,10 @@ DIRTY_REASONS = {
     DirtyReasons.WatchlistAdded: 'Something was added to the Watchlist',
     DirtyReasons.WatchlistRemoved: 'Something was removed from the Watchlist',
     DirtyReasons.WatchlistOrgChanged: 'The Watchlist organization (flat/hier) was changed',
-    DirtyReasons.QueueUtilizChanged: 'The displayed queues in a Queue Utilization widget were changed',
-    DirtyReasons.TimeseriesChanged: 'Settings were changed for a timeseries plot',
-    DirtyReasons.QueueTableChanged: 'Settings were changed for a Queue Table widget',
+    DirtyReasons.QueueUtilizDispQueueChanged: 'The displayed queues in a Queue Utilization widget were changed',
+    DirtyReasons.TimeseriesPlotSettingsChanged: 'Settings were changed for a timeseries plot',
+    DirtyReasons.QueueTableDispColsChanged: 'Displayed columns were changed for a Queue Table widget',
+    DirtyReasons.QueueTableAutoColorizeChanged: 'Auto-colorize column was changed for a Queue Table widget',
     DirtyReasons.SashPositionChanged: 'Widget canvas splitter window sash position changed'
 }
 

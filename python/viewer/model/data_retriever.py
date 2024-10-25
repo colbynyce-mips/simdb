@@ -103,6 +103,8 @@ class DataRetriever:
             assert len(auto_colorize_column) <= 1
             if len(auto_colorize_column) == 1:
                 self._auto_colorize_column_by_struct_name[struct_name] = auto_colorize_column[0]
+            else:
+                self._auto_colorize_column_by_struct_name[struct_name] = None
 
             cmd = 'SELECT FieldName FROM StructFields WHERE StructName="{}" AND IsDisplayedByDefault=1'.format(struct_name)
             cursor.execute(cmd)
@@ -193,9 +195,29 @@ class DataRetriever:
         if self._displayed_columns_by_struct_name[struct_name] == field_names:
             return
 
+        auto_colorize_col = self.GetAutoColorizeColumn(elem_path)
+        assert auto_colorize_col in field_names
+
         self._displayed_columns_by_struct_name[struct_name] = copy.deepcopy(field_names)
         self.frame.inspector.RefreshWidgetsOnAllTabs()
-        self.frame.view_settings.SetDirty(reason=DirtyReasons.QueueTableChanged)
+        self.frame.view_settings.SetDirty(reason=DirtyReasons.QueueTableDispColsChanged)
+
+    def SetAutoColorizeColumn(self, elem_path, field_name):
+        deserializer = self.GetDeserializer(elem_path)
+        struct_name = deserializer.struct_name
+        assert struct_name in self._auto_colorize_column_by_struct_name
+
+        if self._auto_colorize_column_by_struct_name[struct_name] == field_name:
+            return
+
+        self._auto_colorize_column_by_struct_name[struct_name] = field_name
+        self.frame.inspector.RefreshWidgetsOnAllTabs()
+        self.frame.view_settings.SetDirty(reason=DirtyReasons.QueueTableAutoColorizeChanged)
+
+    def GetAutoColorizeColumn(self, elem_path):
+        deserializer = self.GetDeserializer(elem_path)
+        struct_name = deserializer.struct_name
+        return self._auto_colorize_column_by_struct_name.get(struct_name)
 
     def GetDeserializer(self, elem_path):
         collection_name = self._collection_names_by_elem_path[elem_path]

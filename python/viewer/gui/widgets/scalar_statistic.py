@@ -75,7 +75,7 @@ class ScalarStatistic(wx.Panel):
         self.canvas.draw()
         self.Update()
         self.Refresh()
-        self.frame.view_settings.SetDirty(reason=DirtyReasons.TimeseriesChanged)
+        self.frame.view_settings.SetDirty(reason=DirtyReasons.TimeseriesPlotSettingsChanged)
 
     def __EditWidget(self, event):
         dlg = PlotCustomizationDialog(self, **self.GetCurrentViewSettings())

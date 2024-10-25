@@ -37,6 +37,10 @@ class WidgetRenderer:
     def GoToEnd(self):
         self.GoToTick(self._end_tick)
 
+    def GetAutoColor(self, value):
+       # TODO: Plug in autocoloring
+       return (255, 255, 255)
+
     def __UpdateWidgets(self):
         self.frame.explorer.navtree.UpdateUtilizBitmaps()
         self.frame.explorer.watchlist.UpdateUtilizBitmaps()
