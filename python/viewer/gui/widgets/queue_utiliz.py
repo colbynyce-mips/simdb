@@ -11,7 +11,7 @@ class QueueUtilizWidget(wx.Panel):
         self.container_elem_paths = self.frame.simhier.GetContainerElemPaths()
         self.container_elem_paths.sort()
 
-        # Add a ear button (size 16x16) to the left of the time series plot.
+        # Add a gear button (size 16x16) to the left of the time series plot.
         # Clicking the button will open a dialog to change the plot settings.
         # Note that we do not add the button to the sizer since we want to
         # force it to be in the top-left corner of the widget canvas. We do
@@ -43,6 +43,12 @@ class QueueUtilizWidget(wx.Panel):
 
     def GetWidgetCreationString(self):
         return 'Queue Utilization'
+
+    def ErrorIfDroppedNodeIncompatible(self, elem_path):
+        return False
+
+    def AddElement(self, elem_path):
+        pass
 
     def UpdateWidgetData(self):
         for elem_path, pct_bar in zip(self.container_elem_paths, self._utiliz_bars):

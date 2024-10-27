@@ -14,7 +14,8 @@ class DirtyReasons(enum.Enum):
     TimeseriesPlotSettingsChanged = 11
     QueueTableDispColsChanged = 12
     QueueTableAutoColorizeChanged = 13
-    SashPositionChanged = 14
+    SchedulingLinesWidgetChanged = 14
+    SashPositionChanged = 15
 
 DIRTY_REASONS = {
     DirtyReasons.WidgetDropped: 'A widget was dropped onto the widget canvas',
@@ -30,6 +31,7 @@ DIRTY_REASONS = {
     DirtyReasons.TimeseriesPlotSettingsChanged: 'Settings were changed for a timeseries plot',
     DirtyReasons.QueueTableDispColsChanged: 'Displayed columns were changed for a Queue Table widget',
     DirtyReasons.QueueTableAutoColorizeChanged: 'Auto-colorize column was changed for a Queue Table widget',
+    DirtyReasons.SchedulingLinesWidgetChanged: 'Displayed queues were changed for a Scheduling Lines widget',
     DirtyReasons.SashPositionChanged: 'Widget canvas splitter window sash position changed'
 }
 

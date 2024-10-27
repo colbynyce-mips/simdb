@@ -321,6 +321,26 @@ class WidgetContainerDropTarget(wx.TextDropTarget):
         self.widget_creator = widget_creator
 
     def OnDropText(self, x, y, text):
+        widget = self.widget_container.GetWidget()
+        if widget:
+            current_widget_is_tool = widget.GetWidgetCreationString().find('$') == -1
+            incoming_widget_is_tool = text.find('$') == -1
+
+            if current_widget_is_tool and incoming_widget_is_tool:
+                return self.__DropWidget(text)
+            elif current_widget_is_tool and not incoming_widget_is_tool:
+                elem_path = text.split('$')[1]
+                if widget.ErrorIfDroppedNodeIncompatible(elem_path):
+                    return False
+
+                widget.AddElement(elem_path)
+                return True
+            else:
+                return self.__DropWidget(text)
+        else:
+            return self.__DropWidget(text)
+
+    def __DropWidget(self, text):
         widget = self.widget_creator.CreateWidget(text, self.widget_container)
         if not widget:
             return False

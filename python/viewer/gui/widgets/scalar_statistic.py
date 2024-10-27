@@ -30,7 +30,7 @@ class ScalarStatistic(wx.Panel):
             self.ax.grid()
             self.ax.autoscale()
 
-            # Add a ear button (size 16x16) to the left of the time series plot.
+            # Add a gear button (size 16x16) to the left of the time series plot.
             # Clicking the button will open a dialog to change the plot settings.
             # Note that we do not add the button to the sizer since we want to
             # force it to be in the top-left corner of the widget canvas. We do
