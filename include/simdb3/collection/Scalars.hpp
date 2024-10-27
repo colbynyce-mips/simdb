@@ -180,6 +180,11 @@ public:
         return collection_pkey_;
     }
 
+    /// Give collections a chance to write to the database after simulation.
+    void onPipelineCollectorClosing(DatabaseManager*) override
+    {
+    }
+
     /// Set the heartbeat for this collection. This is the max number of cycles
     /// that we employ the optimization "only write to the database if the collected
     /// data is different from the last collected data". This prevents Argos from

@@ -109,8 +109,17 @@ public:
 
         collection_pkey_ = record->getId();
         meta_serializer_.serializeDefn(db_mgr);
-
         return collection_pkey_;
+    }
+
+    /// Give collections a chance to write to the database after simulation.
+    void onPipelineCollectorClosing(DatabaseManager* db_mgr) override
+    {
+        if (max_container_size_ > 0) {
+            db_mgr->INSERT(SQL_TABLE("QueueMaxSizes"),
+                           SQL_COLUMNS("CollectionID", "MaxSize"),
+                           SQL_VALUES(collection_pkey_, max_container_size_));
+        }
     }
 
     /// Set the heartbeat for this collection. This is the max number of cycles
@@ -221,6 +230,8 @@ private:
             buffer.writeHeader(collection_pkey_, UINT16_MAX);
             ++num_carry_forward_unchanged_;
         }
+
+        max_container_size_ = std::max(max_container_size_, (size_t)size);
     }
 
     template <typename container_t = ContainerT>
@@ -307,6 +318,10 @@ private:
     /// writing it to the database. This is used together with the heartbeat to 
     /// determine when to force a write to the database.
     size_t num_carry_forward_unchanged_ = 0;
+
+    /// Keep track of the max number of elements seen in the container. This is
+    /// used to support Argos UI performance for the Scheduling Lines feature.
+    size_t max_container_size_ = 0;
 };
 
 } // namespace simdb3

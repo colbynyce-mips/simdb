@@ -61,6 +61,11 @@ private:
     const int rc_;
 };
 
+inline bool operator==(const int rc, const SQLiteReturnCode& obj)
+{
+    return obj == rc;
+}
+
 inline std::ostream& operator<<(std::ostream& os, const SQLiteReturnCode& rc)
 {
     os << (int)rc;

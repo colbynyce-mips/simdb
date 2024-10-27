@@ -127,6 +127,9 @@ public:
     /// and write the values to the database.
     virtual void collect(CollectionBuffer& buffer) = 0;
 
+    /// Give collections a chance to write to the database after simulation.
+    virtual void onPipelineCollectorClosing(DatabaseManager* db_mgr) = 0;
+
     /// Allow the Collections class to verify that all simulator paths
     /// across all collections are unique.
     const std::unordered_set<std::string>& getElemPaths() const
@@ -321,6 +324,11 @@ public:
         schema.addTable("Clocks")
             .addColumn("Name", dt::string_t)
             .addColumn("Period", dt::int32_t);
+
+        schema.addTable("QueueMaxSizes")
+            .addColumn("CollectionID", dt::int32_t)
+            .addColumn("MaxSize", dt::int32_t)
+            .setColumnDefaultValue("MaxSize", -1);
     }
 
     /// Add a clock with the given name and period.
@@ -363,6 +371,14 @@ public:
     /// Called manually during simulation to trigger automatic collection
     /// of all collections.
     void collectAll();
+
+    /// One-time chance to write anything to the database after simulation.
+    void onPipelineCollectorClosing()
+    {
+        for (auto& collection : collections_) {
+            collection->onPipelineCollectorClosing(db_mgr_);
+        }
+    }
 
 private:
     template <typename TimeT>

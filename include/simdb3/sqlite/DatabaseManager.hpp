@@ -341,6 +341,10 @@ public:
         return std::unique_ptr<SqlQuery>(new SqlQuery(table_name, db_conn_->getDatabase()));
     }
 
+    /// Called at the end of simulation (or collection) right before the
+    /// task thread is shut down and the database is closed.
+    void onPipelineCollectorClosing();
+
     /// Close the sqlite3 connection and stop the AsyncTaskQueue thread
     /// if it is still running.
     void closeDatabase()
@@ -701,6 +705,31 @@ inline void Collections::collectAll()
                       << "whenever the backlog consumes more than 100MB." << std::endl;
         }
     }
+}
+
+class CollectionCloseTask : public WorkerTask
+{
+public:
+    CollectionCloseTask(Collections* collections)
+        : collections_(collections)
+    {
+    }
+
+    void completeTask() override
+    {
+        collections_->onPipelineCollectorClosing();
+    }
+
+private:
+    DatabaseManager* db_mgr_;
+    Collections* collections_;
+};
+
+/// One-time chance to write anything to the database after simulation.
+inline void DatabaseManager::onPipelineCollectorClosing()
+{
+    std::unique_ptr<WorkerTask> task(new CollectionCloseTask(collections_.get()));
+    getConnection()->getTaskQueue()->addTask(std::move(task));
 }
 
 } // namespace simdb3

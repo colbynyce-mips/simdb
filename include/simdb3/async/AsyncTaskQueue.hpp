@@ -232,6 +232,7 @@ public:
         // its turn is up.
         std::unique_ptr<WorkerTask> interrupt(new WorkerInterrupt);
         addTask(std::move(interrupt));
+        flushQueue();
 
         // Join the thread and wait until the exception is thrown.
         timed_eval_.stop();
