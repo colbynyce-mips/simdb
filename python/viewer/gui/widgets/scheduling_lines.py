@@ -8,6 +8,7 @@ class SchedulingLinesWidget(wx.Panel):
         self.element_paths = []
         self.num_ticks_before = 5
         self.num_ticks_after = 50
+        self.show_detailed_queue_packets = True
 
         self.info = wx.StaticText(self, label='Drag queues from the NavTree to create scheduling lines.', size=(600,18))
         self.info.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
@@ -67,6 +68,7 @@ class SchedulingLinesWidget(wx.Panel):
         settings['element_paths'] = copy.deepcopy(self.element_paths)
         settings['num_ticks_before'] = self.num_ticks_before
         settings['num_ticks_after'] = self.num_ticks_after
+        settings['show_detailed_queue_packets'] = self.show_detailed_queue_packets
         return settings
     
     def GetCurrentUserSettings(self):
@@ -75,7 +77,8 @@ class SchedulingLinesWidget(wx.Panel):
     def ApplyViewSettings(self, settings):
         dirty = self.element_paths != settings['element_paths'] or \
                 self.num_ticks_before != settings['num_ticks_before'] or \
-                self.num_ticks_after != settings['num_ticks_after']
+                self.num_ticks_after != settings['num_ticks_after'] or \
+                self.show_detailed_queue_packets != settings['show_detailed_queue_packets']
 
         if not dirty:
             return
@@ -83,6 +86,7 @@ class SchedulingLinesWidget(wx.Panel):
         self.element_paths = copy.deepcopy(settings['element_paths'])
         self.num_ticks_before = settings['num_ticks_before']
         self.num_ticks_after = settings['num_ticks_after']
+        self.show_detailed_queue_packets = settings['show_detailed_queue_packets']
 
         self.__UpdateInfoText()
         self.frame.view_settings.SetDirty(reason=DirtyReasons.SchedulingLinesWidgetChanged)
@@ -105,17 +109,23 @@ class SchedulingLinesWidget(wx.Panel):
             self.SetBackgroundColour('light gray')
 
     def __EditWidget(self, evt):
-        dlg = SchedulingLinesCustomizationDialog(self, self.element_paths, self.num_ticks_before, self.num_ticks_after)
+        dlg = SchedulingLinesCustomizationDialog(self, self.element_paths, self.num_ticks_before, self.num_ticks_after, self.show_detailed_queue_packets)
         if dlg.ShowModal() == wx.ID_OK:
             self.ApplyViewSettings({'element_paths': dlg.GetElementPaths(),
                                     'num_ticks_before': dlg.GetNumTicksBefore(),
-                                    'num_ticks_after': dlg.GetNumTicksAfter()})
+                                    'num_ticks_after': dlg.GetNumTicksAfter(),
+                                    'show_detailed_queue_packets': dlg.ShowDetailedQueuePackets()})
 
         dlg.Destroy()
 
 class SchedulingLinesCustomizationDialog(wx.Dialog):
-    def __init__(self, parent, element_paths, num_ticks_before, num_ticks_after):
+    def __init__(self, parent, element_paths, num_ticks_before, num_ticks_after, show_detailed_queue_packets):
         super().__init__(parent, title="Customize Scheduling Lines")
+
+        self.element_paths = copy.deepcopy(element_paths)
+        self.num_ticks_before = num_ticks_before
+        self.num_ticks_after = num_ticks_after
+        self.show_detailed_queue_packets = show_detailed_queue_packets
 
         self.move_up_btn = wx.Button(self, label='Move Up')
         self.move_up_btn.Bind(wx.EVT_BUTTON, self.__MoveSelectedElemUp)
@@ -131,7 +141,6 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         edit_btns_sizer.Add(self.move_down_btn, 1, wx.BOTTOM | wx.EXPAND, 5)
         edit_btns_sizer.Add(self.remove_btn, 1, wx.BOTTOM | wx.EXPAND, 5)
 
-        self.element_paths = copy.deepcopy(element_paths)
         self.element_list = wx.ListBox(self, choices=self.element_paths, style=wx.LB_NEEDED_SB|wx.LB_MULTIPLE)
         self.element_list.Bind(wx.EVT_LISTBOX, self.__OnElementSelected)
 
@@ -165,15 +174,19 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         num_ticks_sizer.Add(num_ticks_after_text_label, 0, wx.ALL | wx.EXPAND, 5)
         num_ticks_sizer.Add(num_ticks_after_text_ctrl, 0, wx.ALL | wx.EXPAND, 5)
 
+        show_detailed_queue_packets_checkbox = wx.CheckBox(self, label='Show detailed queue packets')
+        show_detailed_queue_packets_checkbox.SetValue(show_detailed_queue_packets)
+        show_detailed_queue_packets_checkbox.Bind(wx.EVT_CHECKBOX, self.__OnShowDetailedQueuePacketsChanged)
+
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(hsizer, 1, wx.ALL | wx.EXPAND, 5)
         sizer.Add(num_ticks_sizer, 0, wx.ALL | wx.EXPAND, 5)
+        sizer.Add(show_detailed_queue_packets_checkbox, 0, wx.ALL | wx.EXPAND, 5)
         sizer.Add(exit_btn_sizer, 0, wx.ALL | wx.EXPAND, 5)
 
         self.SetSizer(sizer)
         self.Layout()
 
-        # Use a DC to get the max length of the element paths
         dc = wx.ScreenDC()
         dc.SetFont(self.element_list.GetFont())
         max_elem_path_len = max([dc.GetTextExtent(elem_path)[0] for elem_path in self.element_paths])
@@ -193,6 +206,9 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
     
     def GetNumTicksAfter(self):
         return self.num_ticks_after
+    
+    def ShowDetailedQueuePackets(self):
+        return self.show_detailed_queue_packets
 
     def __OnElementSelected(self, evt):
         selected_elem_idxs = self.element_list.GetSelections()
@@ -309,3 +325,6 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         self.ok_btn.Enable()
         self.ok_btn.SetToolTip('')
         return True
+
+    def __OnShowDetailedQueuePacketsChanged(self, evt):
+        self.show_detailed_queue_packets = evt.IsChecked()
