@@ -6,6 +6,8 @@ class SchedulingLinesWidget(wx.Panel):
         super().__init__(parent)
         self.frame = frame
         self.element_paths = []
+        self.num_ticks_before = 5
+        self.num_ticks_after = 50
 
         self.info = wx.StaticText(self, label='Drag queues from the NavTree to create scheduling lines.', size=(600,18))
         self.info.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
@@ -63,17 +65,25 @@ class SchedulingLinesWidget(wx.Panel):
     def GetCurrentViewSettings(self):
         settings = {}
         settings['element_paths'] = copy.deepcopy(self.element_paths)
+        settings['num_ticks_before'] = self.num_ticks_before
+        settings['num_ticks_after'] = self.num_ticks_after
         return settings
     
     def GetCurrentUserSettings(self):
         return {}
 
     def ApplyViewSettings(self, settings):
-        dirty = self.element_paths != settings['element_paths']
+        dirty = self.element_paths != settings['element_paths'] or \
+                self.num_ticks_before != settings['num_ticks_before'] or \
+                self.num_ticks_after != settings['num_ticks_after']
+
         if not dirty:
             return
 
         self.element_paths = copy.deepcopy(settings['element_paths'])
+        self.num_ticks_before = settings['num_ticks_before']
+        self.num_ticks_after = settings['num_ticks_after']
+
         self.__UpdateInfoText()
         self.frame.view_settings.SetDirty(reason=DirtyReasons.SchedulingLinesWidgetChanged)
 
@@ -95,14 +105,16 @@ class SchedulingLinesWidget(wx.Panel):
             self.SetBackgroundColour('light gray')
 
     def __EditWidget(self, evt):
-        dlg = SchedulingLinesCustomizationDialog(self, self.element_paths)
+        dlg = SchedulingLinesCustomizationDialog(self, self.element_paths, self.num_ticks_before, self.num_ticks_after)
         if dlg.ShowModal() == wx.ID_OK:
-            self.ApplyViewSettings({'element_paths': dlg.GetElementPaths()})
+            self.ApplyViewSettings({'element_paths': dlg.GetElementPaths(),
+                                    'num_ticks_before': dlg.GetNumTicksBefore(),
+                                    'num_ticks_after': dlg.GetNumTicksAfter()})
 
         dlg.Destroy()
 
 class SchedulingLinesCustomizationDialog(wx.Dialog):
-    def __init__(self, parent, element_paths):
+    def __init__(self, parent, element_paths, num_ticks_before, num_ticks_after):
         super().__init__(parent, title="Customize Scheduling Lines")
 
         self.move_up_btn = wx.Button(self, label='Move Up')
@@ -139,8 +151,23 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         exit_btn_sizer.Add(self.ok_btn, 0, wx.ALL | wx.EXPAND, 5)
         exit_btn_sizer.Add(self.cancel_btn, 0, wx.ALL | wx.EXPAND, 5)
 
+        num_ticks_before_text_label = wx.StaticText(self, label='Cycles to show before current tick:')
+        num_ticks_after_text_label = wx.StaticText(self, label='Cycles to show after current tick:')
+
+        num_ticks_before_text_ctrl = wx.TextCtrl(self, value=str(num_ticks_before))
+        num_ticks_after_text_ctrl = wx.TextCtrl(self, value=str(num_ticks_after))
+        num_ticks_before_text_ctrl.Bind(wx.EVT_TEXT, self.__OnNumTicksBeforeChanged)
+        num_ticks_after_text_ctrl.Bind(wx.EVT_TEXT, self.__OnNumTicksAfterChanged)
+
+        num_ticks_sizer = wx.FlexGridSizer(2, 2, 5, 5)
+        num_ticks_sizer.Add(num_ticks_before_text_label, 0, wx.ALL | wx.EXPAND, 5)
+        num_ticks_sizer.Add(num_ticks_before_text_ctrl, 0, wx.ALL | wx.EXPAND, 5)
+        num_ticks_sizer.Add(num_ticks_after_text_label, 0, wx.ALL | wx.EXPAND, 5)
+        num_ticks_sizer.Add(num_ticks_after_text_ctrl, 0, wx.ALL | wx.EXPAND, 5)
+
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(hsizer, 1, wx.ALL | wx.EXPAND, 5)
+        sizer.Add(num_ticks_sizer, 0, wx.ALL | wx.EXPAND, 5)
         sizer.Add(exit_btn_sizer, 0, wx.ALL | wx.EXPAND, 5)
 
         self.SetSizer(sizer)
@@ -150,6 +177,8 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         dc = wx.ScreenDC()
         dc.SetFont(self.element_list.GetFont())
         max_elem_path_len = max([dc.GetTextExtent(elem_path)[0] for elem_path in self.element_paths])
+        max_elem_path_len = max(max_elem_path_len, dc.GetTextExtent(num_ticks_before_text_label.GetLabel())[0])
+        max_elem_path_len = max(max_elem_path_len, dc.GetTextExtent(num_ticks_after_text_label.GetLabel())[0])
 
         dlg_min_width = max_elem_path_len + hsizer.CalcMin()[0] + 50
         dlg_min_height = sizer.CalcMin()[1] + 150
@@ -158,6 +187,12 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
 
     def GetElementPaths(self):
         return copy.deepcopy(self.element_paths)
+    
+    def GetNumTicksBefore(self):
+        return self.num_ticks_before
+    
+    def GetNumTicksAfter(self):
+        return self.num_ticks_after
 
     def __OnElementSelected(self, evt):
         selected_elem_idxs = self.element_list.GetSelections()
@@ -238,3 +273,39 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
 
         for i in range(self.element_list.GetCount()):
             self.element_list.Deselect(i)
+
+    def __OnNumTicksBeforeChanged(self, evt):
+        if not self.__ValidateNumberOfTicks(evt.GetString(), (1,25), 'before'):
+            return
+        
+        self.num_ticks_before = int(evt.GetString())
+
+    def __OnNumTicksAfterChanged(self, evt):
+        if not self.__ValidateNumberOfTicks(evt.GetString(), (5,100), 'after'):
+            return
+        
+        self.num_ticks_after = int(evt.GetString())
+
+    def __ValidateNumberOfTicks(self, num_ticks_str, allowed_range, before_or_after):
+        try:
+            num_ticks = int(num_ticks_str)
+        except:
+            self.ok_btn.Disable()
+            self.ok_btn.SetToolTip("Invalid number of '{}' ticks entered. Must be an integer.".format(before_or_after))
+            return False
+
+        min_val, max_val = allowed_range
+
+        if num_ticks < min_val:
+            self.ok_btn.Disable()
+            self.ok_btn.SetToolTip("Number of '{}' ticks cannot be less than 0.".format(before_or_after))
+            return False
+        
+        if num_ticks > max_val:
+            self.ok_btn.Disable()
+            self.ok_btn.SetToolTip("Number of '{}' ticks cannot be greater than {}.".format(before_or_after, max_val))
+            return False
+
+        self.ok_btn.Enable()
+        self.ok_btn.SetToolTip('')
+        return True
