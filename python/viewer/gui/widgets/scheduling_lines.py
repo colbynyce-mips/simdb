@@ -74,7 +74,7 @@ class SchedulingLinesWidget(wx.Panel):
 
     def GetCurrentViewSettings(self):
         settings = {}
-        settings['regexes'] = self.caption_mgr.GetElemPathRegexReplacementsDict()
+        settings['regexes'] = self.caption_mgr.GetElemPathRegexReplacements(as_list=True)
         settings['num_ticks_before'] = self.num_ticks_before
         settings['num_ticks_after'] = self.num_ticks_after
         settings['show_detailed_queue_packets'] = self.show_detailed_queue_packets
@@ -84,7 +84,7 @@ class SchedulingLinesWidget(wx.Panel):
         return {}
 
     def ApplyViewSettings(self, settings):
-        dirty = self.caption_mgr.GetElemPathRegexReplacementsDict() != settings['regexes'] or \
+        dirty = self.caption_mgr.GetElemPathRegexReplacements(as_list=True) != settings['regexes'] or \
                 self.num_ticks_before != settings['num_ticks_before'] or \
                 self.num_ticks_after != settings['num_ticks_after'] or \
                 self.show_detailed_queue_packets != settings['show_detailed_queue_packets']
@@ -92,7 +92,7 @@ class SchedulingLinesWidget(wx.Panel):
         if not dirty:
             return
 
-        self.caption_mgr.SetElemPathRegexReplacementsDict(settings['regexes'])
+        self.caption_mgr.SetElemPathRegexReplacements(settings['regexes'])
         self.num_ticks_before = settings['num_ticks_before']
         self.num_ticks_after = settings['num_ticks_after']
         self.show_detailed_queue_packets = settings['show_detailed_queue_packets']
@@ -348,7 +348,7 @@ class SchedulingLinesWidget(wx.Panel):
         dlg.Destroy()
 
         if result == wx.ID_OK:
-            self.ApplyViewSettings({'regexes': dlg.GetElementPathCaptionRegexes(),
+            self.ApplyViewSettings({'regexes': dlg.GetElementPathCaptionRegexes(as_list=True),
                                     'num_ticks_before': dlg.GetNumTicksBefore(),
                                     'num_ticks_after': dlg.GetNumTicksAfter(),
                                     'show_detailed_queue_packets': dlg.ShowDetailedQueuePackets()})
@@ -358,8 +358,6 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         super().__init__(parent, title="Customize Scheduling Lines")
 
         self.caption_mgr = copy.deepcopy(caption_mgr)
-        self.num_ticks_before = num_ticks_before
-        self.num_ticks_after = num_ticks_after
         self.show_detailed_queue_packets = show_detailed_queue_packets
         self.pending_list_ctrl_changes = []
 
@@ -383,7 +381,7 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         self.element_path_regexes_list_ctrl.Bind(wx.EVT_LIST_ITEM_SELECTED, self.__OnElementSelected)
         self.element_path_regexes_list_ctrl.Bind(wx.EVT_LEFT_DCLICK, self.__OnElementDoubleClicked)
 
-        element_path_caption_regexes = self.caption_mgr.GetElemPathRegexReplacementsDict()
+        element_path_caption_regexes = self.caption_mgr.GetElemPathRegexReplacements()
         idx = 0
         for path_regex, caption_replacements in element_path_caption_regexes.items():
             self.element_path_regexes_list_ctrl.InsertItem(idx, path_regex)
@@ -406,21 +404,48 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         exit_btn_sizer.Add(self.ok_btn, 0, wx.ALL | wx.EXPAND, 5)
         exit_btn_sizer.Add(self.cancel_btn, 0, wx.ALL | wx.EXPAND, 5)
 
-        num_ticks_before_text_label = wx.StaticText(self, label='Cycles to show before current tick:')
-        num_ticks_after_text_label = wx.StaticText(self, label='Cycles to show after current tick:')
+        num_ticks_before_min_val = 1
+        num_ticks_before_max_val = 25
+        num_ticks_after_min_val = 5
+        num_ticks_after_max_val = 100
 
-        self.num_ticks_before_text_ctrl = wx.TextCtrl(self, value=str(num_ticks_before))
-        self.num_ticks_after_text_ctrl = wx.TextCtrl(self, value=str(num_ticks_after))
-        self.num_ticks_before_text_ctrl.Bind(wx.EVT_TEXT, self.__OnNumTicksBeforeChanged)
-        self.num_ticks_after_text_ctrl.Bind(wx.EVT_TEXT, self.__OnNumTicksAfterChanged)
-        self.num_ticks_before_text_ctrl.Bind(wx.EVT_KILL_FOCUS, self.__OnNumTicksEditBoxLeavingFocus)
-        self.num_ticks_after_text_ctrl.Bind(wx.EVT_KILL_FOCUS, self.__OnNumTicksEditBoxLeavingFocus)
+        num_ticks_before_info_label = wx.StaticText(self, label='Cycles to show before current tick:')
+        num_ticks_after_info_label = wx.StaticText(self,  label='Cycles to show after current tick:')
 
-        num_ticks_sizer = wx.FlexGridSizer(2, 2, 5, 5)
-        num_ticks_sizer.Add(num_ticks_before_text_label, 0, wx.ALL | wx.EXPAND, 5)
-        num_ticks_sizer.Add(self.num_ticks_before_text_ctrl, 0, wx.ALL | wx.EXPAND, 5)
-        num_ticks_sizer.Add(num_ticks_after_text_label, 0, wx.ALL | wx.EXPAND, 5)
-        num_ticks_sizer.Add(self.num_ticks_after_text_ctrl, 0, wx.ALL | wx.EXPAND, 5)
+        self.num_ticks_before_value_label = wx.StaticText(self, label=str(num_ticks_before))
+        self.num_ticks_after_value_label = wx.StaticText(self, label=str(num_ticks_after))
+
+        num_ticks_before_min_val_text_label = wx.StaticText(self, label=str(num_ticks_before_min_val))
+        num_ticks_before_max_val_text_label = wx.StaticText(self, label=str(num_ticks_before_max_val))
+        num_ticks_after_min_val_text_label = wx.StaticText(self, label=str(num_ticks_after_min_val))
+        num_ticks_after_max_val_text_label = wx.StaticText(self, label=str(num_ticks_after_max_val))
+
+        self.num_ticks_before_slider = wx.Slider(self, minValue=num_ticks_before_min_val, maxValue=num_ticks_before_max_val, value=num_ticks_before)
+        self.num_ticks_after_slider = wx.Slider(self, minValue=num_ticks_after_min_val, maxValue=num_ticks_after_max_val, value=num_ticks_after)
+
+        self.num_ticks_before_slider.Bind(wx.EVT_SCROLL, self.__OnNumTicksBeforeSliderChanged)
+        self.num_ticks_after_slider.Bind(wx.EVT_SCROLL, self.__OnNumTicksAfterSliderChanged)
+
+        w,h = self.num_ticks_before_slider.GetSize()
+        self.num_ticks_before_slider.SetMinSize((300, h))
+
+        w,h = self.num_ticks_after_slider.GetSize()
+        self.num_ticks_after_slider.SetMinSize((300, h))
+
+        num_ticks_sizer = wx.FlexGridSizer(rows=2, cols=6, hgap=0, vgap=0)
+        num_ticks_sizer.Add(num_ticks_before_info_label)
+        num_ticks_sizer.Add(self.num_ticks_before_value_label, 0, wx.LEFT, 20)
+        num_ticks_sizer.Add(wx.StaticLine(self, style=wx.LI_VERTICAL), 0, wx.LEFT | wx.EXPAND, 20)
+        num_ticks_sizer.Add(num_ticks_before_min_val_text_label, 0, wx.LEFT, 20)
+        num_ticks_sizer.Add(self.num_ticks_before_slider, 0, wx.TOP | wx.EXPAND, -7)
+        num_ticks_sizer.Add(num_ticks_before_max_val_text_label)
+
+        num_ticks_sizer.Add(num_ticks_after_info_label)
+        num_ticks_sizer.Add(self.num_ticks_after_value_label, 0, wx.LEFT, 20)
+        num_ticks_sizer.Add(wx.StaticLine(self, style=wx.LI_VERTICAL), 0, wx.LEFT | wx.EXPAND, 20)
+        num_ticks_sizer.Add(num_ticks_after_min_val_text_label, 0, wx.LEFT, 20)
+        num_ticks_sizer.Add(self.num_ticks_after_slider, 0, wx.TOP | wx.EXPAND, -7)
+        num_ticks_sizer.Add(num_ticks_after_max_val_text_label)
 
         show_detailed_queue_packets_checkbox = wx.CheckBox(self, label='Show detailed queue packets')
         show_detailed_queue_packets_checkbox.SetValue(show_detailed_queue_packets)
@@ -440,6 +465,8 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         col0_width = max([dc.GetTextExtent(s)[0] for s in element_path_caption_regexes.keys()]) + 50
         col1_width = max([dc.GetTextExtent(s)[0] for s in element_path_caption_regexes.values()]) + 50
 
+        col0_width += dc.GetTextExtent('([0-9]+)')[0]
+
         self.element_path_regexes_list_ctrl.SetColumnWidth(0, col0_width)
         self.element_path_regexes_list_ctrl.SetColumnWidth(1, col1_width)
 
@@ -454,20 +481,23 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         return self.GetParent().frame
 
     def GetNumTicksBefore(self):
-        return self.num_ticks_before
+        return self.num_ticks_before_slider.GetValue()
 
     def GetNumTicksAfter(self):
-        return self.num_ticks_after
+        return self.num_ticks_after_slider.GetValue()
 
     def ShowDetailedQueuePackets(self):
         return self.show_detailed_queue_packets
     
-    def GetElementPathCaptionRegexes(self):
+    def GetElementPathCaptionRegexes(self, as_list=False):
         regexes = OrderedDict()
         for row in range(self.element_path_regexes_list_ctrl.GetItemCount()):
             path_regex = self.element_path_regexes_list_ctrl.GetItemText(row, 0)
             caption_replacements = self.element_path_regexes_list_ctrl.GetItemText(row, 1)
             regexes[path_regex] = caption_replacements
+
+        if as_list:
+            return list(regexes.items())
 
         return regexes
 
@@ -527,11 +557,11 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         self.element_path_regexes_list_ctrl.Select(orig_bottom_idx, False)
         self.element_path_regexes_list_ctrl.Select(orig_top_idx, True)
 
-        element_path_caption_regexes = self.GetElementPathCaptionRegexes()
+        element_path_caption_regexes = self.GetElementPathCaptionRegexes(as_list=True)
         tmp = element_path_caption_regexes[orig_top_idx]
         element_path_caption_regexes[orig_top_idx] = element_path_caption_regexes[orig_bottom_idx]
         element_path_caption_regexes[orig_bottom_idx] = tmp
-        self.caption_mgr.SetElemPathRegexReplacementsDict(element_path_caption_regexes)
+        self.caption_mgr.SetElemPathRegexReplacements(element_path_caption_regexes)
 
     def __MoveSelectedElemDown(self, evt):
         selected_elem_idxs = self.__GetListCtrlSelectedItemIdxs()
@@ -557,11 +587,11 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         self.element_path_regexes_list_ctrl.Select(orig_top_idx, False)
         self.element_path_regexes_list_ctrl.Select(orig_bottom_idx, True)
 
-        element_path_caption_regexes = self.GetElementPathCaptionRegexes()
+        element_path_caption_regexes = self.GetElementPathCaptionRegexes(as_list=True)
         tmp = element_path_caption_regexes[orig_top_idx]
         element_path_caption_regexes[orig_top_idx] = element_path_caption_regexes[orig_bottom_idx]
         element_path_caption_regexes[orig_bottom_idx] = tmp
-        self.caption_mgr.SetElemPathRegexReplacementsDict(element_path_caption_regexes)
+        self.caption_mgr.SetElemPathRegexReplacements(element_path_caption_regexes)
 
     def __RemoveSelectedElems(self, evt):
         selected_elem_idxs = self.__GetListCtrlSelectedItemIdxs()
@@ -574,7 +604,7 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
             self.element_path_regexes_list_ctrl.Select(i, False)
 
         element_path_caption_regexes = self.GetElementPathCaptionRegexes()
-        self.caption_mgr.SetElemPathRegexReplacementsDict(element_path_caption_regexes)
+        self.caption_mgr.SetElemPathRegexReplacements(element_path_caption_regexes)
 
     def __GetListCtrlSelectedItemIdxs(self):
         idxs = []
@@ -585,42 +615,6 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
                 idxs.append(i)
 
         return idxs
-
-    def __OnNumTicksBeforeChanged(self, evt):
-        if not self.__ValidateNumberOfTicks(evt.GetString(), (1,25), 'before'):
-            return
-        
-        self.num_ticks_before = int(evt.GetString())
-
-    def __OnNumTicksAfterChanged(self, evt):
-        if not self.__ValidateNumberOfTicks(evt.GetString(), (5,100), 'after'):
-            return
-        
-        self.num_ticks_after = int(evt.GetString())
-
-    def __ValidateNumberOfTicks(self, num_ticks_str, allowed_range, before_or_after):
-        try:
-            num_ticks = int(num_ticks_str)
-        except:
-            self.ok_btn.Disable()
-            self.ok_btn.SetToolTip("Invalid number of '{}' ticks entered. Must be an integer.".format(before_or_after))
-            return False
-
-        min_val, max_val = allowed_range
-
-        if num_ticks < min_val:
-            self.ok_btn.Disable()
-            self.ok_btn.SetToolTip("Number of '{}' ticks cannot be less than 0.".format(before_or_after))
-            return False
-        
-        if num_ticks > max_val:
-            self.ok_btn.Disable()
-            self.ok_btn.SetToolTip("Number of '{}' ticks cannot be greater than {}.".format(before_or_after, max_val))
-            return False
-
-        self.ok_btn.Enable()
-        self.ok_btn.SetToolTip('')
-        return True
 
     def __OnShowDetailedQueuePacketsChanged(self, evt):
         self.show_detailed_queue_packets = evt.IsChecked()
@@ -778,10 +772,11 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
 
         self.pending_list_ctrl_changes = []
 
-    def __OnNumTicksEditBoxLeavingFocus(self, evt):
-        if not self.ok_btn.IsEnabled():
-            self.ok_btn.Enable()
-            self.ok_btn.SetToolTip('')
+    def __OnNumTicksBeforeSliderChanged(self, evt):
+        self.num_ticks_before_value_label.SetLabel(str(self.num_ticks_before_slider.GetValue()))
+
+    def __OnNumTicksAfterSliderChanged(self, evt):
+        self.num_ticks_after_value_label.SetLabel(str(self.num_ticks_after_slider.GetValue()))
 
 class CaptionManager:
     def __init__(self, simhier):
@@ -791,11 +786,21 @@ class CaptionManager:
     def AddElemPathRegexReplacement(self, elem_path_regex, regex_replacement):
         self.regex_replacements_by_elem_path_regex[elem_path_regex] = regex_replacement
 
-    def SetElemPathRegexReplacementsDict(self, regex_replacements_by_elem_path_regex):
+    def SetElemPathRegexReplacements(self, regex_replacements_by_elem_path_regex):
+        if isinstance(regex_replacements_by_elem_path_regex, list):
+            regex_replacements_by_elem_path_regex = OrderedDict(regex_replacements_by_elem_path_regex)
+        elif isinstance(regex_replacements_by_elem_path_regex, dict):
+            raise TypeError('Must be a list or an OrderedDict, not a regular unordered python dict.')
+
+        assert isinstance(regex_replacements_by_elem_path_regex, OrderedDict)
         self.regex_replacements_by_elem_path_regex = copy.deepcopy(regex_replacements_by_elem_path_regex)
 
-    def GetElemPathRegexReplacementsDict(self):
-        return copy.deepcopy(self.regex_replacements_by_elem_path_regex)
+    def GetElemPathRegexReplacements(self, as_list=False):
+        d = copy.deepcopy(self.regex_replacements_by_elem_path_regex)
+        if as_list:
+            return list(d.items())
+
+        return d
 
     def GetCaption(self, elem_path, bin_idx):
         for regex, replacements in self.regex_replacements_by_elem_path_regex.items():
