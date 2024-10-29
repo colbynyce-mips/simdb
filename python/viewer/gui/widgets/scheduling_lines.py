@@ -8,7 +8,7 @@ class SchedulingLinesWidget(wx.Panel):
         super().__init__(parent)
         self.frame = frame
         self.num_ticks_before = 5
-        self.num_ticks_after = 50
+        self.num_ticks_after = 25
         self.show_detailed_queue_packets = True
         self.caption_mgr = CaptionManager(frame.simhier)
         self.grid = None
