@@ -32,14 +32,14 @@ class Grid(wx.grid.Grid):
     def GetCellValue(self, row, col):
         return self.renderer.GetCellValue(row, col)
     
-    def SetBackgroundColour(self, row, col, color, immediate_refresh=False):
-        self.renderer.SetBackgroundColour(row, col, color)
+    def SetCellBackgroundColour(self, row, col, color, immediate_refresh=False):
+        self.renderer.SetCellBackgroundColour(row, col, color)
         if immediate_refresh:
             self.Refresh()
             self.AutoSize()
 
-    def GetBackgroundColour(self, row, col):
-        return self.renderer.GetBackgroundColour(row, col)
+    def GetCellBackgroundColour(self, row, col):
+        return self.renderer.GetCellBackgroundColour(row, col)
 
     def SetCellBorder(self, row, col, border_width=1, border_side=wx.ALL, immediate_refresh=False):
         self.renderer.SetBorder(row, col, border_width, border_side)
@@ -47,11 +47,14 @@ class Grid(wx.grid.Grid):
             self.Refresh()
             self.AutoSize()
 
+    def SetCellFont(self, row, col, font):
+        self.renderer.SetCellFont(row, col, font)
+
     def ClearGrid(self):
         for row in range(self.GetNumberRows()):
             for col in range(self.GetNumberCols()):
                 self.SetCellValue(row, col, '')
-                self.SetBackgroundColour(row, col, (255, 255, 255))
+                self.SetCellBackgroundColour(row, col, (255, 255, 255))
                 self.SetCellBorder(row, col, 0)
 
         self.Refresh()
@@ -68,14 +71,17 @@ class GridCellRenderer(wx.grid.GridCellRenderer):
     def GetCellValue(self, row, col):
         return self.cells[row][col].GetText()
 
-    def SetBackgroundColour(self, row, col, color):
+    def SetCellBackgroundColour(self, row, col, color):
         self.cells[row][col].SetBackgroundColour(color)
 
-    def GetBackgroundColour(self, row, col):
+    def GetCellBackgroundColour(self, row, col):
         return self.cells[row][col].GetBackgroundColour()
 
     def SetBorder(self, row, col, border_width, border_side):
         self.cells[row][col].SetBorder(border_width, border_side)
+
+    def SetCellFont(self, row, col, font):
+        self.cells[row][col].SetFont(font)
 
     def Draw(self, grid, attr, dc, rect, row, col, isSelected):
         self.cells[row][col].Draw(grid, dc, rect)
@@ -96,6 +102,9 @@ class GridCell:
 
     def GetText(self):
         return self.text
+    
+    def SetFont(self, font):
+        self.font = font
     
     def SetBackgroundColour(self, color):
         self.background_colour = color

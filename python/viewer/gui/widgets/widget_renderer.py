@@ -1,4 +1,4 @@
-import wx
+import wx, copy
 from viewer.gui import autocoloring
 
 class WidgetRenderer:
@@ -10,7 +10,19 @@ class WidgetRenderer:
         self._current_tick = self._start_tick
         self._utiliz_handler = IterableUtiliz(self, frame.simhier)
         self._auto_colors_by_key = {}
+        self._auto_tags_by_key = {}
         autocoloring.BuildBrushes('default', 'default')
+
+        self._auto_tag_list = []
+
+        # First part: A to Z
+        for char in range(ord('A'), ord('Z') + 1):
+            self._auto_tag_list.append(chr(char))
+
+        # Second part: Aa to Zz
+        for char in range(ord('A'), ord('Z') + 1):
+            for suffix in range(ord('a'), ord('z') + 1):
+                self._auto_tag_list.append(chr(char) + chr(suffix))
 
     @property
     def tick(self):
@@ -36,19 +48,24 @@ class WidgetRenderer:
 
     def GetCurrentUserSettings(self):
         settings = {}
-        settings['auto_colors_by_key'] = self._auto_colors_by_key
+        settings['auto_colors_by_key'] = copy.deepcopy(self._auto_colors_by_key)
+        settings['auto_tags_by_key'] = copy.deepcopy(self._auto_tags_by_key)
         return settings
     
     def ApplyUserSettings(self, settings):
         auto_colors_by_key = settings.get('auto_colors_by_key', {})
-        if auto_colors_by_key == self._auto_colors_by_key:
+        auto_tags_by_key = settings.get('auto_tags_by_key', {})
+
+        if auto_colors_by_key == self._auto_colors_by_key and auto_tags_by_key == self._auto_tags_by_key:
             return
 
-        self._auto_colors_by_key = settings.get('auto_colors_by_key', {})
+        self._auto_colors_by_key = copy.deepcopy(settings.get('auto_colors_by_key', {}))
+        self._auto_tags_by_key = copy.deepcopy(settings.get('auto_tags_by_key', {}))
         self.frame.inspector.RefreshWidgetsOnAllTabs()
 
     def ResetToDefaultViewSettings(self, update_widgets=True):
         self._auto_colors_by_key = {}
+        self._auto_tags_by_key = {}
         if update_widgets:
             self.frame.inspector.RefreshWidgetsOnAllTabs()
 
@@ -75,6 +92,15 @@ class WidgetRenderer:
         color = brushes[idx].GetColour()
         self._auto_colors_by_key[value] = (color.Red(), color.Green(), color.Blue())
         return color
+
+    def GetAutoTag(self, value):
+        if value in self._auto_tags_by_key:
+            return self._auto_tags_by_key[value]
+
+        idx = len(self._auto_tags_by_key) % len(self._auto_tag_list)
+        tag = self._auto_tag_list[idx]
+        self._auto_tags_by_key[value] = tag
+        return tag
 
     def __UpdateWidgetsOnCurrentTab(self):
         self.frame.explorer.navtree.UpdateUtilizBitmaps()

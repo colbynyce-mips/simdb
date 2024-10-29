@@ -14,6 +14,7 @@ class SchedulingLinesWidget(wx.Panel):
         self.grid = None
         self.info = None
         self.gear_btn = None
+        self.rasterizers = {}
 
         cursor = frame.db.cursor()
         cmd = 'SELECT CollectionID,MaxSize FROM QueueMaxSizes'
@@ -148,6 +149,7 @@ class SchedulingLinesWidget(wx.Panel):
 
             self.SetBackgroundColour('white')
             self.__RegenerateSchedulingLinesGrid()
+            self.__RasterizeAllCells()
 
             if not self.gear_btn:
                 self.gear_btn = wx.BitmapButton(self, bitmap=self.frame.CreateResourceBitmap('gear.png'), pos=(5,5))
@@ -155,6 +157,9 @@ class SchedulingLinesWidget(wx.Panel):
                 self.gear_btn.SetToolTip('Edit widget settings')
         else:
             self.__ShowUsageInfo()
+
+        self.Update()
+        self.Refresh()
 
     def __ShowUsageInfo(self):
         if self.gear_btn:
@@ -236,10 +241,13 @@ class SchedulingLinesWidget(wx.Panel):
         if self.show_detailed_queue_packets:
             num_cols += 3
 
-        # Create 10-point monospace font for the grid labels and cells
-        font = wx.Font(10, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        # Create 8-point monospace font for the grid cells
+        font8 = wx.Font(8, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
 
-        self.grid = Grid(self, self.frame, num_rows, num_cols, cell_font=font, label_font=font, cell_selection_allowed=False)
+        # Create 10-point font for the grid column labels
+        font10 = wx.Font(10, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+
+        self.grid = Grid(self, self.frame, num_rows, num_cols, cell_font=font8, label_font=font10, cell_selection_allowed=False)
         self.gear_btn = wx.BitmapButton(self, bitmap=self.frame.CreateResourceBitmap('gear.png'))
         self.gear_btn.Bind(wx.EVT_BUTTON, self.__EditWidget)
 
@@ -277,17 +285,81 @@ class SchedulingLinesWidget(wx.Panel):
         self.grid.AutoSize()
         self.Layout()
 
+    def __RasterizeAllCells(self):
+        for elem_path in self.caption_mgr.GetAllMatchingElemPaths():
+            start_time = self.frame.widget_renderer.tick - self.num_ticks_before
+            end_time = self.frame.widget_renderer.tick + self.num_ticks_after
+
+            vals = self.frame.data_retriever.Unpack(elem_path, (start_time, end_time))
+            time_vals = vals['TimeVals']
+            data_vals = vals['DataVals']
+
+            for i, data_dicts in enumerate(data_vals):
+                if data_dicts is None:
+                    continue
+
+                time_val = time_vals[i]
+                for bin_idx, annos in enumerate(data_dicts):
+                    self.__RerouteUnpackedDataToRasterizer(time_val, elem_path, bin_idx, annos)
+
+        # Get the max length of all cell labels in the last visible column
+        if self.show_detailed_queue_packets:
+            num_visible_columns = 0
+            for i in range(self.grid.GetNumberCols()):
+                if self.grid.IsColShown(i):
+                    num_visible_columns += 1
+
+            detailed_pkt_col = num_visible_columns - 1
+
+            dc = wx.ScreenDC()
+            dc.SetFont(self.grid.GetDefaultCellFont())
+            max_str_len = max([dc.GetTextExtent(self.grid.GetCellValue(row, detailed_pkt_col))[0] for row in range(self.grid.GetNumberRows())])
+
+            # Go through each cell in the last visible column and pad whitespace to make all cells the same width
+            for row in range(self.grid.GetNumberRows()):
+                cell_val = self.grid.GetCellValue(row, detailed_pkt_col)
+                cell_val += ' '*(max_str_len - len(cell_val))
+                self.grid.SetCellValue(row, detailed_pkt_col, cell_val)
+
+        self.grid.AutoSize()
+        self.Layout()
+
+    def __RerouteUnpackedDataToRasterizer(self, time_val, elem_path, bin_idx, annos):
+        key = (elem_path, bin_idx)
+        if key in self.rasterizers:
+            self.rasterizers[key].Draw(elem_path, bin_idx, time_val, annos)
+
     def __SetElementCaptions(self, col):
+        if col == 0:
+            self.rasterizers = {}
+
+        font = self.grid.GetLabelFont()
+        for row in range(self.grid.GetNumberRows()):
+            self.grid.SetCellFont(row, col, font)
+            if col > 0:
+                self.grid.SetCellFont(row, col+1, font)
+
         captions = []
         for elem_path in self.caption_mgr.GetAllMatchingElemPaths():
             captions.extend(self.__GetCaptionsForElement(elem_path))
 
         max_num_chars = max([len(caption) for caption in captions])
+
+        if self.show_detailed_queue_packets:
+            num_visible_columns = 0
+            for i in range(self.grid.GetNumberCols()):
+                if self.grid.IsColShown(i):
+                    num_visible_columns += 1
+
+            detailed_pkt_col = num_visible_columns - 1
+        else:
+            detailed_pkt_col = -1
+
         row_offset = 0
         for elem_path in self.caption_mgr.GetAllMatchingElemPaths():
-            row_offset += self.__SetCaptionsForElement(elem_path, row_offset, col, max_num_chars)
+            row_offset += self.__SetCaptionsForElement(elem_path, row_offset, col, max_num_chars, detailed_pkt_col)
 
-    def __SetCaptionsForElement(self, elem_path, row_offset, col, max_num_chars):
+    def __SetCaptionsForElement(self, elem_path, row_offset, col, max_num_chars, detailed_pkt_col):
         collection_id = self.frame.simhier.GetCollectionID(elem_path)
         num_bins = self.frame.simhier.GetCapacityByCollectionID(collection_id)
         max_size = self.queue_max_sizes_by_collection_id[collection_id]
@@ -300,21 +372,19 @@ class SchedulingLinesWidget(wx.Panel):
 
             for i in range(1, max_size):
                 bin_idx = max_size - i - 1
-                #caption = '{}[{}]'.format(caption_prefix, bin_idx)
-                #caption += ' '*(max_num_chars - len(caption))
                 caption = self.caption_mgr.GetCaption(elem_path, bin_idx)
                 caption += ' '*(max_num_chars - len(caption))
                 self.grid.SetCellValue(row_offset + i, col, caption)
+                self.rasterizers[(elem_path, bin_idx)] = Rasterizer(self.frame, self.grid, elem_path, bin_idx, row_offset + i, detailed_pkt_col)
 
             return max_size + 1
         else:
             for i in range(num_bins):
                 bin_idx = num_bins - i - 1
-                #caption = '{}[{}]'.format(caption_prefix, bin_idx)
-                #caption += ' '*(max_num_chars - len(caption))
                 caption = self.caption_mgr.GetCaption(elem_path, bin_idx)
                 caption += ' '*(max_num_chars - len(caption))
                 self.grid.SetCellValue(row_offset + i, col, caption)
+                self.rasterizers[(elem_path, bin_idx)] = Rasterizer(self.frame, self.grid, elem_path, bin_idx, row_offset + i, detailed_pkt_col)
 
             return num_bins
 
@@ -961,3 +1031,44 @@ def GetHeadsUpCamelCaseQueueName(elem_path):
         parts[i] = part
 
     return ''.join(parts)
+
+class Rasterizer:
+    def __init__(self, frame, grid, elem_path, bin_idx, row, detailed_pkt_col):
+        self.frame = frame
+        self.grid = grid
+        self.elem_path = elem_path
+        self.bin_idx = bin_idx
+        self.row = row
+        self.detailed_pkt_col = detailed_pkt_col
+
+    def Draw(self, elem_path, bin_idx, time_val, annos):
+        assert elem_path == self.elem_path
+        assert bin_idx == self.bin_idx
+
+        auto_colorize_column = self.frame.data_retriever.GetAutoColorizeColumn(elem_path)
+        auto_colorize_key = annos[auto_colorize_column]
+        auto_color = self.frame.widget_renderer.GetAutoColor(auto_colorize_key)
+        auto_label = self.frame.widget_renderer.GetAutoTag(auto_colorize_key)
+
+        if self.detailed_pkt_col != -1:
+            anno = []
+            for k,v in annos.items():
+                anno.append('{}({})'.format(k,v))
+
+            self.grid.SetCellValue(self.row, self.detailed_pkt_col, ' '.join(anno))
+            self.grid.SetCellBackgroundColour(self.row, self.detailed_pkt_col, auto_color)
+
+        for col in range(self.grid.GetNumberCols()):
+            if not self.grid.IsColShown(col):
+                break
+
+            col_label = self.grid.GetColLabelValue(col)
+            try:
+                col_label = float(col_label)
+            except:
+                continue
+
+            if col_label == float(time_val):
+                self.grid.SetCellValue(self.row, col, auto_label)
+                self.grid.SetCellBackgroundColour(self.row, col, auto_color)
+                break
