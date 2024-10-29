@@ -474,11 +474,11 @@ class SchedulingLinesWidget(wx.Panel):
             opt = menu.Append(wx.ID_ANY, 'Unhighlight cells with tag "{}"'.format(tag))
             self.grid.Bind(wx.EVT_MENU, partial(self.__HighlightCellsWithTag, tag=tag, highlight=False), opt)
 
-        opt = menu.Append(wx.ID_ANY, 'Go to next cycle where different')
-        self.grid.Bind(wx.EVT_MENU, partial(self.__GoToNextCycleWhereDifferent, elem_path=elem_path, bin_idx=bin_idx), opt)
+        #opt = menu.Append(wx.ID_ANY, 'Go to next cycle where different')
+        #self.grid.Bind(wx.EVT_MENU, partial(self.__GoToNextCycleWhereDifferent, elem_path=elem_path, bin_idx=bin_idx), opt)
 
-        opt = menu.Append(wx.ID_ANY, 'Go to previous cycle where different')
-        self.grid.Bind(wx.EVT_MENU, partial(self.__GoToPrevCycleWhereDifferent, elem_path=elem_path, bin_idx=bin_idx), opt)
+        #opt = menu.Append(wx.ID_ANY, 'Go to previous cycle where different')
+        #self.grid.Bind(wx.EVT_MENU, partial(self.__GoToPrevCycleWhereDifferent, elem_path=elem_path, bin_idx=bin_idx), opt)
 
         self.grid.PopupMenu(menu)
 

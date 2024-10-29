@@ -8,7 +8,7 @@ class MyApp(wx.App):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--database", required=True, help="Path to the database file")
-    parser.add_argument("--views-dir", help="Path to the directory containing the view files (*.yaml)")
+    parser.add_argument("--views-dir", help="Path to the directory containing the view files (*.avf)")
     parser.add_argument("--view-file", help="Path to the view file (*.avf) to load")
     args = parser.parse_args()
 

@@ -80,7 +80,7 @@ class ViewSettings:
             os.makedirs(self._views_dir)
             return []
         else:
-            return [f for f in os.listdir(self._views_dir) if f.endswith('.yaml')]
+            return [f for f in os.listdir(self._views_dir) if f.endswith('.avf')]
         
     def PostLoad(self, frame, view_file):
         self._frame = frame
