@@ -134,7 +134,7 @@ class GridCell:
     
     def SetBorder(self, border_width, border_side):
         self.border_width = border_width
-        self.border_side = border_side
+        self.border_side = border_side if border_width else wx.ALL
 
     def SetToolTip(self, tooltip):
         if tooltip in (None, ''):

@@ -249,6 +249,7 @@ class SchedulingLinesWidget(wx.Panel):
 
         self.grid = Grid(self, self.frame, num_rows, num_cols, cell_font=font8, label_font=font10, cell_selection_allowed=False)
         self.grid.GetGridWindow().Bind(wx.EVT_MOTION, self.__OnGridMouseMotion)
+        self.grid.EnableGridLines(False)
 
         self.gear_btn = wx.BitmapButton(self, bitmap=self.frame.CreateResourceBitmap('gear.png'))
         self.gear_btn.Bind(wx.EVT_BUTTON, self.__EditWidget)
@@ -275,6 +276,11 @@ class SchedulingLinesWidget(wx.Panel):
         self.SetSizer(sizer)
 
         self.grid.ClearGrid()
+
+        # Draw a thick black line to mark the current time
+        for row in range(num_rows):
+            self.grid.SetCellBorder(row, self.num_ticks_before, 1, wx.RIGHT)
+            self.grid.SetCellBorder(row, self.num_ticks_before + 1, 1, wx.LEFT)
 
         self.__SetElementCaptions(0)
         if self.show_detailed_queue_packets:
