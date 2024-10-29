@@ -361,24 +361,26 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         self.show_detailed_queue_packets = show_detailed_queue_packets
         self.pending_list_ctrl_changes = []
 
-        self.move_up_btn = wx.Button(self, label='Move Up')
+        self.move_up_btn = wx.BitmapButton(self, bitmap=wx.ArtProvider.GetBitmap(wx.ART_GO_UP, wx.ART_BUTTON))
         self.move_up_btn.Bind(wx.EVT_BUTTON, self.__MoveSelectedElemUp)
 
-        self.move_down_btn = wx.Button(self, label='Move Down')
+        self.move_down_btn = wx.BitmapButton(self, bitmap=wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN, wx.ART_BUTTON))
         self.move_down_btn.Bind(wx.EVT_BUTTON, self.__MoveSelectedElemDown)
 
-        self.remove_btn = wx.Button(self, label='Remove')
+        self.remove_btn = wx.BitmapButton(self, bitmap=wx.ArtProvider.GetBitmap(wx.ART_DELETE, wx.ART_BUTTON))
         self.remove_btn.Bind(wx.EVT_BUTTON, self.__RemoveSelectedElems)
+        self.remove_btn.Disable()
 
         edit_btns_sizer = wx.BoxSizer(wx.VERTICAL)
-        edit_btns_sizer.Add(self.move_up_btn, 1, wx.ALL | wx.EXPAND, 5)
-        edit_btns_sizer.Add(self.move_down_btn, 1, wx.BOTTOM | wx.EXPAND, 5)
-        edit_btns_sizer.Add(self.remove_btn, 1, wx.BOTTOM | wx.EXPAND, 5)
+        edit_btns_sizer.Add(self.move_up_btn, 0, wx.ALL, 5)
+        edit_btns_sizer.Add(self.move_down_btn, 0, wx.ALL, 5)
+        edit_btns_sizer.Add(self.remove_btn, 0, wx.ALL, 5)
 
         self.element_path_regexes_list_ctrl = wx.ListCtrl(self, style=wx.LC_REPORT)
         self.element_path_regexes_list_ctrl.InsertColumn(0, "Path Regex")
         self.element_path_regexes_list_ctrl.InsertColumn(1, "Caption")
         self.element_path_regexes_list_ctrl.Bind(wx.EVT_LIST_ITEM_SELECTED, self.__OnElementSelected)
+        self.element_path_regexes_list_ctrl.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.__OnElementSelected)
         self.element_path_regexes_list_ctrl.Bind(wx.EVT_LEFT_DCLICK, self.__OnElementDoubleClicked)
 
         element_path_caption_regexes = self.caption_mgr.GetElemPathRegexReplacements()
@@ -395,7 +397,7 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
 
         hsizer = wx.BoxSizer(wx.HORIZONTAL)
         hsizer.Add(self.element_path_regexes_list_ctrl, 1, wx.ALL | wx.EXPAND, 5)
-        hsizer.Add(edit_btns_sizer, 0, wx.ALL | wx.EXPAND, 5)
+        hsizer.Add(edit_btns_sizer)#, 0, wx.ALL | wx.EXPAND, 5)
 
         self.ok_btn = wx.Button(self, wx.ID_OK)
         self.cancel_btn = wx.Button(self, wx.ID_CANCEL)
@@ -503,6 +505,12 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
 
     def __OnElementSelected(self, evt):
         selected_elem_idxs = self.__GetListCtrlSelectedItemIdxs()
+        if len(selected_elem_idxs) == 0:
+            self.move_up_btn.Disable()
+            self.move_down_btn.Disable()
+            self.remove_btn.Disable()
+            return
+
         if len(selected_elem_idxs) != 1:
             self.move_up_btn.Disable()
             self.move_down_btn.Disable()
@@ -605,6 +613,7 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
 
         element_path_caption_regexes = self.GetElementPathCaptionRegexes()
         self.caption_mgr.SetElemPathRegexReplacements(element_path_caption_regexes)
+        self.remove_btn.Disable()
 
     def __GetListCtrlSelectedItemIdxs(self):
         idxs = []
@@ -789,10 +798,9 @@ class CaptionManager:
     def SetElemPathRegexReplacements(self, regex_replacements_by_elem_path_regex):
         if isinstance(regex_replacements_by_elem_path_regex, list):
             regex_replacements_by_elem_path_regex = OrderedDict(regex_replacements_by_elem_path_regex)
-        elif isinstance(regex_replacements_by_elem_path_regex, dict):
+        elif not isinstance(regex_replacements_by_elem_path_regex, OrderedDict):
             raise TypeError('Must be a list or an OrderedDict, not a regular unordered python dict.')
 
-        assert isinstance(regex_replacements_by_elem_path_regex, OrderedDict)
         self.regex_replacements_by_elem_path_regex = copy.deepcopy(regex_replacements_by_elem_path_regex)
 
     def GetElemPathRegexReplacements(self, as_list=False):
