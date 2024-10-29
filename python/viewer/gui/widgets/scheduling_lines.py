@@ -104,7 +104,7 @@ class SchedulingLinesWidget(wx.Panel):
         assert elem_path not in self.caption_mgr.GetAllMatchingElemPaths()
             
         # The default behavior is to take an element path like this:
-        #   top.core0.rob.stats.num_insts_retired
+        #   top.cpu.core0.rob.stats.num_insts_retired
         #
         # And use the caption replacement:
         #   NumInstsRetired
@@ -119,7 +119,7 @@ class SchedulingLinesWidget(wx.Panel):
         # A complete example might be to also use the core index in the caption,
         # which would change the regex to:
         #
-        #   top.core([0-9]+).rob.stats.num_insts_retired
+        #   top.cpu.core([0-9]+).rob.stats.num_insts_retired
         #
         # And use the caption replacement:
         #
@@ -139,7 +139,7 @@ class SchedulingLinesWidget(wx.Panel):
         #
         # The user can adjust these settings in the widget settings dialog.
         regex_replacement = GetHeadsUpCamelCaseQueueName(elem_path)
-        self.caption_mgr.AddElemPathRegexReplacement(elem_path, regex_replacement)
+        self.caption_mgr.SetElemPathRegexReplacement(elem_path, regex_replacement)
 
     def __Refresh(self):
         if len(self.caption_mgr.GetAllMatchingElemPaths()) > 0:
@@ -359,7 +359,7 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
 
         self.caption_mgr = copy.deepcopy(caption_mgr)
         self.show_detailed_queue_packets = show_detailed_queue_packets
-        self.pending_list_ctrl_changes = []
+        self.ok_btn = None
 
         self.move_up_btn = wx.BitmapButton(self, bitmap=wx.ArtProvider.GetBitmap(wx.ART_GO_UP, wx.ART_BUTTON))
         self.move_up_btn.Bind(wx.EVT_BUTTON, self.__MoveSelectedElemUp)
@@ -379,9 +379,10 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         self.element_path_regexes_list_ctrl = wx.ListCtrl(self, style=wx.LC_REPORT)
         self.element_path_regexes_list_ctrl.InsertColumn(0, "Path Regex")
         self.element_path_regexes_list_ctrl.InsertColumn(1, "Caption")
-        self.element_path_regexes_list_ctrl.Bind(wx.EVT_LIST_ITEM_SELECTED, self.__OnElementSelected)
-        self.element_path_regexes_list_ctrl.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.__OnElementSelected)
-        self.element_path_regexes_list_ctrl.Bind(wx.EVT_LEFT_DCLICK, self.__OnElementDoubleClicked)
+        self.element_path_regexes_list_ctrl.Bind(wx.EVT_LIST_ITEM_SELECTED, self.__OnListCtrlItemSelected)
+        self.element_path_regexes_list_ctrl.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.__OnListCtrlItemSelected)
+        self.element_path_regexes_list_ctrl.Bind(wx.EVT_LEFT_DCLICK, self.__OnListCtrlItemDClicked)
+        self.element_path_regexes_list_ctrl.Bind(wx.EVT_LIST_END_LABEL_EDIT, self.__ValidateRegexSettings)
 
         element_path_caption_regexes = self.caption_mgr.GetElemPathRegexReplacements()
         idx = 0
@@ -397,7 +398,7 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
 
         hsizer = wx.BoxSizer(wx.HORIZONTAL)
         hsizer.Add(self.element_path_regexes_list_ctrl, 1, wx.ALL | wx.EXPAND, 5)
-        hsizer.Add(edit_btns_sizer)#, 0, wx.ALL | wx.EXPAND, 5)
+        hsizer.Add(edit_btns_sizer)
 
         self.ok_btn = wx.Button(self, wx.ID_OK)
         self.cancel_btn = wx.Button(self, wx.ID_CANCEL)
@@ -453,28 +454,67 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         show_detailed_queue_packets_checkbox.SetValue(show_detailed_queue_packets)
         show_detailed_queue_packets_checkbox.Bind(wx.EVT_CHECKBOX, self.__OnShowDetailedQueuePacketsChanged)
 
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(hsizer, 1, wx.ALL | wx.EXPAND, 5)
-        sizer.Add(num_ticks_sizer, 0, wx.ALL | wx.EXPAND, 5)
-        sizer.Add(show_detailed_queue_packets_checkbox, 0, wx.ALL | wx.EXPAND, 5)
-        sizer.Add(exit_btn_sizer, 0, wx.ALL | wx.EXPAND, 5)
+        regex_example_label = wx.StaticText(self, label='Regex examples:')
+        regex_example_text = wx.StaticText(self, label='top.cpu.core([0-9]+).rob.stats.num_insts_retired')
+        regex_example_text2 = wx.StaticText(self, label='top.cpu.core0.rob.stats.ipc')
 
-        self.SetSizer(sizer)
-        self.Layout()
+        caption_example_label = wx.StaticText(self, label='Caption examples:')
+        caption_example_text = wx.StaticText(self, label='NumInstsRetired\\1')
+        caption_example_text2 = wx.StaticText(self, label='IPC')
+
+        font = wx.Font(10, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        regex_example_label.SetFont(font.Bold())
+        regex_example_text.SetFont(font)
+        regex_example_text2.SetFont(font)
+        caption_example_label.SetFont(font.Bold())
+        caption_example_text.SetFont(font)
+        caption_example_text2.SetFont(font)
+        self.element_path_regexes_list_ctrl.SetFont(font)
 
         dc = wx.ScreenDC()
         dc.SetFont(self.element_path_regexes_list_ctrl.GetFont())
         col0_width = max([dc.GetTextExtent(s)[0] for s in element_path_caption_regexes.keys()]) + 50
         col1_width = max([dc.GetTextExtent(s)[0] for s in element_path_caption_regexes.values()]) + 50
 
+        col0_width = max(col0_width, dc.GetTextExtent(regex_example_text.GetLabel())[0])
         col0_width += dc.GetTextExtent('([0-9]+)')[0]
+
+        hgap = col0_width - dc.GetTextExtent(regex_example_text.GetLabel())[0]
+        example_sizer = wx.FlexGridSizer(rows=3, cols=2, hgap=hgap, vgap=0)
+        example_sizer.Add(regex_example_label)
+        example_sizer.Add(caption_example_label)
+        example_sizer.Add(regex_example_text)
+        example_sizer.Add(caption_example_text)
+        example_sizer.Add(regex_example_text2)
+        example_sizer.Add(caption_example_text2)
+
+        vsizer = wx.BoxSizer(wx.VERTICAL)
+        vsizer.Add(hsizer, 1, wx.ALL | wx.EXPAND, 5)
+        vsizer.Add(example_sizer, 0, wx.ALL | wx.EXPAND, 5)
+        vsizer.AddSpacer(10)
+        vsizer.Add(num_ticks_sizer, 0, wx.ALL | wx.EXPAND, 5)
+        vsizer.Add(show_detailed_queue_packets_checkbox, 0, wx.ALL | wx.EXPAND, 5)
+        vsizer.Add(exit_btn_sizer, 0, wx.ALL | wx.EXPAND, 5)
+
+        self.errors_label = wx.StaticText(self, label='No issues found', size=(col0_width,-1))
+        hsizer2 = wx.BoxSizer(wx.HORIZONTAL)
+        hsizer2.Add(vsizer)
+        hsizer2.AddSpacer(10)
+        hsizer2.Add(wx.StaticLine(self, style=wx.LI_VERTICAL), 0, wx.EXPAND)
+        hsizer2.AddSpacer(10)
+        hsizer2.Add(self.errors_label)
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(hsizer2, 1, wx.ALL | wx.EXPAND, 5)
+        self.SetSizer(sizer)
+        self.Layout()
 
         self.element_path_regexes_list_ctrl.SetColumnWidth(0, col0_width)
         self.element_path_regexes_list_ctrl.SetColumnWidth(1, col1_width)
 
         dlg_width  = col0_width + col1_width
         dlg_min_width = dlg_width + hsizer.CalcMin()[0] + 50
-        dlg_min_height = sizer.CalcMin()[1] + 150
+        dlg_min_height = sizer.CalcMin()[1] + 75
         self.SetSize((dlg_min_width, dlg_min_height))
         self.Layout()
 
@@ -503,7 +543,7 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
 
         return regexes
 
-    def __OnElementSelected(self, evt):
+    def __OnListCtrlItemSelected(self, evt):
         selected_elem_idxs = self.__GetListCtrlSelectedItemIdxs()
         if len(selected_elem_idxs) == 0:
             self.move_up_btn.Disable()
@@ -628,7 +668,7 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
     def __OnShowDetailedQueuePacketsChanged(self, evt):
         self.show_detailed_queue_packets = evt.IsChecked()
 
-    def __OnElementDoubleClicked(self, evt):
+    def __OnListCtrlItemDClicked(self, evt):
         # Get the mouse position in the list control
         mouse_x, mouse_y = evt.GetPosition()
 
@@ -667,6 +707,9 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         # Create a text control to edit the cell
         self.text_ctrl = wx.TextCtrl(self, value=current_text, style=wx.TE_PROCESS_ENTER, pos=text_ctrl_pos, size=text_ctrl_size)
 
+        # Callback when editing the cell
+        self.text_ctrl.Bind(wx.EVT_TEXT, lambda evt: self.__OnListCtrlEdit(evt, row, col, current_text))
+
         # Callbacks when finished editing the cell
         self.text_ctrl.Bind(wx.EVT_TEXT_ENTER, lambda evt: self.__OnListCtrlEditComplete(evt, row, col, current_text))
         self.text_ctrl.Bind(wx.EVT_KILL_FOCUS, lambda evt: self.__OnListCtrlEditComplete(evt, row, col, current_text))
@@ -674,13 +717,41 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
         # Focus the text control right away
         self.text_ctrl.SetFocus()
 
+    def __OnListCtrlEdit(self, evt, row, col, current_text):
+        if col == 0:
+            regex = self.text_ctrl.GetValue()
+            try:
+                re.compile(regex)
+                self.text_ctrl.SetBackgroundColour(wx.WHITE)
+                evt.Skip()
+            except:
+                self.text_ctrl.SetBackgroundColour((255, 192, 203)) # Pink
+        else:
+            regex = self.element_path_regexes_list_ctrl.GetItemText(row, 0)
+            caption = self.text_ctrl.GetValue()
+            valid = False
+
+            for elem_path in self.frame.simhier.GetContainerElemPaths():
+                try:
+                    re.compile(regex)
+                    re.sub(regex, caption, elem_path)
+                    self.text_ctrl.SetBackgroundColour(wx.WHITE)
+                    evt.Skip()
+                    valid = True
+                    break
+                except:
+                    pass
+
+            if not valid:
+                self.text_ctrl.SetBackgroundColour((255, 192, 203)) # Pink
+
     def __OnListCtrlEditComplete(self, evt, row, col, orig_text):
         if not self.text_ctrl:
             return
-        else:
-            self.text_ctrl.Unbind(wx.EVT_TEXT_ENTER)
-            self.text_ctrl.Unbind(wx.EVT_KILL_FOCUS)
-            evt.Skip()
+
+        self.text_ctrl.Unbind(wx.EVT_TEXT_ENTER)
+        self.text_ctrl.Unbind(wx.EVT_KILL_FOCUS)
+        evt.Skip()
 
         new_value = self.text_ctrl.GetValue()
 
@@ -690,96 +761,17 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
 
         wx.CallAfter(DestroyTextCtrl, self.text_ctrl)
 
-        def ResetListCtrl(list_ctrl, row, col, text):
+        def SetListCtrlItem(list_ctrl, row, col, text):
             list_ctrl.SetItem(row, col, text)
 
-        if col == 0:
-            try:
-                re.compile(new_value)
-
-                # Just because the regex compiles doesn't mean it's valid. We need to test it.
-                caption_replacement = self.element_path_regexes_list_ctrl.GetItemText(row, 1)
-                has_matches = False
-                has_substitutions = False
-
-                for elem_path in self.frame.simhier.GetContainerElemPaths():
-                    if re.compile(new_value).match(elem_path):
-                        has_matches = True
-                        try:
-                            re.sub(new_value, caption_replacement, elem_path)
-                            has_substitutions = True
-                            break
-                        except:
-                            pass
-
-                if not has_matches:
-                    tooltip = 'There are no element paths that match this regex:\n\n{}\n\n'.format(new_value)
-                    tooltip += 'Please remove it in the settings dialog.'
-                    self.ok_btn.Disable()
-                    self.ok_btn.SetToolTip(tooltip)
-                    wx.CallAfter(ResetListCtrl, self.element_path_regexes_list_ctrl, row, col, orig_text)
-                elif not has_substitutions:
-                    tooltip =  'The regex "{}" is valid syntax but there are no element paths that '
-                    tooltip += 'can be substituted with the caption replacement "{}". Please fix this '
-                    tooltip += 'in the settings dialog.'
-                    tooltip = tooltip.format(new_value, caption_replacement)
-                    self.ok_btn.Disable()
-                    self.ok_btn.SetToolTip(tooltip)
-                else:
-                    self.ok_btn.Enable()
-                    self.ok_btn.SetToolTip('')
-
-                self.pending_list_ctrl_changes.append((row, col, new_value))
-                wx.CallAfter(self.__ApplyPendingListCtrlChanges)
-            except re.error:
-                tooltip = 'Invalid regular expression entered:\n\n{}\n\nPlease fix it in the widget settings dialog.'.format(new_value)
-                self.ok_btn.Disable()
-                self.ok_btn.SetToolTip(tooltip)
-                wx.CallAfter(ResetListCtrl, self.element_path_regexes_list_ctrl, row, col, orig_text)
+        if self.text_ctrl.GetBackgroundColour() == (255, 192, 203):
+            # The regex or caption is invalid. Revert to the original text.
+            wx.CallAfter(SetListCtrlItem, self.element_path_regexes_list_ctrl, row, col, orig_text)
         else:
-            # Ensure the regex is valid for this caption substitution
-            regex = self.element_path_regexes_list_ctrl.GetItemText(row, 0)
-            has_matches = False
-            has_substitutions = False
+            # The regex or caption is valid. Update the list control.
+            wx.CallAfter(SetListCtrlItem, self.element_path_regexes_list_ctrl, row, col, new_value)
 
-            for elem_path in self.frame.simhier.GetContainerElemPaths():
-                try:
-                    if re.compile(regex).match(elem_path):
-                        has_matches = True
-                        try:
-                            re.sub(regex, new_value, elem_path)
-                            has_substitutions = True
-                            break
-                        except:
-                            pass
-                except re.error:
-                    pass
-
-            if not has_matches:
-                tooltip =  'There are no element paths that match this regex:\n\n{}\n\n'
-                tooltip += 'Please remove it in the settings dialog.'
-                tooltip =  tooltip.format(regex)
-                self.ok_btn.Disable()
-                self.ok_btn.SetToolTip(tooltip)
-            elif not has_substitutions:
-                tooltip =  'The regex "{}" is valid syntax but there are no element paths that\n'
-                tooltip += 'can be substituted with the caption replacement "{}".'
-                tooltip =  tooltip.format(regex, new_value)
-                self.ok_btn.Disable()
-                self.ok_btn.SetToolTip(tooltip)
-                wx.CallAfter(ResetListCtrl, self.element_path_regexes_list_ctrl, row, col, orig_text)
-            else:
-                self.ok_btn.Enable()
-                self.ok_btn.SetToolTip('')
-
-            self.pending_list_ctrl_changes.append((row, col, new_value))
-            wx.CallAfter(self.__ApplyPendingListCtrlChanges)
-
-    def __ApplyPendingListCtrlChanges(self):
-        for row, col, new_value in self.pending_list_ctrl_changes:
-            self.element_path_regexes_list_ctrl.SetItem(row, col, new_value)
-
-        self.pending_list_ctrl_changes = []
+        wx.CallAfter(self.__ValidateRegexSettings, None)
 
     def __OnNumTicksBeforeSliderChanged(self, evt):
         self.num_ticks_before_value_label.SetLabel(str(self.num_ticks_before_slider.GetValue()))
@@ -787,12 +779,89 @@ class SchedulingLinesCustomizationDialog(wx.Dialog):
     def __OnNumTicksAfterSliderChanged(self, evt):
         self.num_ticks_after_value_label.SetLabel(str(self.num_ticks_after_slider.GetValue()))
 
+    def __ValidateRegexSettings(self, evt):
+        if not self.ok_btn:
+            return
+
+        orig_regex_replacements = self.caption_mgr.GetElemPathRegexReplacements()
+        validate_regex_replacements = OrderedDict()
+        for row in range(self.element_path_regexes_list_ctrl.GetItemCount()):
+            path_regex = self.element_path_regexes_list_ctrl.GetItemText(row, 0)
+            caption_replacements = self.element_path_regexes_list_ctrl.GetItemText(row, 1)
+            validate_regex_replacements[path_regex] = caption_replacements
+
+        self.caption_mgr.SetElemPathRegexReplacements(validate_regex_replacements)
+
+        error_msgs = []
+        for row in range(self.element_path_regexes_list_ctrl.GetItemCount()):
+            path_regex = self.element_path_regexes_list_ctrl.GetItemText(row, 0)
+            caption_replacements = self.element_path_regexes_list_ctrl.GetItemText(row, 1)
+
+            try:
+                re.compile(path_regex)
+            except:
+                error_msgs.append('Invalid regex in row {}:\n  {}'.format(row, path_regex))
+                continue
+
+            replacements_valid = False
+            for elem_path in self.frame.simhier.GetContainerElemPaths():
+                try:
+                    re.sub(path_regex, caption_replacements, elem_path)
+                    replacements_valid = True
+                    break
+                except:
+                    continue
+
+            if not replacements_valid:
+                error_msgs.append('Invalid replacements in row {}:\n  {}'.format(row, caption_replacements))
+
+        caption_prefixes = set()
+        for elem_path in self.frame.simhier.GetContainerElemPaths():
+            caption_prefix = self.caption_mgr.GetCaptionPrefix(elem_path)
+            if caption_prefix is None:
+                continue
+
+            if caption_prefix in caption_prefixes:
+                error_msgs.append('Duplicate caption prefix found: {}'.format(caption_prefix))
+            else:
+                caption_prefixes.add(caption_prefix)
+
+        if len(error_msgs) > 0:
+            self.ok_btn.Disable()
+            self.caption_mgr.SetElemPathRegexReplacements(orig_regex_replacements)
+            self.errors_label.SetLabel('\n'.join(error_msgs))
+            self.errors_label.SetForegroundColour(wx.RED)
+
+            current_font = self.errors_label.GetFont()
+
+            # Create a new font based on the current one but bold
+            bold_font = wx.Font(current_font.GetPointSize(),
+                                current_font.GetFamily(),
+                                current_font.GetStyle(),
+                                wx.FONTWEIGHT_BOLD)
+            
+            self.errors_label.SetFont(bold_font)
+        else:
+            self.ok_btn.Enable()
+            self.errors_label.SetLabel('No issues found')
+            self.errors_label.SetForegroundColour(wx.BLACK)
+
+            current_font = self.errors_label.GetFont()
+
+            # Create a new font based on the current one but without bold
+            normal_font = wx.Font(current_font.GetPointSize(),
+                                  current_font.GetFamily(),
+                                  current_font.GetStyle(),
+                                  wx.FONTWEIGHT_NORMAL)
+            
+            self.errors_label.SetFont(normal_font)
+
 class CaptionManager:
     def __init__(self, simhier):
         self.simhier = simhier
         self.regex_replacements_by_elem_path_regex = OrderedDict()
 
-    def AddElemPathRegexReplacement(self, elem_path_regex, regex_replacement):
+    def SetElemPathRegexReplacement(self, elem_path_regex, regex_replacement):
         self.regex_replacements_by_elem_path_regex[elem_path_regex] = regex_replacement
 
     def SetElemPathRegexReplacements(self, regex_replacements_by_elem_path_regex):
@@ -814,10 +883,10 @@ class CaptionManager:
         for regex, replacements in self.regex_replacements_by_elem_path_regex.items():
             if regex == elem_path:
                 # No regex was supplied in the settings dialog. The full path was given e.g.
-                #   "top.core0.rob.stats.num_insts_retired"
+                #   "top.cpu.core0.rob.stats.num_insts_retired"
                 # 
                 # Instead of something like:
-                #   "top.core([0-9]+).rob.stats.num_insts_retired"
+                #   "top.cpu.core([0-9]+).rob.stats.num_insts_retired"
                 #
                 # We will just return the last part of the path as the caption using
                 # heads-up camel case e.g. "NumInstsRetired[3]"
@@ -825,10 +894,10 @@ class CaptionManager:
 
             if re.compile(regex).match(elem_path):
                 # This matched an elem path e.g.
-                #   "top.core1.rob.stats.num_insts_retired"
+                #   "top.cpu.core1.rob.stats.num_insts_retired"
                 #
                 # With a regex e.g.
-                #   "top.core([0-9]+).rob.stats.num_insts_retired"
+                #   "top.cpu.core([0-9]+).rob.stats.num_insts_retired"
                 #
                 # We will return something like "NumInstsRetired1[3]"
                 #                                               ^ ^
