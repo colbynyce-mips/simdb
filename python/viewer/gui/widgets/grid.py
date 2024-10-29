@@ -40,12 +40,33 @@ class Grid(wx.grid.Grid):
 
     def GetCellBackgroundColour(self, row, col):
         return self.renderer.GetCellBackgroundColour(row, col)
+    
+    def GetCellBorderWidth(self, row, col):
+        return self.renderer.GetCellBorderWidth(row, col)
+    
+    def GetCellBorderSide(self, row, col):
+        return self.renderer.GetCellBorderSide(row, col)
 
     def SetCellBorder(self, row, col, border_width=1, border_side=wx.ALL, immediate_refresh=False):
-        self.renderer.SetBorder(row, col, border_width, border_side)
+        self.renderer.SetCellBorder(row, col, border_width, border_side)
         if immediate_refresh:
             self.Refresh()
             self.AutoSize()
+
+    def SetCellBorderWidth(self, row, col, border_width, immediate_refresh=False):
+        self.renderer.SetCellBorderWidth(row, col, border_width)
+        if immediate_refresh:
+            self.Refresh()
+            self.AutoSize()
+
+    def SetCellBorderSide(self, row, col, border_side, immediate_refresh=False):
+        self.renderer.SetCellBorderSide(row, col, border_side)
+        if immediate_refresh:
+            self.Refresh()
+            self.AutoSize()
+
+    def RemoveCellBorder(self, row, col, immediate_refresh=False):
+        self.SetCellBorder(row, col, 0, wx.ALL, immediate_refresh)
 
     def SetCellFont(self, row, col, font):
         self.renderer.SetCellFont(row, col, font)
@@ -64,7 +85,7 @@ class Grid(wx.grid.Grid):
             for col in range(self.GetNumberCols()):
                 self.SetCellValue(row, col, '')
                 self.SetCellBackgroundColour(row, col, (255, 255, 255))
-                self.SetCellBorder(row, col, 0)
+                self.RemoveCellBorder(row, col)
                 self.UnsetCellToolTip(row, col)
 
         self.Refresh()
@@ -86,9 +107,21 @@ class GridCellRenderer(wx.grid.GridCellRenderer):
 
     def GetCellBackgroundColour(self, row, col):
         return self.cells[row][col].GetBackgroundColour()
+    
+    def GetCellBorderWidth(self, row, col):
+        return self.cells[row][col].GetBorderWidth()
+    
+    def GetCellBorderSide(self, row, col):
+        return self.cells[row][col].GetBorderSide()
 
-    def SetBorder(self, row, col, border_width, border_side):
+    def SetCellBorder(self, row, col, border_width, border_side):
         self.cells[row][col].SetBorder(border_width, border_side)
+
+    def SetCellBorderWidth(self, row, col, border_width):
+        self.cells[row][col].SetBorderWidth(border_width)
+
+    def SetCellBorderSide(self, row, col, border_side):
+        self.cells[row][col].SetBorderSide(border_side)
 
     def SetCellFont(self, row, col, font):
         self.cells[row][col].SetFont(font)
@@ -132,9 +165,21 @@ class GridCell:
     def GetBackgroundColour(self):
         return self.background_colour
     
+    def GetBorderWidth(self):
+        return self.border_width
+    
+    def GetBorderSide(self):
+        return self.border_side
+    
     def SetBorder(self, border_width, border_side):
         self.border_width = border_width
         self.border_side = border_side if border_width else wx.ALL
+
+    def SetBorderWidth(self, border_width):
+        self.border_width = border_width
+
+    def SetBorderSide(self, border_side):
+        self.border_side = border_side
 
     def SetToolTip(self, tooltip):
         if tooltip in (None, ''):

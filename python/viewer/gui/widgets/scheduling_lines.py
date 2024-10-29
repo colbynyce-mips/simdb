@@ -2,6 +2,7 @@ import wx, copy, re
 from collections import OrderedDict
 from viewer.gui.view_settings import DirtyReasons
 from viewer.gui.widgets.grid import Grid
+from functools import partial
 
 class SchedulingLinesWidget(wx.Panel):
     def __init__(self, parent, frame):
@@ -249,6 +250,7 @@ class SchedulingLinesWidget(wx.Panel):
 
         self.grid = Grid(self, self.frame, num_rows, num_cols, cell_font=font8, label_font=font10, cell_selection_allowed=False)
         self.grid.GetGridWindow().Bind(wx.EVT_MOTION, self.__OnGridMouseMotion)
+        self.grid.GetGridWindow().Bind(wx.EVT_RIGHT_DOWN, self.__OnGridRightClick)
         self.grid.EnableGridLines(False)
 
         self.gear_btn = wx.BitmapButton(self, bitmap=self.frame.CreateResourceBitmap('gear.png'))
@@ -437,6 +439,66 @@ class SchedulingLinesWidget(wx.Panel):
             self.grid.SetToolTip(tooltip)
         else:
             self.grid.UnsetToolTip()
+
+    def __OnGridRightClick(self, evt):
+        x, y = self.grid.CalcUnscrolledPosition(evt.GetX(), evt.GetY())
+        row, col = self.grid.XYToCell(x, y)
+
+        if col == 0:
+            return
+
+        if self.show_detailed_queue_packets and col > self.num_ticks_before + self.num_ticks_after:
+            return
+
+        # We have right-clicked a rasterized cell, instead of a caption cell or the detailed packets
+        # which don't have any menu to popup.
+        tag = self.grid.GetCellValue(row, col)
+
+        # Extract the element path from the row label's tooltip e.g. "top.cpu.core0.rob.stats.num_insts_retired"
+        elem_path = self.grid.GetCellToolTip(row, 0)
+
+        # Extract the caption for this row e.g. "NumInstsRetired[3]"
+        caption = self.grid.GetCellValue(row, 0)
+
+        # Extract the bin index from the caption
+        match = re.match(r'(.+)\[(\d+)\]', caption)
+        assert match
+        bin_idx = match.group(2)
+
+        menu = wx.Menu()
+
+        if self.grid.GetCellBorderWidth(row, col) == 0:
+            opt = menu.Append(wx.ID_ANY, 'Highlight cells with tag "{}"'.format(tag))
+            self.grid.Bind(wx.EVT_MENU, partial(self.__HighlightCellsWithTag, tag=tag, highlight=True), opt)
+        else:
+            opt = menu.Append(wx.ID_ANY, 'Unhighlight cells with tag "{}"'.format(tag))
+            self.grid.Bind(wx.EVT_MENU, partial(self.__HighlightCellsWithTag, tag=tag, highlight=False), opt)
+
+        opt = menu.Append(wx.ID_ANY, 'Go to next cycle where different')
+        self.grid.Bind(wx.EVT_MENU, partial(self.__GoToNextCycleWhereDifferent, elem_path=elem_path, bin_idx=bin_idx), opt)
+
+        opt = menu.Append(wx.ID_ANY, 'Go to previous cycle where different')
+        self.grid.Bind(wx.EVT_MENU, partial(self.__GoToPrevCycleWhereDifferent, elem_path=elem_path, bin_idx=bin_idx), opt)
+
+        self.grid.PopupMenu(menu)
+
+    def __HighlightCellsWithTag(self, evt, tag, highlight):
+        for row in range(self.grid.GetNumberRows()):
+            for col in range(1, 1 + self.num_ticks_before + self.num_ticks_after):
+                if self.grid.GetCellValue(row, col) == tag:
+                    if highlight:
+                        self.grid.SetCellBorder(row, col)
+                    else:
+                        self.grid.RemoveCellBorder(row, col)
+
+        self.grid.Refresh()
+        self.grid.AutoSize()
+
+    def __GoToNextCycleWhereDifferent(self, evt, elem_path, bin_idx):
+        print ('TODO: Go to next cycle where different')
+
+    def __GoToPrevCycleWhereDifferent(self, evt, elem_path, bin_idx):
+        print ('TODO: Go to previous cycle where different')
 
     def __EditWidget(self, evt):
         dlg = SchedulingLinesCustomizationDialog(self, self.caption_mgr, self.num_ticks_before, self.num_ticks_after, self.show_detailed_queue_packets)
