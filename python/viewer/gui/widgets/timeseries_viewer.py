@@ -13,8 +13,8 @@ class TimeseriesViewerWidget(wx.Panel):
     def GetWidgetCreationString(self):
         return 'Timeseries Viewer'
 
-    def ErrorIfDroppedNodeIncompatible(self, elem_path):
-        return False
+    def GetErrorIfDroppedNodeIncompatible(self, elem_path):
+        return None
 
     def AddElement(self, elem_path):
         pass

@@ -1,4 +1,4 @@
-import copy
+import copy, re
 
 class SimHierarchy:
     def __init__(self, db):
@@ -161,6 +161,9 @@ class SimHierarchy:
     
     def GetWidgetType(self, elem_id):
         return self._widget_types_by_elem_id[elem_id]
+
+    def GetElemPathsMatchingRegex(self, elem_path_regex):
+        return [elem_path for elem_path in self.GetElemPaths() if re.match(elem_path_regex)]
 
     def __RecurseBuildHierarchy(self, cursor, parent_id, child_ids_by_parent_id):
         cursor.execute("SELECT Id FROM ElementTreeNodes WHERE ParentID={}".format(parent_id))

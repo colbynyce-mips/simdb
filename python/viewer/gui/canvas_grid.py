@@ -330,7 +330,10 @@ class WidgetContainerDropTarget(wx.TextDropTarget):
                 return self.__DropWidget(text)
             elif current_widget_is_tool and not incoming_widget_is_tool:
                 elem_path = text.split('$')[1]
-                if widget.ErrorIfDroppedNodeIncompatible(elem_path):
+                err_msg = widget.GetErrorIfDroppedNodeIncompatible(elem_path)
+                if err_msg:
+                    msg, title = err_msg
+                    wx.MessageBox(msg, title, wx.OK | wx.ICON_ERROR)
                     return False
 
                 widget.AddElement(elem_path)

@@ -11,7 +11,12 @@ class Grid(wx.grid.Grid):
 
         self.CreateGrid(rows, cols)
         self.EnableEditing(False)
-        self.DeselectCell(0,0)
+        self.DisableDragColMove()
+        self.DisableDragColSize()
+        self.DisableDragRowMove()
+        self.DisableDragRowSize()
+        self.DisableDragGridSize()
+        self.DisableCellEditControl()
 
         if not cell_selection_allowed:
             self.Bind(wx.grid.EVT_GRID_SELECT_CELL, lambda evt: evt.Veto())
