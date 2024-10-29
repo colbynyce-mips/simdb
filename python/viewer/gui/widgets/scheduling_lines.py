@@ -248,6 +248,8 @@ class SchedulingLinesWidget(wx.Panel):
         font10 = wx.Font(10, wx.FONTFAMILY_MODERN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
 
         self.grid = Grid(self, self.frame, num_rows, num_cols, cell_font=font8, label_font=font10, cell_selection_allowed=False)
+        self.grid.GetGridWindow().Bind(wx.EVT_MOTION, self.__OnGridMouseMotion)
+
         self.gear_btn = wx.BitmapButton(self, bitmap=self.frame.CreateResourceBitmap('gear.png'))
         self.gear_btn.Bind(wx.EVT_BUTTON, self.__EditWidget)
 
@@ -339,9 +341,19 @@ class SchedulingLinesWidget(wx.Panel):
             if col > 0:
                 self.grid.SetCellFont(row, col+1, font)
 
+        row = 0
         captions = []
         for elem_path in self.caption_mgr.GetAllMatchingElemPaths():
-            captions.extend(self.__GetCaptionsForElement(elem_path))
+            elem_captions = self.__GetCaptionsForElement(elem_path)
+            for caption in elem_captions:
+                match = re.match(r'(.+)\[(\d+)\]', caption)
+                assert match
+                bin_idx = match.group(2)
+                tooltip = elem_path + '[' + bin_idx + ']'
+
+                captions.append(caption)
+                self.grid.SetCellToolTip(row, col, tooltip)
+                row += 1
 
         max_num_chars = max([len(caption) for caption in captions])
 
@@ -400,17 +412,25 @@ class SchedulingLinesWidget(wx.Panel):
 
             for i in range(1, max_size):
                 bin_idx = max_size - i - 1
-                #captions.append('{}[{}]'.format(caption_prefix, bin_idx))
                 caption = self.caption_mgr.GetCaption(elem_path, bin_idx)
                 captions.append(caption)
         else:
             for i in range(num_bins):
                 bin_idx = num_bins - i - 1
-                #captions.append('{}[{}]'.format(caption_prefix, bin_idx))
                 caption = self.caption_mgr.GetCaption(elem_path, bin_idx)
                 captions.append(caption)
 
         return captions
+    
+    def __OnGridMouseMotion(self, evt):
+        x, y = self.grid.CalcUnscrolledPosition(evt.GetX(), evt.GetY())
+        row, col = self.grid.XYToCell(x, y)
+        tooltip = self.grid.GetCellToolTip(row, col)
+
+        if tooltip:
+            self.grid.SetToolTip(tooltip)
+        else:
+            self.grid.UnsetToolTip()
 
     def __EditWidget(self, evt):
         dlg = SchedulingLinesCustomizationDialog(self, self.caption_mgr, self.num_ticks_before, self.num_ticks_after, self.show_detailed_queue_packets)
@@ -1050,13 +1070,12 @@ class Rasterizer:
         auto_color = self.frame.widget_renderer.GetAutoColor(auto_colorize_key)
         auto_label = self.frame.widget_renderer.GetAutoTag(auto_colorize_key)
 
-        if self.detailed_pkt_col != -1:
-            anno = []
-            for k,v in annos.items():
-                anno.append('{}({})'.format(k,v))
+        anno = []
+        for k,v in annos.items():
+            anno.append('{}({})'.format(k,v))
 
-            self.grid.SetCellValue(self.row, self.detailed_pkt_col, ' '.join(anno))
-            self.grid.SetCellBackgroundColour(self.row, self.detailed_pkt_col, auto_color)
+        stringized_anno = ' '.join(anno)
+        stringized_tooltip = '\n'.join(anno)
 
         for col in range(self.grid.GetNumberCols()):
             if not self.grid.IsColShown(col):
@@ -1071,4 +1090,10 @@ class Rasterizer:
             if col_label == float(time_val):
                 self.grid.SetCellValue(self.row, col, auto_label)
                 self.grid.SetCellBackgroundColour(self.row, col, auto_color)
+                self.grid.SetCellToolTip(self.row, col, stringized_tooltip)
                 break
+
+        if self.detailed_pkt_col != -1 and time_val == self.frame.widget_renderer.tick:
+            self.grid.SetCellValue(self.row, self.detailed_pkt_col, stringized_anno)
+            self.grid.SetCellBackgroundColour(self.row, self.detailed_pkt_col, auto_color)
+            self.grid.SetCellToolTip(self.row, self.detailed_pkt_col, stringized_tooltip)

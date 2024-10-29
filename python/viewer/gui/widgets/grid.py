@@ -50,12 +50,22 @@ class Grid(wx.grid.Grid):
     def SetCellFont(self, row, col, font):
         self.renderer.SetCellFont(row, col, font)
 
+    def SetCellToolTip(self, row, col, tooltip):
+        self.renderer.SetCellToolTip(row, col, tooltip)
+
+    def GetCellToolTip(self, row, col):
+        return self.renderer.GetCellToolTip(row, col)
+    
+    def UnsetCellToolTip(self, row, col):
+        self.renderer.UnsetCellToolTip(row, col)
+
     def ClearGrid(self):
         for row in range(self.GetNumberRows()):
             for col in range(self.GetNumberCols()):
                 self.SetCellValue(row, col, '')
                 self.SetCellBackgroundColour(row, col, (255, 255, 255))
                 self.SetCellBorder(row, col, 0)
+                self.UnsetCellToolTip(row, col)
 
         self.Refresh()
         self.AutoSize()
@@ -83,6 +93,15 @@ class GridCellRenderer(wx.grid.GridCellRenderer):
     def SetCellFont(self, row, col, font):
         self.cells[row][col].SetFont(font)
 
+    def SetCellToolTip(self, row, col, tooltip):
+        self.cells[row][col].SetToolTip(tooltip)
+
+    def GetCellToolTip(self, row, col):
+        return self.cells[row][col].GetToolTip()
+    
+    def UnsetCellToolTip(self, row, col):
+        self.cells[row][col].UnsetToolTip()
+
     def Draw(self, grid, attr, dc, rect, row, col, isSelected):
         self.cells[row][col].Draw(grid, dc, rect)
 
@@ -96,6 +115,7 @@ class GridCell:
         self.background_colour = (255, 255, 255)
         self.border_width = 0
         self.border_side = wx.ALL
+        self.tooltip = None
 
     def SetText(self, text):
         self.text = text
@@ -115,6 +135,18 @@ class GridCell:
     def SetBorder(self, border_width, border_side):
         self.border_width = border_width
         self.border_side = border_side
+
+    def SetToolTip(self, tooltip):
+        if tooltip in (None, ''):
+            self.UnsetToolTip()
+        else:
+            self.tooltip = tooltip
+
+    def GetToolTip(self):
+        return self.tooltip
+    
+    def UnsetToolTip(self):
+        self.tooltip = None
 
     def Draw(self, grid, dc, rect):
         dc.SetBrush(wx.Brush(self.background_colour))
