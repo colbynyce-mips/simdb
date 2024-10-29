@@ -155,6 +155,12 @@ class CanvasGrid(wx.Panel):
             menu.AppendSeparator()
             explode = menu.Append(-1, "Explode")
             self.Bind(wx.EVT_MENU, self.__Explode, explode)
+        elif isinstance(self.container, WidgetContainer):
+            widget = self.container.GetWidget()
+            if widget:
+                menu.AppendSeparator()
+                clear = menu.Append(-1, "Clear widget")
+                self.Bind(wx.EVT_MENU, lambda event: self.__DestroyAllWidgets(self.container), clear)
 
         self.Bind(wx.EVT_MENU, self.__OnSplitVertically, split_vertically)
         self.Bind(wx.EVT_MENU, self.__OnSplitHorizontally, split_horizontally)
