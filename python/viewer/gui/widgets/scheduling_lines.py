@@ -292,9 +292,6 @@ class SchedulingLinesWidget(wx.Panel):
             for i in range(self.num_ticks_before + self.num_ticks_after + 1, self.grid.GetNumberCols()):
                 self.grid.SetColLabelValue(i, '')
 
-        self.grid.AutoSize()
-        self.Layout()
-
     def __RasterizeAllCells(self):
         for elem_path in self.caption_mgr.GetAllMatchingElemPaths():
             start_time = self.frame.widget_renderer.tick - self.num_ticks_before
@@ -311,25 +308,6 @@ class SchedulingLinesWidget(wx.Panel):
                 time_val = time_vals[i]
                 for bin_idx, annos in enumerate(data_dicts):
                     self.__RerouteUnpackedDataToRasterizer(time_val, elem_path, bin_idx, annos)
-
-        # Get the max length of all cell labels in the last visible column
-        if self.show_detailed_queue_packets:
-            num_visible_columns = 0
-            for i in range(self.grid.GetNumberCols()):
-                if self.grid.IsColShown(i):
-                    num_visible_columns += 1
-
-            detailed_pkt_col = num_visible_columns - 1
-
-            dc = wx.ScreenDC()
-            dc.SetFont(self.grid.GetDefaultCellFont())
-            max_str_len = max([dc.GetTextExtent(self.grid.GetCellValue(row, detailed_pkt_col))[0] for row in range(self.grid.GetNumberRows())])
-
-            # Go through each cell in the last visible column and pad whitespace to make all cells the same width
-            for row in range(self.grid.GetNumberRows()):
-                cell_val = self.grid.GetCellValue(row, detailed_pkt_col)
-                cell_val += ' '*(max_str_len - len(cell_val))
-                self.grid.SetCellValue(row, detailed_pkt_col, cell_val)
 
         self.grid.AutoSize()
         self.Layout()
@@ -492,7 +470,6 @@ class SchedulingLinesWidget(wx.Panel):
                         self.grid.RemoveCellBorder(row, col)
 
         self.grid.Refresh()
-        self.grid.AutoSize()
 
     def __GoToNextCycleWhereDifferent(self, evt, elem_path, bin_idx):
         print ('TODO: Go to next cycle where different')
