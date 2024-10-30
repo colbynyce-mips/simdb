@@ -36,8 +36,8 @@ DIRTY_REASONS = {
 }
 
 class ViewSettings:
-    def __init__(self, views_dir=None):
-        self._views_dir = os.path.abspath(views_dir) if views_dir else os.getcwd()
+    def __init__(self):
+        self._views_dir = os.getcwd()
         self._view_file = None
         self._frame = None
         self._dirty = False
@@ -49,14 +49,10 @@ class ViewSettings:
     
     @view_file.setter
     def view_file(self, view_file):
-        if view_file and os.path.dirname(view_file) not in ('', self._views_dir):
-            msg = f"View file '{os.path.basename(view_file)}'\nis not in the views directory '{self._views_dir}'"
-            dlg = wx.MessageDialog(None, msg, 'Error', wx.OK | wx.ICON_ERROR)
-            dlg.ShowModal()
-            dlg.Destroy()
-            return
-
         self._view_file = view_file
+        if view_file not in (None, ''):
+            self._views_dir = os.path.dirname(view_file)
+
         self.__UpdateTitle()
 
     @property
@@ -73,15 +69,6 @@ class ViewSettings:
 
         self.__UpdateTitle()
 
-    def GetViewFiles(self):
-        if self._views_dir is None:
-            return []
-        elif not os.path.exists(self._views_dir):
-            os.makedirs(self._views_dir)
-            return []
-        else:
-            return [f for f in os.listdir(self._views_dir) if f.endswith('.avf')]
-        
     def PostLoad(self, frame, view_file):
         self._frame = frame
         if view_file:
@@ -92,14 +79,11 @@ class ViewSettings:
     
     def Load(self, view_file):
         if not os.path.isfile(view_file):
-            if not os.path.isfile(os.path.join(self._views_dir, view_file)):
-                msg = f"View file '{view_file}' does not exist in directory '{self._views_dir}'"
-                dlg = wx.MessageDialog(None, msg, 'Error', wx.OK | wx.ICON_ERROR)
-                dlg.ShowModal()
-                dlg.Destroy()
-                return
-
-            view_file = os.path.join(self._views_dir, view_file)
+            msg = f"View file '{view_file}' does not exist"
+            dlg = wx.MessageDialog(None, msg, 'Error', wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
         
         with open(view_file, 'r') as fin:
             settings = yaml.load(fin, Loader=yaml.FullLoader)
@@ -161,13 +145,6 @@ class ViewSettings:
             dlg.Destroy()
             return
         
-        if os.path.dirname(view_file) != self._views_dir:
-            msg = f"View file '{os.path.basename(view_file)}' is not in the views directory:\n'{self._views_dir}'"
-            dlg = wx.MessageDialog(None, msg, 'Error', wx.OK | wx.ICON_ERROR)
-            dlg.ShowModal()
-            dlg.Destroy()
-            return
-
         if self._dirty:
             if self.view_file:
                 msg = "Save changes to '{}' before opening '{}'?"
