@@ -111,13 +111,6 @@ class SchedulingLinesWidget(wx.Panel):
         self.__Refresh()
         self.frame.view_settings.SetDirty(reason=DirtyReasons.SchedulingLinesWidgetChanged)
 
-    def Layout(self):
-        if self.grid:
-            minw, minh = self.GetSize()
-            self.grid.SetMinSize((minw, minh+20))
-
-        super().Layout()
-
     def __AddElement(self, elem_path):
         assert elem_path not in self.caption_mgr.GetAllMatchingElemPaths()
             
