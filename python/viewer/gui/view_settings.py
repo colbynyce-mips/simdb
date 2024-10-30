@@ -285,14 +285,22 @@ class ViewSettings:
         if not os.path.exists(settings_file):
             return
         
-        with open(settings_file, 'r') as fin:
-            settings = yaml.load(fin, Loader=yaml.FullLoader)
-            self._frame.explorer.navtree.ApplyUserSettings(settings['NavTree'])
-            self._frame.explorer.watchlist.ApplyUserSettings(settings['Watchlist'])
-            self._frame.playback_bar.ApplyUserSettings(settings['PlaybackBar'])
-            self._frame.data_retriever.ApplyUserSettings(settings['DataRetriever'])
-            self._frame.inspector.ApplyUserSettings(settings['Inspector'])
-            self._frame.widget_renderer.ApplyUserSettings(settings['WidgetRenderer'])
+        # Delete the user settings file on any exception. This typically happens
+        # when the simulation hierarchy changes from one DB to the next. We don't
+        # have a good way to partially apply the settings, so we just delete the
+        # settings file and start over.
+        try:
+            with open(settings_file, 'r') as fin:
+                settings = yaml.load(fin, Loader=yaml.FullLoader)
+                self._frame.explorer.navtree.ApplyUserSettings(settings['NavTree'])
+                self._frame.explorer.watchlist.ApplyUserSettings(settings['Watchlist'])
+                self._frame.playback_bar.ApplyUserSettings(settings['PlaybackBar'])
+                self._frame.data_retriever.ApplyUserSettings(settings['DataRetriever'])
+                self._frame.inspector.ApplyUserSettings(settings['Inspector'])
+                self._frame.widget_renderer.ApplyUserSettings(settings['WidgetRenderer'])
+        except:
+            print ("Error loading user settings. Deleting settings file.")
+            os.remove(settings_file)
 
     def __AskToSaveChangesToCurrentView(self, prompt):
         dlg = SaveViewFileDlg(prompt=prompt, reasons=self._dirty_reasons)
