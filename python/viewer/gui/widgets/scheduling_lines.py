@@ -315,8 +315,21 @@ class SchedulingLinesWidget(wx.Panel):
                 for bin_idx, annos in enumerate(data_dicts):
                     self.__RerouteUnpackedDataToRasterizer(time_val, elem_path, bin_idx, annos)
 
+
+        # Left-justify the detailed packet column
+        if self.show_detailed_queue_packets:
+            col = self.num_ticks_before + self.num_ticks_after + 3
+            labels = [self.grid.GetCellValue(row,col) for row in range(self.grid.GetNumberRows())]
+            max_num_chars = max([len(label) for label in labels])
+            for row in range(self.grid.GetNumberRows()):
+                label = self.grid.GetCellValue(row, col).strip()
+                label = label.strip() + ' '*(max_num_chars - len(label))
+                self.grid.SetCellValue(row, col, label)
+
         self.grid.AutoSize()
         self.Layout()
+        self.Update()
+        self.Refresh()
 
     def __RerouteUnpackedDataToRasterizer(self, time_val, elem_path, bin_idx, annos):
         key = (elem_path, bin_idx)
