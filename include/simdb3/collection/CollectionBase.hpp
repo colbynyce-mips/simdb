@@ -243,6 +243,22 @@ public:
         timestamp_ = new_timestamp;
     }
 
+    /// \brief  Use the given function pointer to an integral/double time value
+    ///         when adding timestamps to collected collections.
+    ///
+    /// \throws Throws an exception if called a second time with a different
+    ///         timestamp type (call 1st time with uint64_t, call 2nd time
+    ///         with double, THROWS).
+    template <typename TimeT>
+    void useTimestampsFrom(std::function<TimeT()> func_ptr)
+    {
+        auto new_timestamp = createTimestamp_<TimeT>(func_ptr);
+        if (timestamp_ && timestamp_->getDataType() != new_timestamp->getDataType()) {
+            throw DBException("Cannot change the timestamp data type!");
+        }
+        timestamp_ = new_timestamp;
+    }
+
     /// Set the heartbeat for all collections. This is the max number of cycles
     /// that we employ the optimization "only write to the database if the collected
     /// data is different from the last collected data". This prevents Argos from
@@ -396,6 +412,13 @@ private:
     }
 
     template <typename TimeT>
+    typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint32_t), TimestampPtr>::type
+    createTimestamp_(std::function<TimeT()> func_ptr) const
+    {
+        return std::make_shared<TimestampInt32<TimeT>>(func_ptr);
+    }
+
+    template <typename TimeT>
     typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint64_t), TimestampPtr>::type
     createTimestamp_(const TimeT* back_ptr) const
     {
@@ -410,6 +433,13 @@ private:
     }
 
     template <typename TimeT>
+    typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint64_t), TimestampPtr>::type
+    createTimestamp_(std::function<TimeT()> func_ptr) const
+    {
+        return std::make_shared<TimestampInt64<TimeT>>(func_ptr);
+    }
+
+    template <typename TimeT>
     typename std::enable_if<std::is_floating_point<TimeT>::value, TimestampPtr>::type
     createTimestamp_(const TimeT* back_ptr) const
     {
@@ -419,6 +449,13 @@ private:
     template <typename TimeT>
     typename std::enable_if<std::is_floating_point<TimeT>::value, TimestampPtr>::type
     createTimestamp_(TimeT(*func_ptr)()) const
+    {
+        return std::make_shared<TimestampDouble<TimeT>>(func_ptr);
+    }
+
+    template <typename TimeT>
+    typename std::enable_if<std::is_floating_point<TimeT>::value, TimestampPtr>::type
+    createTimestamp_(std::function<TimeT()> func_ptr) const
     {
         return std::make_shared<TimestampDouble<TimeT>>(func_ptr);
     }
