@@ -242,6 +242,7 @@ class CanvasGrid(wx.Panel):
     def __DestroyAllWidgets(self, container):
         if isinstance(container, WidgetContainer):
             container.DestroyAllWidgets()
+            container.frame.view_settings.SetDirty(reason=DirtyReasons.WidgetRemoved)
         else:
             for child in container.GetChildren():
                 self.__DestroyAllWidgets(child)

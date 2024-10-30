@@ -16,6 +16,7 @@ class DirtyReasons(enum.Enum):
     QueueTableAutoColorizeChanged = 13
     SchedulingLinesWidgetChanged = 14
     SashPositionChanged = 15
+    WidgetRemoved = 16
 
 DIRTY_REASONS = {
     DirtyReasons.WidgetDropped: 'A widget was dropped onto the widget canvas',
@@ -32,7 +33,8 @@ DIRTY_REASONS = {
     DirtyReasons.QueueTableDispColsChanged: 'Displayed columns were changed for a Queue Table widget',
     DirtyReasons.QueueTableAutoColorizeChanged: 'Auto-colorize column was changed for a Queue Table widget',
     DirtyReasons.SchedulingLinesWidgetChanged: 'Displayed queues were changed for a Scheduling Lines widget',
-    DirtyReasons.SashPositionChanged: 'Widget canvas splitter window sash position changed'
+    DirtyReasons.SashPositionChanged: 'Widget canvas splitter window sash position changed',
+    DirtyReasons.WidgetRemoved: 'A widget was removed from the inspector canvas'
 }
 
 class ViewSettings:
