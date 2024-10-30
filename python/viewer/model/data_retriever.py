@@ -383,6 +383,9 @@ class DataRetriever:
 
         return {'TimeVals': time_vals, 'DataVals': data_vals}
 
+    def GetAllTimeVals(self):
+        return copy.deepcopy(self._time_vals)
+
     def _FormatTimeVal(self, time_val):
         if self._time_type == 'INT':
             return int(time_val)

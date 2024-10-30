@@ -264,10 +264,15 @@ class SchedulingLinesWidget(wx.Panel):
 
         current_tick = self.frame.widget_renderer.tick
         col_labels = []
+        time_vals = self.frame.data_retriever.GetAllTimeVals()
+        time_vals = {float(val) for val in time_vals}
         for col in range(1, self.num_ticks_before + self.num_ticks_after + 1):
             tick = current_tick - self.num_ticks_before + col - 1
-            self.grid.SetColLabelValue(col, str(tick))
-            col_labels.append(str(tick))
+            if float(tick) in time_vals:
+                self.grid.SetColLabelValue(col, str(tick))
+                col_labels.append(str(tick))
+            else:
+                self.grid.SetColLabelValue(col, '')
 
         # Use a DC to get the length of the longest col label
         dc = wx.ScreenDC()
