@@ -16,6 +16,15 @@ class SchedulingLinesWidget(wx.Panel):
         self.info = None
         self.gear_btn = None
         self.rasterizers = {}
+        self.grid = None
+
+        self.info = wx.StaticText(self, label='Drag queues from the NavTree to create scheduling lines.', size=(600,18))
+        self.info.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+
+        vsizer = wx.BoxSizer(wx.VERTICAL)
+        vsizer.AddStretchSpacer()
+        vsizer.Add(self.info, 1, wx.ALL | wx.CENTER | wx.EXPAND, 5)
+        vsizer.AddStretchSpacer()
 
         cursor = frame.db.cursor()
         cmd = 'SELECT CollectionID,MaxSize FROM QueueMaxSizes'
@@ -46,7 +55,7 @@ class SchedulingLinesWidget(wx.Panel):
         if self.grid:
             existing_captions = set()
             for row in range(self.grid.GetNumberRows()):
-                existing_captions.add(self.grid.GetCellValue(row, 0))
+                existing_captions.add(self.grid.GetCellValue(row, 0).rstrip())
 
             todo_captions = self.__GetCaptionsForElement(elem_path)
             for caption in todo_captions:
@@ -158,9 +167,6 @@ class SchedulingLinesWidget(wx.Panel):
                 self.gear_btn.SetToolTip('Edit widget settings')
         else:
             self.__ShowUsageInfo()
-
-        self.Update()
-        self.Refresh()
 
     def __ShowUsageInfo(self):
         if self.gear_btn:
