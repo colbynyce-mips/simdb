@@ -12,6 +12,8 @@ class SchedulingLinesWidget(wx.Panel):
         self.num_ticks_after = 25
         self.show_detailed_queue_packets = True
         self.caption_mgr = CaptionManager(frame.simhier)
+        self.highlighted_tags = set()
+
         self.grid = None
         self.info = None
         self.gear_btn = None
@@ -320,7 +322,6 @@ class SchedulingLinesWidget(wx.Panel):
                 for bin_idx, annos in enumerate(data_dicts):
                     self.__RerouteUnpackedDataToRasterizer(time_val, elem_path, bin_idx, annos)
 
-
         # Left-justify the detailed packet column
         if self.show_detailed_queue_packets:
             col = self.num_ticks_before + self.num_ticks_after + 3
@@ -339,7 +340,7 @@ class SchedulingLinesWidget(wx.Panel):
     def __RerouteUnpackedDataToRasterizer(self, time_val, elem_path, bin_idx, annos):
         key = (elem_path, bin_idx)
         if key in self.rasterizers:
-            self.rasterizers[key].Draw(elem_path, bin_idx, time_val, annos)
+            self.rasterizers[key].Draw(elem_path, bin_idx, time_val, annos, self.highlighted_tags)
 
     def __SetElementCaptions(self, col):
         if col == 0:
@@ -490,8 +491,11 @@ class SchedulingLinesWidget(wx.Panel):
                 if self.grid.GetCellValue(row, col) == tag:
                     if highlight:
                         self.grid.SetCellBorder(row, col)
+                        self.highlighted_tags.add(tag)
                     else:
                         self.grid.RemoveCellBorder(row, col)
+                        if tag in self.highlighted_tags:
+                            self.highlighted_tags.remove(tag)
 
         self.grid.Refresh()
 
@@ -1130,7 +1134,7 @@ class Rasterizer:
         self.row = row
         self.detailed_pkt_col = detailed_pkt_col
 
-    def Draw(self, elem_path, bin_idx, time_val, annos):
+    def Draw(self, elem_path, bin_idx, time_val, annos, highlighted_tags):
         assert elem_path == self.elem_path
         assert bin_idx == self.bin_idx
 
@@ -1138,6 +1142,7 @@ class Rasterizer:
         auto_colorize_key = annos[auto_colorize_column]
         auto_color = self.frame.widget_renderer.GetAutoColor(auto_colorize_key)
         auto_label = self.frame.widget_renderer.GetAutoTag(auto_colorize_key)
+        highlight = auto_label in highlighted_tags
 
         anno = []
         for k,v in annos.items():
@@ -1160,6 +1165,9 @@ class Rasterizer:
                 self.grid.SetCellValue(self.row, col, auto_label)
                 self.grid.SetCellBackgroundColour(self.row, col, auto_color)
                 self.grid.SetCellToolTip(self.row, col, stringized_tooltip)
+                if highlight:
+                    self.grid.SetCellBorder(self.row, col)
+
                 break
 
         if self.detailed_pkt_col != -1 and time_val == self.frame.widget_renderer.tick:
