@@ -497,6 +497,7 @@ class StatsDeserializer(Deserializer):
     def __init__(self, data_type, element_idxs_by_elem_path, cursor):
         Deserializer.__init__(self, cursor)
         self._scalar_num_bytes = StatsDeserializer.NUM_BYTES_MAP[data_type]
+        self._struct_num_bytes = 0
         self._format = StatsDeserializer.FORMAT_CODES_MAP[data_type]
         self._cast = float if data_type in ('float','double') else int
         self._element_idxs_by_elem_path = element_idxs_by_elem_path
@@ -556,6 +557,7 @@ class StructDeserializer(Deserializer):
 
         self._field_formatters.append(formatter)
         self._all_field_names.append(field_name)
+        self._struct_num_bytes = 0
 
     def GetAllFieldNames(self):
         return copy.deepcopy(self._all_field_names)
@@ -612,6 +614,9 @@ class StructDeserializer(Deserializer):
         return res
 
     def GetStructNumBytes(self):
+        if self._struct_num_bytes > 0:
+            return self._struct_num_bytes
+
         num_bytes_by_format_code = {
             'c':1,
             'b':1,
@@ -630,6 +635,7 @@ class StructDeserializer(Deserializer):
         for code in self._format:
             num_bytes += num_bytes_by_format_code[code]
 
+        self._struct_num_bytes = num_bytes
         return num_bytes
     
     def GetNumBytes(self):
