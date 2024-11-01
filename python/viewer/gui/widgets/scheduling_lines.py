@@ -12,7 +12,7 @@ class SchedulingLinesWidget(wx.Panel):
         self.num_ticks_after = 25
         self.show_detailed_queue_packets = True
         self.caption_mgr = CaptionManager(frame.simhier)
-        self.highlighted_tags = set()
+        self.tracked_annos = {}
 
         self.grid = None
         self.info = None
@@ -91,6 +91,7 @@ class SchedulingLinesWidget(wx.Panel):
         settings['num_ticks_before'] = self.num_ticks_before
         settings['num_ticks_after'] = self.num_ticks_after
         settings['show_detailed_queue_packets'] = self.show_detailed_queue_packets
+        settings['tracked_annos'] = copy.deepcopy(self.tracked_annos)
         return settings
     
     def GetCurrentUserSettings(self):
@@ -100,7 +101,8 @@ class SchedulingLinesWidget(wx.Panel):
         dirty = self.caption_mgr.GetElemPathRegexReplacements(as_list=True) != settings['regexes'] or \
                 self.num_ticks_before != settings['num_ticks_before'] or \
                 self.num_ticks_after != settings['num_ticks_after'] or \
-                self.show_detailed_queue_packets != settings['show_detailed_queue_packets']
+                self.show_detailed_queue_packets != settings['show_detailed_queue_packets'] or \
+                self.tracked_annos != settings['tracked_annos']
 
         if not dirty:
             return
@@ -109,6 +111,7 @@ class SchedulingLinesWidget(wx.Panel):
         self.num_ticks_before = settings['num_ticks_before']
         self.num_ticks_after = settings['num_ticks_after']
         self.show_detailed_queue_packets = settings['show_detailed_queue_packets']
+        self.tracked_annos = settings['tracked_annos']
 
         self.__Refresh()
         self.frame.view_settings.SetDirty(reason=DirtyReasons.SchedulingLinesWidgetChanged)
@@ -340,7 +343,7 @@ class SchedulingLinesWidget(wx.Panel):
     def __RerouteUnpackedDataToRasterizer(self, time_val, elem_path, bin_idx, annos):
         key = (elem_path, bin_idx)
         if key in self.rasterizers:
-            self.rasterizers[key].Draw(elem_path, bin_idx, time_val, annos, self.highlighted_tags)
+            self.rasterizers[key].Draw(elem_path, bin_idx, time_val, annos)
 
     def __SetElementCaptions(self, col):
         if col == 0:
@@ -398,7 +401,7 @@ class SchedulingLinesWidget(wx.Panel):
                 caption = self.caption_mgr.GetCaption(elem_path, bin_idx)
                 caption += ' '*(max_num_chars - len(caption))
                 self.grid.SetCellValue(row_offset + i, col, caption)
-                self.rasterizers[(elem_path, bin_idx)] = Rasterizer(self.frame, self.grid, elem_path, bin_idx, row_offset + i, detailed_pkt_col)
+                self.rasterizers[(elem_path, bin_idx)] = Rasterizer(self.frame, self.grid, self, elem_path, bin_idx, row_offset + i, detailed_pkt_col)
 
             return max_size + 1
         else:
@@ -407,7 +410,7 @@ class SchedulingLinesWidget(wx.Panel):
                 caption = self.caption_mgr.GetCaption(elem_path, bin_idx)
                 caption += ' '*(max_num_chars - len(caption))
                 self.grid.SetCellValue(row_offset + i, col, caption)
-                self.rasterizers[(elem_path, bin_idx)] = Rasterizer(self.frame, self.grid, elem_path, bin_idx, row_offset + i, detailed_pkt_col)
+                self.rasterizers[(elem_path, bin_idx)] = Rasterizer(self.frame, self.grid, self, elem_path, bin_idx, row_offset + i, detailed_pkt_col)
 
             return num_bins
 
@@ -453,10 +456,6 @@ class SchedulingLinesWidget(wx.Panel):
         if self.show_detailed_queue_packets and col > self.num_ticks_before + self.num_ticks_after:
             return
 
-        # We have right-clicked a rasterized cell, instead of a caption cell or the detailed packets
-        # which don't have any menu to popup.
-        tag = self.grid.GetCellValue(row, col)
-
         # Extract the element path from the row label's tooltip e.g. "top.cpu.core0.rob.stats.num_insts_retired"
         elem_path = self.grid.GetCellToolTip(row, 0)
 
@@ -468,14 +467,33 @@ class SchedulingLinesWidget(wx.Panel):
         assert match
         bin_idx = match.group(2)
 
+        # Remove the [bin_idx] suffix from elem_path
+        elem_path = elem_path.replace('[{}]'.format(bin_idx), '')
+
+        # Get the tick for the cell we right-clicked
+        cell_tick = float(self.grid.GetColLabelValue(col))
+
+        auto_colorize_column = self.frame.data_retriever.GetAutoColorizeColumn(elem_path)
+        unpacked = self.frame.data_retriever.Unpack(elem_path, cell_tick)
+        data_vals = unpacked['DataVals'][0]
+        if data_vals is None:
+            return
+
+        bin_data = data_vals[int(bin_idx)]
+        if auto_colorize_column not in bin_data:
+            return
+
+        auto_colorize_value = bin_data[auto_colorize_column]
+        menu_anno = '{}({})'.format(auto_colorize_column, auto_colorize_value)
+
         menu = wx.Menu()
 
-        if self.grid.GetCellBorderWidth(row, col) == 0:
-            opt = menu.Append(wx.ID_ANY, 'Highlight cells with tag "{}"'.format(tag))
-            self.grid.Bind(wx.EVT_MENU, partial(self.__HighlightCellsWithTag, tag=tag, highlight=True), opt)
+        if menu_anno not in {'{}({})'.format(k,v) for k,v in self.tracked_annos.items()}:
+            opt = menu.Append(wx.ID_ANY, 'Highlight cells with annotation "{}"'.format(menu_anno))
+            self.grid.Bind(wx.EVT_MENU, partial(self.__HighlightCellsWithTag, key=auto_colorize_column, value=auto_colorize_value, highlight=True), opt)
         else:
-            opt = menu.Append(wx.ID_ANY, 'Unhighlight cells with tag "{}"'.format(tag))
-            self.grid.Bind(wx.EVT_MENU, partial(self.__HighlightCellsWithTag, tag=tag, highlight=False), opt)
+            opt = menu.Append(wx.ID_ANY, 'Unhighlight cells with annotation "{}"'.format(menu_anno))
+            self.grid.Bind(wx.EVT_MENU, partial(self.__HighlightCellsWithTag, key=auto_colorize_column, value=auto_colorize_value, highlight=False), opt)
 
         #opt = menu.Append(wx.ID_ANY, 'Go to next cycle where different')
         #self.grid.Bind(wx.EVT_MENU, partial(self.__GoToNextCycleWhereDifferent, elem_path=elem_path, bin_idx=bin_idx), opt)
@@ -485,19 +503,21 @@ class SchedulingLinesWidget(wx.Panel):
 
         self.grid.PopupMenu(menu)
 
-    def __HighlightCellsWithTag(self, evt, tag, highlight):
-        for row in range(self.grid.GetNumberRows()):
-            for col in range(1, 1 + self.num_ticks_before + self.num_ticks_after):
-                if self.grid.GetCellValue(row, col) == tag:
-                    if highlight:
-                        self.grid.SetCellBorder(row, col)
-                        self.highlighted_tags.add(tag)
-                    else:
-                        self.grid.RemoveCellBorder(row, col)
-                        if tag in self.highlighted_tags:
-                            self.highlighted_tags.remove(tag)
+    def __HighlightCellsWithTag(self, evt, key, value, highlight):
+        if highlight:
+            self.tracked_annos[key] = value
+            dirty = True
+        else:
+            if key in self.tracked_annos:
+                del self.tracked_annos[key]
+                dirty = True
+            else:
+                dirty = False
 
-        self.grid.Refresh()
+        if dirty:
+            self.frame.view_settings.SetDirty(reason=DirtyReasons.TrackedPacketChanged)
+
+        self.UpdateWidgetData()
 
     def __GoToNextCycleWhereDifferent(self, evt, elem_path, bin_idx):
         print ('TODO: Go to next cycle where different')
@@ -1126,15 +1146,16 @@ def GetHeadsUpCamelCaseQueueName(elem_path):
     return ''.join(parts)
 
 class Rasterizer:
-    def __init__(self, frame, grid, elem_path, bin_idx, row, detailed_pkt_col):
+    def __init__(self, frame, grid, widget, elem_path, bin_idx, row, detailed_pkt_col):
         self.frame = frame
         self.grid = grid
+        self.widget = widget
         self.elem_path = elem_path
         self.bin_idx = bin_idx
         self.row = row
         self.detailed_pkt_col = detailed_pkt_col
 
-    def Draw(self, elem_path, bin_idx, time_val, annos, highlighted_tags):
+    def Draw(self, elem_path, bin_idx, time_val, annos):
         assert elem_path == self.elem_path
         assert bin_idx == self.bin_idx
 
@@ -1142,7 +1163,6 @@ class Rasterizer:
         auto_colorize_key = annos[auto_colorize_column]
         auto_color = self.frame.widget_renderer.GetAutoColor(auto_colorize_key)
         auto_label = self.frame.widget_renderer.GetAutoTag(auto_colorize_key)
-        highlight = auto_label in highlighted_tags
 
         anno = []
         for k,v in annos.items():
@@ -1165,9 +1185,12 @@ class Rasterizer:
                 self.grid.SetCellValue(self.row, col, auto_label)
                 self.grid.SetCellBackgroundColour(self.row, col, auto_color)
                 self.grid.SetCellToolTip(self.row, col, stringized_tooltip)
-                if highlight:
-                    self.grid.SetCellBorder(self.row, col)
 
+                tracked_annos = self.widget.tracked_annos
+                show_border = auto_colorize_column in tracked_annos and tracked_annos[auto_colorize_column] == auto_colorize_key
+                border_width = 1 if show_border else self.grid.GetCellBorderWidth(self.row, col)
+                border_side = wx.ALL if show_border else self.grid.GetCellBorderSide(self.row, col)
+                self.grid.SetCellBorder(self.row, col, border_width, border_side)
                 break
 
         if self.detailed_pkt_col != -1 and time_val == self.frame.widget_renderer.tick:
