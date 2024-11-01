@@ -534,7 +534,8 @@ class SchedulingLinesWidget(wx.Panel):
             self.ApplyViewSettings({'regexes': dlg.GetElementPathCaptionRegexes(as_list=True),
                                     'num_ticks_before': dlg.GetNumTicksBefore(),
                                     'num_ticks_after': dlg.GetNumTicksAfter(),
-                                    'show_detailed_queue_packets': dlg.ShowDetailedQueuePackets()})
+                                    'show_detailed_queue_packets': dlg.ShowDetailedQueuePackets(),
+                                    'tracked_annos': copy.deepcopy(self.tracked_annos)})
 
 class SchedulingLinesCustomizationDialog(wx.Dialog):
     def __init__(self, parent, caption_mgr, num_ticks_before, num_ticks_after, show_detailed_queue_packets):
