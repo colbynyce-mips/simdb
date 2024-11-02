@@ -7,8 +7,13 @@ class SystemwideTools(wx.TreeCtrl):
 
         self._root = self.AddRoot("Systemwide Tools")
         self.AppendItem(self._root, "Queue Utilization")
-        self.AppendItem(self._root, "Packet Tracker")
         self.AppendItem(self._root, "Scheduling Lines")
-        self.AppendItem(self._root, "Timeseries Viewer")
+
+        cursor = frame.db.cursor()
+        cmd = 'SELECT COUNT(Id) FROM TimeseriesData WHERE ElementPath="IPC"'
+        cursor.execute(cmd)
+
+        if cursor.fetchone()[0] > 0:
+            self.AppendItem(self._root, "IPC")
 
         self.ExpandAll()

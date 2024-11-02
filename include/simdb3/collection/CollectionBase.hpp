@@ -255,6 +255,17 @@ public:
         timestamp_ = createTimestamp_<TimeT>(func_ptr);
     }
 
+    /// Enable the Argos IPC widget (get IPC value from function pointer).
+    void enableArgosIPC(std::function<double()> ipc_func)
+    {
+        if (!timeseries_collector_) {
+            throw DBException("Cannot enable Argos IPC widget without calling useTimestampsFrom() first");
+        }
+
+        ScalarValueReader<double> reader(ipc_func);
+        timeseries_collector_->enableArgosIPC(reader);
+    }
+
     /// Set the heartbeat for all collections. This is the max number of cycles
     /// that we employ the optimization "only write to the database if the collected
     /// data is different from the last collected data". This prevents Argos from

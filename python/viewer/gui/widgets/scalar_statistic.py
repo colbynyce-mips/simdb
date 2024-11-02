@@ -7,19 +7,16 @@ from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from viewer.gui.view_settings import DirtyReasons
 
 class ScalarStatistic(wx.Panel):
-    def __init__(self, parent, frame, elem_path):
-        super(ScalarStatistic, self).__init__(parent)
+    def __init__(self, parent, frame, elem_path, configurable=True, **kwargs):
+        super(ScalarStatistic, self).__init__(parent, **kwargs)
         self.frame = frame
         self.elem_path = elem_path
 
-        sizer = wx.BoxSizer(wx.HORIZONTAL)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        data_vals = self.GetStatsValues(frame, elem_path)
+
         cursor = frame.db.cursor()
-
-        collection_id = frame.simhier.GetCollectionID(elem_path)
-        cmd = 'SELECT DataType FROM Collections WHERE Id={}'.format(collection_id)
-        cursor.execute(cmd)
-        data_type = cursor.fetchone()[0]
-
         cmd = 'SELECT TimeValsBlob, IsCompressed FROM AllTimeVals'
         cursor.execute(cmd)
 
@@ -34,6 +31,49 @@ class ScalarStatistic(wx.Panel):
         while len(time_vals_blob) > 0:
             time_vals.append(struct.unpack(time_format, time_vals_blob[:8])[0])
             time_vals_blob = time_vals_blob[8:]
+
+        stat_values = {'TimeVals': time_vals, 'DataVals': data_vals}
+
+        # Create a timeseries plot
+        if len(stat_values['TimeVals']) > 0:
+            self.time_vals = stat_values['TimeVals']
+            self.data_vals = stat_values['DataVals']
+            self.figure  = matplotlib.figure.Figure()
+            self.canvas = FigureCanvas(self, -1, self.figure)
+            self.canvas.SetPosition((25,-10))
+
+            self.ax = self.figure.add_subplot(111)
+            self.ax.plot(self.time_vals, self.data_vals, 'b-')
+            self.ax.set_title(self.elem_path)
+            self.ax.set_xlabel('Ticks')
+            self.ax.set_ylabel('Values')
+            self.ax.grid()
+            self.ax.autoscale()
+
+            sizer.Add(self.canvas, 0, wx.EXPAND)
+
+            # Add a gear button (size 16x16) to the left of the time series plot.
+            # Clicking the button will open a dialog to change the plot settings.
+            # Note that we do not add the button to the sizer since we want to
+            # force it to be in the top-left corner of the widget canvas. We do
+            # this with the 'pos' argument to the wx.BitmapButton constructor.
+            if configurable:
+                gear_btn = wx.BitmapButton(self, bitmap=frame.CreateResourceBitmap('gear.png'), pos=(5,5))
+                gear_btn.Bind(wx.EVT_BUTTON, self.__EditWidget)
+                gear_btn.SetToolTip('Edit widget settings')
+        else:
+            sizer.Add(wx.StaticText(self, label='No data for stat at location:\n%s' % elem_path), 0, wx.EXPAND)
+
+        self.SetSizer(sizer)
+        self.Layout()
+
+    def GetStatsValues(self, frame, elem_path):
+        cursor = frame.db.cursor()
+
+        collection_id = frame.simhier.GetCollectionID(elem_path)
+        cmd = 'SELECT DataType FROM Collections WHERE Id={}'.format(collection_id)
+        cursor.execute(cmd)
+        data_type = cursor.fetchone()[0]
 
         cmd = 'SELECT DataValsBlob, IsCompressed FROM TimeseriesData WHERE ElementPath="{}"'.format(elem_path)
         cursor.execute(cmd)
@@ -70,37 +110,7 @@ class ScalarStatistic(wx.Panel):
             data_vals.append(struct.unpack(format, data_vals_blob[:struct.calcsize(format)])[0])
             data_vals_blob = data_vals_blob[struct.calcsize(format):]
 
-        stat_values = {'TimeVals': time_vals, 'DataVals': data_vals}
-
-        # Create a timeseries plot
-        if len(stat_values['TimeVals']) > 0:
-            self.time_vals = stat_values['TimeVals']
-            self.data_vals = stat_values['DataVals']
-            self.figure  = matplotlib.figure.Figure()
-            self.canvas = FigureCanvas(self, -1, self.figure)
-            self.canvas.SetPosition((25,-10))
-
-            self.ax = self.figure.add_subplot(111)
-            self.ax.plot(self.time_vals, self.data_vals, 'b-')
-            self.ax.set_title(self.elem_path)
-            self.ax.set_xlabel('Ticks')
-            self.ax.set_ylabel('Values')
-            self.ax.grid()
-            self.ax.autoscale()
-
-            # Add a gear button (size 16x16) to the left of the time series plot.
-            # Clicking the button will open a dialog to change the plot settings.
-            # Note that we do not add the button to the sizer since we want to
-            # force it to be in the top-left corner of the widget canvas. We do
-            # this with the 'pos' argument to the wx.BitmapButton constructor.
-            gear_btn = wx.BitmapButton(self, bitmap=frame.CreateResourceBitmap('gear.png'), pos=(5,5))
-            gear_btn.Bind(wx.EVT_BUTTON, self.__EditWidget)
-            gear_btn.SetToolTip('Edit widget settings')
-        else:
-            sizer.Add(wx.StaticText(self, label='No data for stat at location:\n%s' % elem_path), 0, wx.EXPAND)
-
-        self.SetSizer(sizer)
-        self.Layout()
+        return data_vals
 
     def GetWidgetCreationString(self):
         return 'ScalarStatistic$' + self.elem_path
