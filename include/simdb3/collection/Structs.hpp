@@ -685,6 +685,12 @@ public:
         return collection_pkey_;
     }
 
+    /// Method does not apply to this collection type.
+    bool rerouteTimeseries(TimeseriesCollector*) override
+    {
+        return false;
+    }
+
     /// Give collections a chance to write to the database after simulation.
     void onPipelineCollectorClosing(DatabaseManager*) override
     {

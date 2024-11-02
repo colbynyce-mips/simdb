@@ -8,6 +8,8 @@
 #include "simdb3/utils/StringMap.hpp"
 #include "simdb3/utils/TreeBuilder.hpp"
 #include "simdb3/utils/Compress.hpp"
+#include "simdb3/collection/TimeseriesCollector.hpp"
+#include "simdb3/collection/TimeLogger.hpp"
 
 #include <fstream>
 #include <functional>
@@ -21,13 +23,6 @@ namespace simdb3
 {
 
 class DatabaseManager;
-
-enum class Format
-{
-    none = 0,
-    hex = 1,
-    boolalpha = 2
-};
 
 /*!
  * \class CollectionBuffer
@@ -119,6 +114,10 @@ public:
     /// data is different from the last collected data". This prevents Argos from
     /// having to go back more than N cycles to find the last known value.
     virtual void setHeartbeat(const size_t heartbeat) = 0;
+
+    /// If this collection is a scalar statistic (timeseries) then it will allow the
+    /// TimeseriesCollector to gather the timeseries during simulation on its behalf.
+    virtual bool rerouteTimeseries(TimeseriesCollector* timeseries_collector) = 0;
 
     /// Finalize this collection.
     virtual void finalize() = 0;
@@ -220,11 +219,10 @@ public:
     template <typename TimeT>
     void useTimestampsFrom(const TimeT* back_ptr)
     {
-        auto new_timestamp = createTimestamp_<TimeT>(back_ptr);
-        if (timestamp_ && timestamp_->getDataType() != new_timestamp->getDataType()) {
-            throw DBException("Cannot change the timestamp data type!");
+        if (timestamp_) {
+            throw DBException("Cannot change the timestamp once already set!");
         }
-        timestamp_ = new_timestamp;
+        timestamp_ = createTimestamp_<TimeT>(back_ptr);
     }
 
     /// \brief  Use the given function pointer to an integral/double time value
@@ -236,11 +234,10 @@ public:
     template <typename TimeT>
     void useTimestampsFrom(TimeT(*func_ptr)())
     {
-        auto new_timestamp = createTimestamp_<TimeT>(func_ptr);
-        if (timestamp_ && timestamp_->getDataType() != new_timestamp->getDataType()) {
-            throw DBException("Cannot change the timestamp data type!");
+        if (timestamp_) {
+            throw DBException("Cannot change the timestamp once already set!");
         }
-        timestamp_ = new_timestamp;
+        timestamp_ = createTimestamp_<TimeT>(func_ptr);
     }
 
     /// \brief  Use the given function pointer to an integral/double time value
@@ -252,11 +249,10 @@ public:
     template <typename TimeT>
     void useTimestampsFrom(std::function<TimeT()> func_ptr)
     {
-        auto new_timestamp = createTimestamp_<TimeT>(func_ptr);
-        if (timestamp_ && timestamp_->getDataType() != new_timestamp->getDataType()) {
-            throw DBException("Cannot change the timestamp data type!");
+        if (timestamp_) {
+            throw DBException("Cannot change the timestamp once already set!");
         }
-        timestamp_ = new_timestamp;
+        timestamp_ = createTimestamp_<TimeT>(func_ptr);
     }
 
     /// Set the heartbeat for all collections. This is the max number of cycles
@@ -308,6 +304,16 @@ public:
             .addColumn("DataVals", dt::blob_t)
             .addColumn("IsCompressed", dt::int32_t)
             .createIndexOn("TimeVal");
+
+        schema.addTable("TimeseriesData")
+            .addColumn("ElementPath", dt::string_t)
+            .addColumn("DataValsBlob", dt::blob_t)
+            .addColumn("IsCompressed", dt::int32_t)
+            .createIndexOn("ElementPath");
+
+        schema.addTable("AllTimeVals")
+            .addColumn("TimeValsBlob", dt::blob_t)
+            .addColumn("IsCompressed", dt::int32_t);
 
         schema.addTable("StructFields")
             .addColumn("StructName", dt::int32_t)
@@ -381,6 +387,7 @@ public:
             }
         }
 
+        collection->rerouteTimeseries(timeseries_collector_.get());
         collections_.emplace_back(collection.release());
     }
 
@@ -391,6 +398,10 @@ public:
     /// One-time chance to write anything to the database after simulation.
     void onPipelineCollectorClosing()
     {
+        if (timeseries_collector_) {
+            timeseries_collector_->onPipelineCollectorClosing(db_mgr_);
+        }
+
         for (auto& collection : collections_) {
             collection->onPipelineCollectorClosing(db_mgr_);
         }
@@ -399,64 +410,100 @@ public:
 private:
     template <typename TimeT>
     typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint32_t), TimestampPtr>::type
-    createTimestamp_(const TimeT* back_ptr) const
+    createTimestamp_(const TimeT* back_ptr)
     {
+        ScalarValueReader<TimeT> reader(back_ptr);
+        std::unique_ptr<TimeLoggerBase> time_logger(new TimeLogger<TimeT>(reader));
+        timeseries_collector_.reset(new TimeseriesCollector(std::move(time_logger)));
+
         return std::make_shared<TimestampInt32<TimeT>>(back_ptr);
     }
 
     template <typename TimeT>
     typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint32_t), TimestampPtr>::type
-    createTimestamp_(TimeT(*func_ptr)()) const
+    createTimestamp_(TimeT(*func_ptr)())
     {
+        ScalarValueReader<TimeT> reader(func_ptr);
+        std::unique_ptr<TimeLoggerBase> time_logger(new TimeLogger<TimeT>(reader));
+        timeseries_collector_.reset(new TimeseriesCollector(std::move(time_logger)));
+
         return std::make_shared<TimestampInt32<TimeT>>(func_ptr);
     }
 
     template <typename TimeT>
     typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint32_t), TimestampPtr>::type
-    createTimestamp_(std::function<TimeT()> func_ptr) const
+    createTimestamp_(std::function<TimeT()> func_ptr)
     {
+        ScalarValueReader<TimeT> reader(func_ptr);
+        std::unique_ptr<TimeLoggerBase> time_logger(new TimeLogger<TimeT>(reader));
+        timeseries_collector_.reset(new TimeseriesCollector(std::move(time_logger)));
+
         return std::make_shared<TimestampInt32<TimeT>>(func_ptr);
     }
 
     template <typename TimeT>
     typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint64_t), TimestampPtr>::type
-    createTimestamp_(const TimeT* back_ptr) const
+    createTimestamp_(const TimeT* back_ptr)
     {
+        ScalarValueReader<TimeT> reader(back_ptr);
+        std::unique_ptr<TimeLoggerBase> time_logger(new TimeLogger<TimeT>(reader));
+        timeseries_collector_.reset(new TimeseriesCollector(std::move(time_logger)));
+
         return std::make_shared<TimestampInt64<TimeT>>(back_ptr);
     }
 
     template <typename TimeT>
     typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint64_t), TimestampPtr>::type
-    createTimestamp_(TimeT(*func_ptr)()) const
+    createTimestamp_(TimeT(*func_ptr)())
     {
+        ScalarValueReader<TimeT> reader(func_ptr);
+        std::unique_ptr<TimeLoggerBase> time_logger(new TimeLogger<TimeT>(reader));
+        timeseries_collector_.reset(new TimeseriesCollector(std::move(time_logger)));
+
         return std::make_shared<TimestampInt64<TimeT>>(func_ptr);
     }
 
     template <typename TimeT>
     typename std::enable_if<std::is_integral<TimeT>::value && sizeof(TimeT) == sizeof(uint64_t), TimestampPtr>::type
-    createTimestamp_(std::function<TimeT()> func_ptr) const
+    createTimestamp_(std::function<TimeT()> func_ptr)
     {
+        ScalarValueReader<TimeT> reader(func_ptr);
+        std::unique_ptr<TimeLoggerBase> time_logger(new TimeLogger<TimeT>(reader));
+        timeseries_collector_.reset(new TimeseriesCollector(std::move(time_logger)));
+
         return std::make_shared<TimestampInt64<TimeT>>(func_ptr);
     }
 
     template <typename TimeT>
     typename std::enable_if<std::is_floating_point<TimeT>::value, TimestampPtr>::type
-    createTimestamp_(const TimeT* back_ptr) const
+    createTimestamp_(const TimeT* back_ptr)
     {
+        ScalarValueReader<TimeT> reader(back_ptr);
+        std::unique_ptr<TimeLoggerBase> time_logger(new TimeLogger<TimeT>(reader));
+        timeseries_collector_.reset(new TimeseriesCollector(std::move(time_logger)));
+
         return std::make_shared<TimestampDouble<TimeT>>(back_ptr);
     }
 
     template <typename TimeT>
     typename std::enable_if<std::is_floating_point<TimeT>::value, TimestampPtr>::type
-    createTimestamp_(TimeT(*func_ptr)()) const
+    createTimestamp_(TimeT(*func_ptr)())
     {
+        ScalarValueReader<TimeT> reader(func_ptr);
+        std::unique_ptr<TimeLoggerBase> time_logger(new TimeLogger<TimeT>(reader));
+        timeseries_collector_.reset(new TimeseriesCollector(std::move(time_logger)));
+
         return std::make_shared<TimestampDouble<TimeT>>(func_ptr);
     }
 
     template <typename TimeT>
     typename std::enable_if<std::is_floating_point<TimeT>::value, TimestampPtr>::type
-    createTimestamp_(std::function<TimeT()> func_ptr) const
+    createTimestamp_(std::function<TimeT()> func_ptr)
     {
+        ScalarValueReader<TimeT> reader(func_ptr);
+        std::unique_ptr<TimeLoggerBase> time_logger(new TimeLogger<TimeT>(reader));
+        timeseries_collector_.reset(new TimeseriesCollector(std::move(time_logger)));
+
         return std::make_shared<TimestampDouble<TimeT>>(func_ptr);
     }
 
@@ -512,6 +559,10 @@ private:
     /// Single buffer to hold onto all compressed data for all collections. Held as a member
     /// variable so we can avoid re-allocating this buffer every time we collect all collections.
     std::vector<char> all_compressed_data_;
+
+    /// All timeseries collections will be handled separately. It needs special handling to
+    /// support Argos UI performance.
+    std::unique_ptr<TimeseriesCollector> timeseries_collector_;
 
     /// Compression level. This starts out as the default compromise between speed and compression,
     /// and will gradually move towards fastest compression if the worker thread is falling behind.

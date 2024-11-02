@@ -134,6 +134,9 @@ class DataRetriever:
         for elem_path,_ in self._element_idxs_by_elem_path.items():
             assert elem_path.find('root.') == -1
 
+    def GetTimeType(self):
+        return self._time_type
+
     def GetCurrentViewSettings(self):
         settings = {}
         assert set(self._displayed_columns_by_struct_name.keys()) == set(self._auto_colorize_column_by_struct_name.keys())

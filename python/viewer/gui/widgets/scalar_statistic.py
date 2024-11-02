@@ -2,6 +2,7 @@ import wx
 import pylab as pl
 import matplotlib
 import numpy as np
+import zlib, struct
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from viewer.gui.view_settings import DirtyReasons
 
@@ -12,7 +13,64 @@ class ScalarStatistic(wx.Panel):
         self.elem_path = elem_path
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        stat_values = frame.data_retriever.Unpack(elem_path)
+        cursor = frame.db.cursor()
+
+        collection_id = frame.simhier.GetCollectionID(elem_path)
+        cmd = 'SELECT DataType FROM Collections WHERE Id={}'.format(collection_id)
+        cursor.execute(cmd)
+        data_type = cursor.fetchone()[0]
+
+        cmd = 'SELECT TimeValsBlob, IsCompressed FROM AllTimeVals'
+        cursor.execute(cmd)
+
+        time_vals_blob, is_compressed = cursor.fetchone()
+        if is_compressed:
+            time_vals_blob = zlib.decompress(time_vals_blob)
+
+        time_type = frame.data_retriever.GetTimeType()
+        time_format = 'Q' if time_type == 'INT' else 'd'
+
+        time_vals = []
+        while len(time_vals_blob) > 0:
+            time_vals.append(struct.unpack(time_format, time_vals_blob[:8])[0])
+            time_vals_blob = time_vals_blob[8:]
+
+        cmd = 'SELECT DataValsBlob, IsCompressed FROM TimeseriesData WHERE ElementPath="{}"'.format(elem_path)
+        cursor.execute(cmd)
+
+        data_vals_blob, is_compressed = cursor.fetchone()
+        if is_compressed:
+            data_vals_blob = zlib.decompress(data_vals_blob)
+
+        if data_type == 'int8_t':
+            format =  'b'
+        elif data_type == 'int16_t':
+            format =  'h'
+        elif data_type == 'int32_t':
+            format =  'i'
+        elif data_type == 'int64_t':
+            format =  'q'
+        elif data_type == 'uint8_t':
+            format =  'B'
+        elif data_type == 'uint16_t':
+            format =  'H'
+        elif data_type == 'uint32_t':
+            format =  'I'
+        elif data_type == 'uint64_t':
+            format =  'Q'
+        elif data_type == 'float':
+            format =  'f'
+        elif data_type == 'double':
+            format =  'd'
+        else:
+            raise ValueError('Invalid enum integer type: ' + data_type)
+
+        data_vals = []
+        while len(data_vals_blob) > 0:
+            data_vals.append(struct.unpack(format, data_vals_blob[:struct.calcsize(format)])[0])
+            data_vals_blob = data_vals_blob[struct.calcsize(format):]
+
+        stat_values = {'TimeVals': time_vals, 'DataVals': data_vals}
 
         # Create a timeseries plot
         if len(stat_values['TimeVals']) > 0:

@@ -151,6 +151,9 @@ class IterableUtiliz:
         self._utiliz_pcts_by_elem_path = {}
         for elem_path in self.simhier.GetItemElemPaths():
             collection_id = self.simhier.GetCollectionID(elem_path)
+            if collection_id not in queue_sizes_by_collection_id:
+                continue
+
             capacity = self.simhier.GetCapacityByCollectionID(collection_id)
             self._utiliz_pcts_by_elem_path[elem_path] = queue_sizes_by_collection_id[collection_id] / capacity
 

@@ -555,6 +555,10 @@ inline void Collections::finalizeCollections_()
             collection->finalize();
         }
 
+        if (!timeseries_collector_->hasStats()) {
+            timeseries_collector_.reset();
+        }
+
         return true;
     });
 }
@@ -667,6 +671,10 @@ inline void Collections::collectAll()
         collection->collect(buffer);
     }
 
+    if (timeseries_collector_) {
+        timeseries_collector_->collectAll();
+    }
+
     timestamp_->captureCurrentTime();
 
     size_t task_count = 0;
@@ -703,6 +711,28 @@ inline void Collections::collectAll()
             std::cout << "SimDB collections is already at the fastest compression level, but the "
                       << "worker thread is still not able to keep up. The worker queue will be flushed "
                       << "whenever the backlog consumes more than 100MB." << std::endl;
+        }
+    }
+}
+
+inline void TimeseriesCollector::onPipelineCollectorClosing(DatabaseManager* db_mgr)
+{
+    auto time_vals_blob = time_logger_->getTimeValsBlob();
+    std::vector<char> compressed_time_vals;
+    compressDataVec(time_vals_blob, compressed_time_vals, 6);
+
+    db_mgr->INSERT(SQL_TABLE("AllTimeVals"),
+                   SQL_COLUMNS("TimeValsBlob", "IsCompressed"),
+                   SQL_VALUES(compressed_time_vals, true));
+
+    for (auto &values_collector : values_collectors_) {
+        for (const auto& kvp : values_collector->getValuesByElemPath()) {
+            std::vector<char> compressed_data;
+            compressDataVec(kvp.second, compressed_data, 6);
+
+            db_mgr->INSERT(SQL_TABLE("TimeseriesData"),
+                           SQL_COLUMNS("ElementPath", "DataValsBlob", "IsCompressed"),
+                            SQL_VALUES(kvp.first, compressed_data, true));
         }
     }
 }

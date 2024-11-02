@@ -180,6 +180,19 @@ public:
         return collection_pkey_;
     }
 
+    /// Give all our data value getters to the timeseries collector to collect
+    /// data on our behalf.
+    bool rerouteTimeseries(TimeseriesCollector* timeseries_collector) override
+    {
+        std::vector<Stat<DataT>> stats;
+        for (const auto& pair : stats_) {
+            stats.push_back(pair.first);
+        }
+
+        timeseries_collector->addStats(stats);
+        return true;
+    }
+
     /// Give collections a chance to write to the database after simulation.
     void onPipelineCollectorClosing(DatabaseManager*) override
     {
@@ -201,59 +214,12 @@ public:
         finalized_ = true;
     }
 
-    /// \brief  Collect all values in this collection into one data vector
-    ///         and write the values to the database.
-    ///
-    /// \throws Throws an exception if finalize() was not already called first.
-    void collect(CollectionBuffer& buffer) override
+    /// \brief Collection is performed by the TimeseriesCollector.
+    void collect(CollectionBuffer&) override
     {
-        if (!finalized_) {
-            throw DBException("Cannot call collect() on a collection before calling finalize()");
-        }
-
-        buffer.writeHeader(collection_pkey_, stats_.size());
-        for (const auto& pair : stats_) {
-            const auto& stat = pair.first;
-            auto stat_value = stat.getValue();
-            buffer.writeBytes(&stat_value, sizeof(DataT));
-        }
     }
 
 private:
-    /// \class Stat
-    /// \brief A single named statistic.
-    template <typename StatT = DataT>
-    class Stat
-    {
-    public:
-        Stat(const std::string& stat_path, const ScalarValueReader<StatT>& reader, const Format format)
-            : stat_path_(stat_path)
-            , reader_(reader)
-            , format_(format)
-        {
-        }
-
-        const std::string& getPath() const
-        {
-            return stat_path_;
-        }
-
-        Format getFormat() const
-        {
-            return format_;
-        }
-
-        StatT getValue() const
-        {
-            return reader_.getValue();
-        }
-
-    private:
-        std::string stat_path_;
-        ScalarValueReader<StatT> reader_;
-        Format format_;
-    };
-
     /// Name of this collection. Serialized to the database.
     std::string name_;
 
