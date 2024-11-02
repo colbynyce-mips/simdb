@@ -263,8 +263,9 @@ class SchedulingLinesWidget(wx.Panel):
         self.grid.GetGridWindow().Bind(wx.EVT_MOTION, self.__OnGridMouseMotion)
         self.grid.GetGridWindow().Bind(wx.EVT_RIGHT_DOWN, self.__OnGridRightClick)
         self.grid.EnableGridLines(False)
+        self.grid.SetLabelBackgroundColour('white')
 
-        self.gear_btn = wx.BitmapButton(self, bitmap=self.frame.CreateResourceBitmap('gear.png'))
+        self.gear_btn = wx.BitmapButton(self, bitmap=self.frame.CreateResourceBitmap('gear.png'), pos=(5,5))
         self.gear_btn.Bind(wx.EVT_BUTTON, self.__EditWidget)
 
         current_tick = self.frame.widget_renderer.tick
@@ -289,8 +290,7 @@ class SchedulingLinesWidget(wx.Panel):
         self.grid.SetColLabelTextOrientation(wx.VERTICAL)
         self.grid.HideRowLabels()
 
-        sizer.Add(self.gear_btn, 0, wx.ALL, 5)
-        sizer.Add(self.grid, 0, wx.TOP | wx.EXPAND, 5)
+        sizer.Add(self.grid, 0, wx.EXPAND, 5)
         self.SetSizer(sizer)
 
         self.grid.ClearGrid()
@@ -1172,6 +1172,9 @@ class Rasterizer:
         stringized_anno = ' '.join(anno)
         stringized_tooltip = '\n'.join(anno)
 
+        tracked_annos = self.widget.tracked_annos
+        show_border = auto_colorize_column in tracked_annos and tracked_annos[auto_colorize_column] == auto_colorize_key
+
         for col in range(self.grid.GetNumberCols()):
             if not self.grid.IsColShown(col):
                 break
@@ -1187,8 +1190,6 @@ class Rasterizer:
                 self.grid.SetCellBackgroundColour(self.row, col, auto_color)
                 self.grid.SetCellToolTip(self.row, col, stringized_tooltip)
 
-                tracked_annos = self.widget.tracked_annos
-                show_border = auto_colorize_column in tracked_annos and tracked_annos[auto_colorize_column] == auto_colorize_key
                 border_width = 1 if show_border else self.grid.GetCellBorderWidth(self.row, col)
                 border_side = wx.ALL if show_border else self.grid.GetCellBorderSide(self.row, col)
                 self.grid.SetCellBorder(self.row, col, border_width, border_side)
@@ -1198,3 +1199,5 @@ class Rasterizer:
             self.grid.SetCellValue(self.row, self.detailed_pkt_col, stringized_anno)
             self.grid.SetCellBackgroundColour(self.row, self.detailed_pkt_col, auto_color)
             self.grid.SetCellToolTip(self.row, self.detailed_pkt_col, stringized_tooltip)
+            if show_border:
+                self.grid.SetCellBorder(self.row, self.detailed_pkt_col, 1, wx.ALL)
