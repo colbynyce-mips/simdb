@@ -174,8 +174,12 @@ public:
             std::unique_ptr<WorkerTask> task;
             bool wrote_to_db = false;
             while (concurrent_queue_.try_pop(task)) {
-                wrote_to_db = true;
-                task->completeTask();
+                try {
+                    task->completeTask();
+                    wrote_to_db = true;
+                } catch (const InterruptException&) {
+                    break;
+                }
             }
             queue_size_bytes_ = 0;
             return wrote_to_db;

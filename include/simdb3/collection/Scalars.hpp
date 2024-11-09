@@ -217,6 +217,9 @@ public:
     /// \brief Collection is performed by the TimeseriesCollector.
     void collect(CollectionBuffer&) override
     {
+        if (!finalized_) {
+            throw DBException("Cannot call collect() on a collection before calling finalize()");
+        }
     }
 
 private:

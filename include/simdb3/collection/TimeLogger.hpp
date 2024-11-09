@@ -1,6 +1,7 @@
 #pragma once
 
 #include "simdb3/sqlite/ValueContainer.hpp"
+#include <type_traits>
 
 namespace simdb3
 {
@@ -11,35 +12,6 @@ public:
     virtual ~TimeLoggerBase() = default;
     virtual void logTime() = 0;
     virtual std::vector<char> getTimeValsBlob() const = 0;
-};
-
-template <typename TimeT, typename Enable=void>
-struct TimeValsBlobGetter;
-
-template <typename TimeT>
-struct TimeValsBlobGetter<TimeT, std::enable_if_t<std::is_integral<TimeT>::value>>
-{
-    static std::vector<char> getBlob(const std::vector<TimeT>& time_vals)
-    {
-        std::vector<uint64_t> time_vals_64(time_vals.begin(), time_vals.end());
-        std::vector<char> blob;
-        blob.resize(time_vals_64.size() * sizeof(uint64_t));
-        memcpy(blob.data(), time_vals_64.data(), blob.size());
-        return blob;
-    }
-};
-
-template <typename TimeT>
-struct TimeValsBlobGetter<TimeT, std::enable_if_t<std::is_floating_point<TimeT>::value>>
-{
-    static std::vector<char> getBlob(const std::vector<TimeT>& time_vals)
-    {
-        std::vector<double> time_vals_64(time_vals.begin(), time_vals.end());
-        std::vector<char> blob;
-        blob.resize(time_vals_64.size() * sizeof(double));
-        memcpy(blob.data(), time_vals_64.data(), blob.size());
-        return blob;
-    }
 };
 
 template <typename TimeT>
@@ -56,12 +28,34 @@ public:
         time_vals_.push_back(time_reader_.getValue());
     }
 
-    std::vector<char> getTimeValsBlob() const
+    std::vector<char> getTimeValsBlob() const override
     {
-        return TimeValsBlobGetter<TimeT>::getBlob(time_vals_);
+        return getTimeValsBlobImpl_();
     }
 
 private:
+    template <typename time_t = TimeT>
+    typename std::enable_if<std::is_integral<time_t>::value, std::vector<char>>::type
+    getTimeValsBlobImpl_() const
+    {
+        std::vector<uint64_t> time_vals_64(time_vals_.begin(), time_vals_.end());
+        std::vector<char> blob;
+        blob.resize(time_vals_64.size() * sizeof(uint64_t));
+        memcpy(blob.data(), time_vals_64.data(), blob.size());
+        return blob;
+    }
+
+    template <typename time_t = TimeT>
+    typename std::enable_if<std::is_floating_point<time_t>::value, std::vector<char>>::type
+    getTimeValsBlobImpl_() const
+    {
+        std::vector<double> time_vals_dbl(time_vals_.begin(), time_vals_.end());
+        std::vector<char> blob;
+        blob.resize(time_vals_dbl.size() * sizeof(double));
+        memcpy(blob.data(), time_vals_dbl.data(), blob.size());
+        return blob;
+    }
+
     ScalarValueReader<TimeT> time_reader_;
     std::vector<TimeT> time_vals_;
 };
