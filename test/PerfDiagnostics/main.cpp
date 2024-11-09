@@ -2,8 +2,8 @@
  \brief Tests for SimDB self-profiling feature to help users understand AsyncTaskQueue and safeTransaction().
  */
 
-#include "simdb3/sqlite/DatabaseManager.hpp"
-#include "simdb3/test/SimDBTester.hpp"
+#include "simdb/sqlite/DatabaseManager.hpp"
+#include "simdb/test/SimDBTester.hpp"
 
 TEST_INIT;
 
@@ -28,8 +28,8 @@ public:
     Sim(const std::string& db_path)
         : db_mgr_(db_path)
     {
-        simdb3::Schema schema;
-        using dt = simdb3::SqlDataType;
+        simdb::Schema schema;
+        using dt = simdb::SqlDataType;
         
         schema.addTable("Metadata")
             .addColumn("Name", dt::string_t)
@@ -45,10 +45,10 @@ public:
 
     void setup(const bool in_transaction)
     {
-        db_mgr_.enterSimPhase(simdb3::SimPhase::SETUP);
+        db_mgr_.enterSimPhase(simdb::SimPhase::SETUP);
 
         // Write a bunch of metadata. This is most commonly done on the main thread,
-        // not by a simdb3::WorkerTask subclass. We typically send off only the high-
+        // not by a simdb::WorkerTask subclass. We typically send off only the high-
         // volumn data (usually blobs) to the worker thread during the sim loop.
 
         auto write_metadata = [&]() {
@@ -69,11 +69,11 @@ public:
 
     void run(const bool async)
     {
-        db_mgr_.enterSimPhase(simdb3::SimPhase::SIMLOOP);
+        db_mgr_.enterSimPhase(simdb::SimPhase::SIMLOOP);
 
         time_ = 0;
         while (time_++ < sim_controls.NUM_SIMLOOP_TIME_STEPS) {
-            std::unique_ptr<simdb3::WorkerTask> task(new StatsWriter(&db_mgr_, time_));
+            std::unique_ptr<simdb::WorkerTask> task(new StatsWriter(&db_mgr_, time_));
 
             // There is no good way to put database work inside a safeTransaction()
             // in the sim loop. You cannot realistically put the entire simulation
@@ -97,7 +97,7 @@ public:
 
     void teardown(const bool in_transaction)
     {
-        db_mgr_.enterSimPhase(simdb3::SimPhase::TEARDOWN);
+        db_mgr_.enterSimPhase(simdb::SimPhase::TEARDOWN);
 
         // Update all the records we created during the SETUP phase.
         auto update_metadata = [&]() {
@@ -133,10 +133,10 @@ public:
     }
 
 private:
-    class StatsWriter : public simdb3::WorkerTask
+    class StatsWriter : public simdb::WorkerTask
     {
     public:
-        StatsWriter(simdb3::DatabaseManager* db_mgr, const uint32_t time)
+        StatsWriter(simdb::DatabaseManager* db_mgr, const uint32_t time)
             : db_mgr_(db_mgr)
             , time_(time)
         {}
@@ -150,11 +150,11 @@ private:
         }
 
     private:
-        simdb3::DatabaseManager* db_mgr_;
+        simdb::DatabaseManager* db_mgr_;
         uint32_t time_;
     };
 
-    simdb3::DatabaseManager db_mgr_;
+    simdb::DatabaseManager db_mgr_;
     uint32_t time_;
 };
 

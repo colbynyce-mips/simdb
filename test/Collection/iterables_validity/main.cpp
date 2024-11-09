@@ -1,9 +1,9 @@
 /// Tests for SimDB collections feature (specifically containers e.g. vector of structs
 /// of PODs, enums, and strings).
 
-#include "simdb3/collection/IterableStructs.hpp"
-#include "simdb3/sqlite/DatabaseManager.hpp"
-#include "simdb3/test/SimDBTester.hpp"
+#include "simdb/collection/IterableStructs.hpp"
+#include "simdb/sqlite/DatabaseManager.hpp"
+#include "simdb/test/SimDBTester.hpp"
 
 TEST_INIT;
 
@@ -28,7 +28,7 @@ struct Instruction
     std::string mnemonic;
 };
 
-namespace simdb3
+namespace simdb
 {
     template <>
     void defineStructSchema<Instruction>(StructSchema& schema)
@@ -61,8 +61,8 @@ namespace simdb3
 }
 
 using InstGroup = std::vector<std::shared_ptr<Instruction>>;
-using InstGroupCollection = simdb3::IterableStructCollection<InstGroup>;
-using SparseInstGroupCollection = simdb3::IterableStructCollection<InstGroup, true>;
+using InstGroupCollection = simdb::IterableStructCollection<InstGroup>;
+using SparseInstGroupCollection = simdb::IterableStructCollection<InstGroup, true>;
 
 void appendHeader(std::vector<char> &blob, uint16_t collection_id, uint16_t num_packets)
 {
@@ -85,7 +85,7 @@ void appendPacket(std::vector<char> &blob, const Instruction &inst)
     memcpy(dest, &vaddr, sizeof(uint64_t));
     dest += sizeof(uint64_t);
 
-    uint32_t string_id = simdb3::StringMap::instance()->getStringId(inst.mnemonic);
+    uint32_t string_id = simdb::StringMap::instance()->getStringId(inst.mnemonic);
     memcpy(dest, &string_id, sizeof(uint32_t));
 }
 
@@ -95,10 +95,10 @@ void appendBucket(std::vector<char> &blob, uint16_t bucket_idx)
     memcpy(&blob[blob.size() - sizeof(uint16_t)], &bucket_idx, sizeof(uint16_t));
 }
 
-void verifyBlob(const std::vector<char> &expected, uint32_t cycle, simdb3::DatabaseManager &db_mgr)
+void verifyBlob(const std::vector<char> &expected, uint32_t cycle, simdb::DatabaseManager &db_mgr)
 {
     auto query = db_mgr.createQuery("CollectionData");
-    query->addConstraintForInt("TimeVal", simdb3::Constraints::EQUAL, cycle);
+    query->addConstraintForInt("TimeVal", simdb::Constraints::EQUAL, cycle);
 
     std::vector<char> actual;
     query->select("DataVals", actual);
@@ -115,9 +115,9 @@ int main()
     // Note that we only care about the collection data and have
     // no need for any other tables, aside from the tables that the
     // DatabaseManager adds automatically to support this feature.
-    simdb3::Schema schema;
+    simdb::Schema schema;
 
-    simdb3::DatabaseManager db_mgr("test.db");
+    simdb::DatabaseManager db_mgr("test.db");
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     InstGroup contig;

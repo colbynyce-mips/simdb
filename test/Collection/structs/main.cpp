@@ -1,8 +1,8 @@
 /// Tests for SimDB collections feature (specifically structs of PODs, enums, and strings).
 
-#include "simdb3/collection/Structs.hpp"
-#include "simdb3/sqlite/DatabaseManager.hpp"
-#include "simdb3/test/SimDBTester.hpp"
+#include "simdb/collection/Structs.hpp"
+#include "simdb/sqlite/DatabaseManager.hpp"
+#include "simdb/test/SimDBTester.hpp"
 
 TEST_INIT;
 
@@ -24,7 +24,7 @@ struct Instruction
     std::string mnemonic;
 };
 
-namespace simdb3
+namespace simdb
 {
     template <>
     void defineStructSchema<Instruction>(StructSchema& schema)
@@ -58,7 +58,7 @@ namespace simdb3
 
 /// Note that when collecting anything like shared_ptr's or raw pointers, you should use
 /// the value type in the ScalarStructCollection<DataT> signature.
-using InstCollection = simdb3::ScalarStructCollection<Instruction>;
+using InstCollection = simdb::ScalarStructCollection<Instruction>;
 
 Instruction* generateRandomInst()
 {
@@ -161,7 +161,7 @@ private:
 class Sim
 {
 public:
-    Sim(simdb3::DatabaseManager* db_mgr)
+    Sim(simdb::DatabaseManager* db_mgr)
         : db_mgr_(db_mgr)
     {
     }
@@ -191,7 +191,7 @@ private:
         db_mgr_->finalizeCollections();
     }
 
-    simdb3::DatabaseManager* db_mgr_;
+    simdb::DatabaseManager* db_mgr_;
     InstGroup inst_group_;
     uint64_t time_ = 0;
 };
@@ -203,9 +203,9 @@ int main()
     // Note that we only care about the constellation data and have
     // no need for any other tables, aside from the tables that the
     // DatabaseManager adds automatically to support this feature.
-    simdb3::Schema schema;
+    simdb::Schema schema;
 
-    simdb3::DatabaseManager db_mgr("test.db");
+    simdb::DatabaseManager db_mgr("test.db");
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     Sim sim(&db_mgr);
