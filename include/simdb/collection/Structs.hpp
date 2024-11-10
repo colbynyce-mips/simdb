@@ -559,7 +559,7 @@ class StructDefnSerializer
 public:
     StructDefnSerializer()
     {
-        defineStructSchema<MetaStruct::remove_any_pointer_t<StructT>>(schema_);
+        defineStructSchema<utils::remove_any_pointer_t<StructT>>(schema_);
     }
 
     const std::string& getStructName() const
@@ -597,13 +597,13 @@ template <typename StructT>
 class ScalarStructCollection : public CollectionBase
 {
 public:
-    using UnderlyingStructT = MetaStruct::remove_any_pointer_t<StructT>;
+    using UnderlyingStructT = utils::remove_any_pointer_t<StructT>;
 
     /// Construct with a name for this collection.
     ScalarStructCollection(const std::string& name)
         : name_(name)
     {
-        static_assert(!MetaStruct::is_any_pointer<UnderlyingStructT>::value,
+        static_assert(!utils::is_any_pointer<UnderlyingStructT>::value,
                       "Template type must be a value type");
     }
 
@@ -736,7 +736,7 @@ public:
 
 private:
     template <typename S=UnderlyingStructT>
-    typename std::enable_if<MetaStruct::is_any_pointer<S>::value, void>::type
+    typename std::enable_if<utils::is_any_pointer<S>::value, void>::type
     writeStruct_(const S s, CollectionBuffer& buffer)
     {
         if (s) {
@@ -745,7 +745,7 @@ private:
     }
 
     template <typename S=UnderlyingStructT>
-    typename std::enable_if<!MetaStruct::is_any_pointer<S>::value, void>::type
+    typename std::enable_if<!utils::is_any_pointer<S>::value, void>::type
     writeStruct_(const S& s, CollectionBuffer& buffer)
     {
         blob_serializer_->writeStruct(&s, buffer);

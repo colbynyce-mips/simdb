@@ -28,13 +28,13 @@ class IterableStructCollection : public CollectionBase
 {
 public:
     using StructPtrT = typename ContainerT::value_type;
-    using StructT = MetaStruct::remove_any_pointer_t<StructPtrT>;
+    using StructT = utils::remove_any_pointer_t<StructPtrT>;
 
     /// Construct with a name for this collection.
     IterableStructCollection(const std::string& name)
         : name_(name)
     {
-        static_assert(MetaStruct::is_any_pointer<StructPtrT>::value,
+        static_assert(utils::is_any_pointer<StructPtrT>::value,
                       "Must collect a container such as " \
                       "std::vector<std::shared_ptr<MyStruct>> or " \
                       "std::deque<MyStruct*> (note that you may have to " \
@@ -255,21 +255,21 @@ private:
     }
 
     template <typename S=StructT>
-    typename std::enable_if<MetaStruct::is_any_pointer<S>::value, StructT*>::type
+    typename std::enable_if<utils::is_any_pointer<S>::value, StructT*>::type
     cloneStruct_(const StructT& s)
     {
         return cloneStruct_(*s);
     }
 
     template <typename S=StructT>
-    typename std::enable_if<!MetaStruct::is_any_pointer<S>::value, StructT*>::type
+    typename std::enable_if<!utils::is_any_pointer<S>::value, StructT*>::type
     cloneStruct_(const StructT& s)
     {
         return new StructT(s);
     }
 
     template <typename ElemT>
-    typename std::enable_if<MetaStruct::is_any_pointer<ElemT>::value, bool>::type
+    typename std::enable_if<utils::is_any_pointer<ElemT>::value, bool>::type
     writeStruct_(const ElemT& el, CollectionBuffer& buffer, uint16_t bucket_idx)
     {
         if (el) {
@@ -279,7 +279,7 @@ private:
     }
 
     template <typename ElemT>
-    typename std::enable_if<!MetaStruct::is_any_pointer<ElemT>::value, bool>::type
+    typename std::enable_if<!utils::is_any_pointer<ElemT>::value, bool>::type
     writeStruct_(const ElemT& el, CollectionBuffer& buffer, uint16_t bucket_idx)
     {
         if (Sparse) {

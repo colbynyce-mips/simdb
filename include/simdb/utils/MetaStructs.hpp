@@ -24,7 +24,8 @@
 #include <unordered_map>
 #include <type_traits>
 
-namespace MetaStruct {
+namespace simdb {
+namespace utils {
     // If compiler is C++11 compliant, then use explicit aliases.
     #if __cplusplus == 201103L
 
@@ -114,14 +115,6 @@ namespace MetaStruct {
     struct all_are_integral<Head, Tail...> {
         static constexpr bool value {std::is_integral<typename std::decay<Head>::type>::value and
                                      all_are_integral<Tail...>::value};
-    };
-
-    /**
-     * \brief Check for POD types.
-     */
-    template <typename T>
-    struct is_pod {
-        static constexpr bool value  = std::is_pod<T>::value;
     };
 
     /** \brief Alias Template for std::enable_if.
@@ -402,11 +395,6 @@ namespace MetaStruct {
             is_stl_container<typename std::decay<T>::type>::value;
     };
 
-    template <typename T>
-    struct is_pod {
-        static constexpr bool value = std::is_trivial<T>::value && std::is_standard_layout<T>::value;
-    };
-
     /**
     * \brief This Variadic templated struct contains a nested value
     *  which stores the length of any parameter pack it gets templatized on.
@@ -638,4 +626,5 @@ namespace MetaStruct {
     template<>
     struct is_char_pointer<const char* const> : public std::true_type{};
 
-} // namespace MetaStruct
+} // namespace utils
+} // namespace simdb
