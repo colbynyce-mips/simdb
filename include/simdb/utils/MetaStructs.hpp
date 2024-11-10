@@ -24,8 +24,6 @@
 #include <unordered_map>
 #include <type_traits>
 
-#include "sparta/utils/Enum.hpp"
-
 namespace MetaStruct {
     // If compiler is C++11 compliant, then use explicit aliases.
     #if __cplusplus == 201103L
@@ -116,6 +114,14 @@ namespace MetaStruct {
     struct all_are_integral<Head, Tail...> {
         static constexpr bool value {std::is_integral<typename std::decay<Head>::type>::value and
                                      all_are_integral<Tail...>::value};
+    };
+
+    /**
+     * \brief Check for POD types.
+     */
+    template <typename T>
+    struct is_pod {
+        static constexpr bool value  = std::is_pod<T>::value;
     };
 
     /** \brief Alias Template for std::enable_if.
@@ -396,6 +402,11 @@ namespace MetaStruct {
             is_stl_container<typename std::decay<T>::type>::value;
     };
 
+    template <typename T>
+    struct is_pod {
+        static constexpr bool value = std::is_trivial<T>::value && std::is_standard_layout<T>::value;
+    };
+
     /**
     * \brief This Variadic templated struct contains a nested value
     *  which stores the length of any parameter pack it gets templatized on.
@@ -627,17 +638,4 @@ namespace MetaStruct {
     template<>
     struct is_char_pointer<const char* const> : public std::true_type{};
 
-    /**
-    * \brief Detect whether template parameter is sparta::utils::Enum type.
-    *  Case when it is not a sparta::utils::Enum type.
-    */
-    template<typename T>
-    struct is_sparta_enum : public std::false_type {};
-
-    /**
-    * \brief Detect whether template parameter is sparta::utils::Enum type.
-    *  Case when it is a sparta::utils::Enum type.
-    */
-    template<typename T>
-    struct is_sparta_enum<sparta::utils::Enum<T>> : public std::true_type {};
 } // namespace MetaStruct

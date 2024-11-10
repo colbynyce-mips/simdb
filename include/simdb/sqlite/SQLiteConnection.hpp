@@ -184,7 +184,6 @@ private:
     /// Private constructor. Called by friend class DatabaseManager.
     SQLiteConnection(DatabaseManager* db_mgr)
         : task_queue_(new AsyncTaskQueue(this))
-        , db_mgr_(db_mgr)
     {
     }
 
@@ -266,9 +265,6 @@ private:
     /// is called. That method starts a background thread
     /// to begin consuming work packets.
     std::shared_ptr<AsyncTaskQueue> task_queue_;
-
-    /// DatabaseManager associated with this database connection.
-    DatabaseManager* db_mgr_ = nullptr;
 
     friend class DatabaseManager;
 };

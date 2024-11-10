@@ -63,7 +63,7 @@ private:
 
 inline bool operator==(const int rc, const SQLiteReturnCode& obj)
 {
-    return obj == rc;
+    return static_cast<int>(obj) == rc;
 }
 
 inline std::ostream& operator<<(std::ostream& os, const SQLiteReturnCode& rc)

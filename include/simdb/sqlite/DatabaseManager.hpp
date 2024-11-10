@@ -751,7 +751,6 @@ public:
     }
 
 private:
-    DatabaseManager* db_mgr_;
     Collections* collections_;
 };
 

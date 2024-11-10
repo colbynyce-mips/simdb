@@ -17,6 +17,7 @@ namespace simdb
 class TimestampBase
 {
 public:
+    virtual ~TimestampBase() = default;
     virtual SqlDataType getDataType() const = 0;
     virtual ValueContainerBase* createBinder() const = 0;
     virtual void captureCurrentTime() = 0;
