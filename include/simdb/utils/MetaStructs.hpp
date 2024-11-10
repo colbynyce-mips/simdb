@@ -24,8 +24,7 @@
 #include <unordered_map>
 #include <type_traits>
 
-namespace simdb {
-namespace utils {
+namespace meta_utils {
     // If compiler is C++11 compliant, then use explicit aliases.
     #if __cplusplus == 201103L
 
@@ -626,5 +625,4 @@ namespace utils {
     template<>
     struct is_char_pointer<const char* const> : public std::true_type{};
 
-} // namespace utils
-} // namespace simdb
+} // namespace meta_utils
