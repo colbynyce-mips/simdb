@@ -97,11 +97,10 @@ public:
         stats_.emplace_back(stat, clk_name);
     }
 
-    /// \brief   Add a stat to this collection using a Stat<DataT> object, which under the hood
-    ///          either uses a raw backpointer to the collected data or a function pointer.
-    void addStat(const std::string& stat_path, const Stat<DataT>& stat, const std::string& clk_name = "", Format format = Format::none)
+    /// \brief  Add a stat to this collection using a Stat<DataT> object.
+    void addStat(const Stat<DataT>& stat, const std::string& clk_name = "")
     {
-        validatePath_(stat_path);
+        validatePath_(stat.getPath());
         stats_.emplace_back(stat, clk_name);
     }
 
