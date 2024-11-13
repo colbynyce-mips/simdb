@@ -13,40 +13,6 @@ struct is_std_vector : std::false_type {};
 template <typename T>
 struct is_std_vector<std::vector<T>> : std::true_type {};
 
-template <typename T>
-struct is_std_array : std::false_type {};
-
-template <typename T, size_t N>
-struct is_std_array<std::array<T, N>> : std::true_type {};
-
-template <typename T>
-struct ContainerResetter
-{
-    static void reset(const T* container)
-    {
-        // TODO cnyce (const cast)
-        const_cast<T*>(container)->clear();
-    }
-};
-
-template <typename T, size_t N>
-struct ContainerResetter<std::array<T,N>>
-{
-    static void reset(const std::array<T,N>* container)
-    {
-        // TODO cnyce (const cast)
-        const_cast<std::array<T,N>*>(container)->fill(nullptr);
-    }
-};
-
-enum IterableCollectorOpts : uint32_t
-{
-    DEFAULT_OPTS         = 0,
-    SPARSE               = 1,
-    RESET_AFTER_COLLECT  = 2,
-    NO_HEARTBEAT         = 4
-};
-
 /*!
  * \class IterableStructCollection
  *
@@ -57,13 +23,12 @@ enum IterableCollectorOpts : uint32_t
  *        containers (a nullptr entry results in a python None value when the
  *        collection is deserialized).
  */
-template <typename ContainerT, uint32_t Opts=DEFAULT_OPTS>
+template <typename ContainerT, bool Sparse=false>
 class IterableStructCollection : public CollectionBase
 {
 public:
     using StructPtrT = typename ContainerT::value_type;
     using StructT = meta_utils::remove_any_pointer_t<StructPtrT>;
-    static constexpr bool Sparse = (Opts & SPARSE) != 0;
 
     /// Construct with a name for this collection.
     IterableStructCollection(const std::string& name)
@@ -169,9 +134,6 @@ public:
     /// having to go back more than N cycles to find the last known value.
     void setHeartbeat(const size_t heartbeat) override
     {
-        if (Opts & NO_HEARTBEAT) {
-            return;
-        }
         if (heartbeat == 0) {
             throw DBException("Heartbeat must be greater than zero");
         }
@@ -200,13 +162,8 @@ public:
             throw DBException("Cannot call collect() on a collection before calling finalize()");
         }
 
-        constexpr bool Sparse = (Opts & SPARSE) != 0;
         auto sparse_array_type = std::integral_constant<bool, Sparse>{};
         collect_(buffer, sparse_array_type);
-
-        if constexpr (Opts & RESET_AFTER_COLLECT) {
-            ContainerResetter<ContainerT>::reset(std::get<0>(container_));
-        }
     }
 
 private:
@@ -241,7 +198,7 @@ private:
             ++bucket_idx;
         }
 
-        if (current_container_data_ != prev_container_data_ || num_carry_forward_unchanged_ == pipeline_heartbeat_ || Opts & NO_HEARTBEAT) {
+        if (current_container_data_ != prev_container_data_ || num_carry_forward_unchanged_ == pipeline_heartbeat_) {
             buffer.writeBytes(current_container_data_.data(), current_container_data_.size());
             prev_container_data_ = current_container_data_;
             num_carry_forward_unchanged_ = 0;
