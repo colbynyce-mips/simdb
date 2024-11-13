@@ -13,6 +13,15 @@ struct is_std_vector : std::false_type {};
 template <typename T>
 struct is_std_vector<std::vector<T>> : std::true_type {};
 
+/// Base class for all collectables that manually serialize their
+/// data into the collectAll() buffer.
+class ManuallyCollected
+{
+public:
+    virtual ~ManuallyCollected() = default;
+    virtual bool serialize(CollectionBuffer&) { return false; }
+};
+
 /*!
  * \class IterableStructCollection
  *
@@ -58,10 +67,10 @@ public:
     /// \throws  Throws an exception if called after finalize() or if the stat_path is not unique.
     ///          Also throws if the element path cannot later be used in python (do not use uuids of
     ///          the form "abc123-def456").
-    void addContainer(const std::string& container_path, const ContainerT* container_ptr, size_t capacity, const std::string& clk_name = "")
+    void addContainer(const std::string& container_path, const ContainerT* container_ptr, size_t capacity, const std::string& clk_name = "", ManuallyCollected* manually_collected = nullptr)
     {
         validatePath_(container_path);
-        container_ = std::make_tuple(container_ptr, container_path, capacity, clk_name);
+        container_ = std::make_tuple(container_ptr, container_path, capacity, clk_name, manually_collected);
     }
 
     /// Get the name of this collection.
@@ -160,6 +169,12 @@ public:
     {
         if (!finalized_) {
             throw DBException("Cannot call collect() on a collection before calling finalize()");
+        }
+
+        if (auto manually_collected = std::get<4>(container_)) {
+            if (manually_collected->serialize(buffer)) {
+                return;
+            }
         }
 
         auto sparse_array_type = std::integral_constant<bool, Sparse>{};
@@ -294,7 +309,7 @@ private:
     std::string name_;
 
     /// Container backpointer, its path, its capacity, and its clock name.
-    std::tuple<const ContainerT*, std::string, size_t, std::string> container_;
+    std::tuple<const ContainerT*, std::string, size_t, std::string, ManuallyCollected*> container_;
 
     /// Our primary key in the Collections table.
     int collection_pkey_ = -1;
