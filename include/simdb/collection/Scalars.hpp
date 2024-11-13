@@ -97,7 +97,7 @@ public:
         stats_.emplace_back(stat, clk_name);
     }
 
-    /// \brief  Add a stat to this collection using a Stat<DataT> object.
+    /// \brief  Add a stat to this collection using a premade Stat<DataT> object.
     void addStat(const Stat<DataT>& stat, const std::string& clk_name = "")
     {
         validatePath_(stat.getPath());
