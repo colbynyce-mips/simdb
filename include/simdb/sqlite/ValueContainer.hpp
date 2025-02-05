@@ -159,7 +159,7 @@ public:
         reader_.getter_type = ValueReaderTypes::BACKPOINTER;
 
         static_assert(std::is_integral<T>::value || std::is_floating_point<T>::value,
-                      "ScalarValueReader only work for integral and floating-point types!");
+                      "ScalarValueReader only supports integral and floating-point types!");
     }
 
     /// Construct with a function pointer to get the data.
@@ -169,7 +169,7 @@ public:
         reader_.getter_type = ValueReaderTypes::FUNCPOINTER;
 
         static_assert(std::is_integral<T>::value || std::is_floating_point<T>::value,
-                      "ScalarValueReader only work for integral and floating-point types!");
+                      "ScalarValueReader only supports integral and floating-point types!");
     }
 
     /// Read the data value.

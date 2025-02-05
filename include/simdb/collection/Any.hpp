@@ -10,39 +10,38 @@
 namespace simdb
 {
 
-template <typename CollectableT, typename Enable=void>
-class BlobConverter;
-
-template <typename CollectableT>
-class BlobConverter<CollectableT, typename std::enable_if<std::is_trivial<CollectableT>::value && !meta_utils::is_any_pointer<CollectableT>::value>::type>
+class BlobConverter
 {
 public:
-    void convertToByteVector(const CollectableT& val, std::vector<char>& vec) const
+    template <typename CollectableT>
+    typename std::enable_if<meta_utils::is_any_pointer<CollectableT>::value, void>::type
+    convertToByteVector(const CollectableT& val, std::vector<char>& vec) const
+    {
+        if (val) {
+            convertToByteVector(*val, vec);
+        } else {
+            vec.clear();
+        }
+    }
+
+    template <typename CollectableT>
+    typename std::enable_if<!meta_utils::is_any_pointer<CollectableT>::value && std::is_trivial<CollectableT>::value, void>::type
+    convertToByteVector(const CollectableT& val, std::vector<char>& vec) const
     {
         vec.resize(sizeof(CollectableT));
         memcpy(vec.data(), &val, sizeof(CollectableT));
     }
-};
 
-template <typename CollectableT>
-class BlobConverter<CollectableT, typename std::enable_if<!std::is_trivial<CollectableT>::value && !meta_utils::is_any_pointer<CollectableT>::value>::type>
-{
-public:
-    BlobConverter()
+    template <typename CollectableT>
+    typename std::enable_if<!meta_utils::is_any_pointer<CollectableT>::value && !std::is_trivial<CollectableT>::value, void>::type
+    convertToByteVector(const CollectableT& val, std::vector<char>& vec) const
     {
         StructDefnSerializer<CollectableT> meta_serializer;
-        blob_serializer_ = meta_serializer.createBlobSerializer();
-    }
+        auto blob_serializer = meta_serializer.createBlobSerializer();
 
-    void convertToByteVector(const CollectableT& val, std::vector<char>& vec) const
-    {
         CollectionBuffer buffer(vec);
-        blob_serializer_->writeStruct(&val, buffer);
+        blob_serializer->writeStruct(&val, buffer);
     }
-    
-private:
-    /// Serializer to pack all struct data into a blob.
-    std::unique_ptr<StructBlobSerializer> blob_serializer_;
 };
 
 /*!
@@ -213,7 +212,7 @@ private:
     std::vector<char> raw_bytes_;
 
     /// Serializer to pack all collected data into a byte vector.
-    BlobConverter<CollectableT> blob_converter_;
+    BlobConverter blob_converter_;
 
     /// Track the number of times we have read the collected byte vector.
     /// This is used to support collectWithDuration(), where we will hold
