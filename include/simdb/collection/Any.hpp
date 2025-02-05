@@ -10,12 +10,25 @@
 namespace simdb
 {
 
+<<<<<<< Updated upstream
 class BlobConverter
 {
 public:
     template <typename CollectableT>
     typename std::enable_if<meta_utils::is_any_pointer<CollectableT>::value, void>::type
     convertToByteVector(const CollectableT& val, std::vector<char>& vec) const
+=======
+template <typename CollectableT, typename Enable=void>
+class BlobConverter;
+
+template <typename CollectableT>
+class BlobConverter<CollectableT, typename std::enable_if<std::is_trivial<CollectableT>::value && std::is_standard_layout<CollectableT>::value>::type>
+{
+public:
+    template <typename tt = CollectableT>
+    typename std::enable_if<meta_utils::is_any_pointer<tt>::value, void>::type
+    convertToByteVector(const tt& val, std::vector<char>& vec) const
+>>>>>>> Stashed changes
     {
         if (val) {
             convertToByteVector(*val, vec);
@@ -24,24 +37,63 @@ public:
         }
     }
 
+<<<<<<< Updated upstream
     template <typename CollectableT>
     typename std::enable_if<!meta_utils::is_any_pointer<CollectableT>::value && std::is_trivial<CollectableT>::value, void>::type
     convertToByteVector(const CollectableT& val, std::vector<char>& vec) const
+=======
+    template <typename tt = CollectableT>
+    typename std::enable_if<!meta_utils::is_any_pointer<tt>::value, void>::type
+    convertToByteVector(const tt& val, std::vector<char>& vec) const
+>>>>>>> Stashed changes
     {
-        vec.resize(sizeof(CollectableT));
-        memcpy(vec.data(), &val, sizeof(CollectableT));
+        vec.resize(sizeof(tt));
+        memcpy(vec.data(), &val, sizeof(tt));
     }
 
+<<<<<<< Updated upstream
     template <typename CollectableT>
     typename std::enable_if<!meta_utils::is_any_pointer<CollectableT>::value && !std::is_trivial<CollectableT>::value, void>::type
     convertToByteVector(const CollectableT& val, std::vector<char>& vec) const
+=======
+template <typename CollectableT>
+class BlobConverter<CollectableT, typename std::enable_if<!std::is_trivial<CollectableT>::value || !std::is_standard_layout<CollectableT>::value>::type>
+{
+public:
+    BlobConverter()
+>>>>>>> Stashed changes
     {
         StructDefnSerializer<CollectableT> meta_serializer;
         auto blob_serializer = meta_serializer.createBlobSerializer();
 
+<<<<<<< Updated upstream
+=======
+    template <typename tt = CollectableT>
+    typename std::enable_if<meta_utils::is_any_pointer<tt>::value, void>::type
+    convertToByteVector(const tt& val, std::vector<char>& vec) const
+    {
+        if (val) {
+            convertToByteVector(*val, vec);
+        } else {
+            vec.clear();
+        }
+    }
+
+    template <typename tt = CollectableT>
+    typename std::enable_if<!meta_utils::is_any_pointer<tt>::value, void>::type
+    convertToByteVector(const tt& val, std::vector<char>& vec) const
+    {
+>>>>>>> Stashed changes
         CollectionBuffer buffer(vec);
         blob_serializer->writeStruct(&val, buffer);
     }
+<<<<<<< Updated upstream
+=======
+
+private:
+    /// Serializer to pack all struct data into a blob.
+    std::unique_ptr<StructBlobSerializer> blob_serializer_;
+>>>>>>> Stashed changes
 };
 
 /*!
