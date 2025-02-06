@@ -10,14 +10,6 @@
 namespace simdb
 {
 
-<<<<<<< Updated upstream
-class BlobConverter
-{
-public:
-    template <typename CollectableT>
-    typename std::enable_if<meta_utils::is_any_pointer<CollectableT>::value, void>::type
-    convertToByteVector(const CollectableT& val, std::vector<char>& vec) const
-=======
 template <typename CollectableT, typename Enable=void>
 class BlobConverter;
 
@@ -28,7 +20,6 @@ public:
     template <typename tt = CollectableT>
     typename std::enable_if<meta_utils::is_any_pointer<tt>::value, void>::type
     convertToByteVector(const tt& val, std::vector<char>& vec) const
->>>>>>> Stashed changes
     {
         if (val) {
             convertToByteVector(*val, vec);
@@ -37,37 +28,25 @@ public:
         }
     }
 
-<<<<<<< Updated upstream
-    template <typename CollectableT>
-    typename std::enable_if<!meta_utils::is_any_pointer<CollectableT>::value && std::is_trivial<CollectableT>::value, void>::type
-    convertToByteVector(const CollectableT& val, std::vector<char>& vec) const
-=======
-    template <typename tt = CollectableT>
+    template <typename tt=CollectableT>
     typename std::enable_if<!meta_utils::is_any_pointer<tt>::value, void>::type
     convertToByteVector(const tt& val, std::vector<char>& vec) const
->>>>>>> Stashed changes
     {
         vec.resize(sizeof(tt));
         memcpy(vec.data(), &val, sizeof(tt));
     }
+};
 
-<<<<<<< Updated upstream
-    template <typename CollectableT>
-    typename std::enable_if<!meta_utils::is_any_pointer<CollectableT>::value && !std::is_trivial<CollectableT>::value, void>::type
-    convertToByteVector(const CollectableT& val, std::vector<char>& vec) const
-=======
 template <typename CollectableT>
 class BlobConverter<CollectableT, typename std::enable_if<!std::is_trivial<CollectableT>::value || !std::is_standard_layout<CollectableT>::value>::type>
 {
 public:
     BlobConverter()
->>>>>>> Stashed changes
     {
         StructDefnSerializer<CollectableT> meta_serializer;
-        auto blob_serializer = meta_serializer.createBlobSerializer();
+        blob_serializer_ = meta_serializer.createBlobSerializer();
+    }
 
-<<<<<<< Updated upstream
-=======
     template <typename tt = CollectableT>
     typename std::enable_if<meta_utils::is_any_pointer<tt>::value, void>::type
     convertToByteVector(const tt& val, std::vector<char>& vec) const
@@ -83,17 +62,13 @@ public:
     typename std::enable_if<!meta_utils::is_any_pointer<tt>::value, void>::type
     convertToByteVector(const tt& val, std::vector<char>& vec) const
     {
->>>>>>> Stashed changes
         CollectionBuffer buffer(vec);
-        blob_serializer->writeStruct(&val, buffer);
+        blob_serializer_->writeStruct(&val, buffer);
     }
-<<<<<<< Updated upstream
-=======
 
 private:
     /// Serializer to pack all struct data into a blob.
     std::unique_ptr<StructBlobSerializer> blob_serializer_;
->>>>>>> Stashed changes
 };
 
 /*!
@@ -201,40 +176,25 @@ public:
         finalized_ = true;
     }
 
-    /// \brief Collect a scalar integer/float once.
-    template <typename T=CollectableT>
-    typename std::enable_if<(std::is_integral<T>::value || std::is_floating_point<T>::value) && !std::is_enum<T>::value, void>::type
-    collect(const T& val)
+    /// \brief Turn the CollectableT into a byte vector and collect it just once this cycle.
+    void collectOnce(const CollectableT& val)
     {
         blob_converter_.convertToByteVector(val, raw_bytes_);
-        num_valid_byte_vec_reads_ = 1;
+        is_zoh_ = false;
     }
 
-    /// \brief Collect a non-scalar (e.g. struct) once.
-    template <typename T=CollectableT>
-    typename std::enable_if<!std::is_scalar<T>::value, void>::type
-    collect(const T& val)
+    /// \brief Begin a zero-order-hold collection window.
+    void beginZOH(const CollectableT& val)
     {
         blob_converter_.convertToByteVector(val, raw_bytes_);
-        num_valid_byte_vec_reads_ = 1;
+        is_zoh_ = true;
     }
 
-    /// \brief Collect a scalar integer/float for more than one cycle.
-    template <typename T=CollectableT>
-    typename std::enable_if<(std::is_integral<T>::value || std::is_floating_point<T>::value) && !std::is_enum<T>::value, void>::type
-    collectWithDuration(const T& val, const uint32_t duration)
+    /// \brief End a zero-order-hold collection window.
+    void endZOH()
     {
-        blob_converter_.convertToByteVector(val, raw_bytes_);
-        num_valid_byte_vec_reads_ = duration;
-    }
-
-    /// \brief Collect a non-scalar (e.g. struct) for more than one cycle.
-    template <typename T=CollectableT>
-    typename std::enable_if<!std::is_scalar<T>::value, void>::type
-    collectWithDuration(const T& val, const uint32_t duration)
-    {
-        blob_converter_.convertToByteVector(val, raw_bytes_);
-        num_valid_byte_vec_reads_ = duration;
+        raw_bytes_.clear();
+        is_zoh_ = false;
     }
 
 private:
@@ -245,13 +205,16 @@ private:
             throw DBException("Cannot call collect() on a collection before calling finalize()");
         }
 
-        if (num_valid_byte_vec_reads_ == 0) {
+        if (raw_bytes_.empty()) {
             return;
         }
 
         buffer.writeHeader(collection_pkey_, 1);
         buffer.writeBytes(raw_bytes_.data(), raw_bytes_.size());
-        --num_valid_byte_vec_reads_;
+
+        if (!is_zoh_) {
+            raw_bytes_.clear();
+        }
     }
 
     /// Simulator-wide unique element path.
@@ -264,12 +227,11 @@ private:
     std::vector<char> raw_bytes_;
 
     /// Serializer to pack all collected data into a byte vector.
-    BlobConverter blob_converter_;
+    BlobConverter<meta_utils::remove_any_pointer_t<CollectableT>> blob_converter_;
 
-    /// Track the number of times we have read the collected byte vector.
-    /// This is used to support collectWithDuration(), where we will hold
-    /// onto the serialized byte vector for N cycles.
-    uint32_t num_valid_byte_vec_reads_ = 0;
+    /// Flag to know whether we are performing collectOnce() or
+    /// beginZOH()/endZOH().
+    bool is_zoh_ = false;
 };
 
 } // namespace simdb

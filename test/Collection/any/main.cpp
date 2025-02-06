@@ -119,12 +119,16 @@ private:
         switch (time_ % 10) {
             case 3: {
                 auto val = rand() % 10;
-                int_collector_->collect(val);
+                int_collector_->collectOnce(val);
                 break;
             }
             case 5: {
                 auto val = rand() % 10;
-                int_collector_->collectWithDuration(val, 3);
+                int_collector_->beginZOH(val);
+                break;
+            }
+            case 8: {
+                int_collector_->endZOH();
                 break;
             }
         }
@@ -135,12 +139,16 @@ private:
         switch (time_ % 10) {
             case 3: {
                 auto inst = generateRandomInst();
-                inst_collector_->collect(*inst);
+                inst_collector_->collectOnce(*inst);
                 break;
             }
             case 5: {
                 auto inst = generateRandomInst();
-                inst_collector_->collectWithDuration(*inst, 3);
+                inst_collector_->beginZOH(*inst);
+                break;
+            }
+            case 8: {
+                inst_collector_->endZOH();
                 break;
             }
         }
