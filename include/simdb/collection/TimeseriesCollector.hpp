@@ -139,13 +139,6 @@ public:
         return !values_collectors_.empty();
     }
 
-    void enableArgosIPC(const ScalarValueReader<double>& ipc_reader)
-    {
-        Stat<double> ipc_stat("IPC", ipc_reader, Format::none);
-        std::vector<Stat<double>> ipc_stats = {ipc_stat};
-        addStats(ipc_stats);
-    }
-
     void collectAll()
     {
         time_logger_->logTime();

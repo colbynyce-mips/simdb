@@ -34,12 +34,6 @@ public:
     IterableStructCollection(const std::string& name)
         : name_(name)
     {
-        static_assert(meta_utils::is_any_pointer<StructPtrT>::value,
-                      "Must collect a container such as " \
-                      "std::vector<std::shared_ptr<MyStruct>> or " \
-                      "std::deque<MyStruct*> (note that you may have to " \
-                      "specialize is_pointer<T> for your type T in the std " \
-                      "namespace)");
     }
 
     /// \brief   Add a container to this collection using a backpointer to the container.
