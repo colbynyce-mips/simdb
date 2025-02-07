@@ -21,7 +21,7 @@ public:
     virtual SqlDataType getDataType() const = 0;
     virtual ValueContainerBase* createBinder() const = 0;
     virtual void captureCurrentTime() = 0;
-    virtual bool ensureTimeHasAdvanced() const = 0;
+    virtual bool ensureTimeHasAdvanced(const std::string& clk_name) const = 0;
 };
 
 /*!
@@ -66,8 +66,9 @@ public:
         time_snapshot_ = std::make_pair(time_.getValue(), true);
     }
 
-    bool ensureTimeHasAdvanced() const override
+    bool ensureTimeHasAdvanced(const std::string& clk_name) const override
     {
+        (void)clk_name;//TODO cnyce
         return (!time_snapshot_.second || time_.getValue() > time_snapshot_.first);
     }
 
@@ -118,8 +119,9 @@ public:
         time_snapshot_ = std::make_pair(time_.getValue(), true);
     }
 
-    bool ensureTimeHasAdvanced() const override
+    bool ensureTimeHasAdvanced(const std::string& clk_name) const override
     {
+        (void)clk_name;//TODO cnyce
         return (!time_snapshot_.second || time_.getValue() > time_snapshot_.first);
     }
 
@@ -170,8 +172,9 @@ public:
         time_snapshot_ = std::make_pair(time_.getValue(), true);
     }
 
-    bool ensureTimeHasAdvanced() const override
+    bool ensureTimeHasAdvanced(const std::string& clk_name) const override
     {
+        (void)clk_name;//TODO cnyce
         return (!time_snapshot_.second || time_.getValue() > time_snapshot_.first);
     }
 

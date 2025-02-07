@@ -136,6 +136,19 @@ public:
         return element_paths_;
     }
 
+    std::string getClockDomain(const std::unordered_map<std::string, std::string>& clks_by_location) const
+    {
+        std::string clk_name;
+        for (const auto& el_path : element_paths_) {
+            auto iter = clks_by_location.find(el_path);
+            if (iter != clks_by_location.end()) {
+                sparta_assert(clk_name.empty() || clk_name == iter->second);
+                clk_name = iter->second;
+            }
+        }
+        return clk_name;
+    }
+
 protected:
     /// Validate that the path (to a stat, struct, or container) is either a valid python 
     /// variable name, or a dot-delimited path of valid python variable names:
@@ -394,6 +407,9 @@ public:
     /// Called manually during simulation to trigger automatic collection
     /// of all collections.
     void collectAll();
+
+    /// Collect only those collectables that exist on the given clock.
+    void collectDomain(const std::string& clk_name);
 
     /// One-time chance to write anything to the database after simulation.
     void onPipelineCollectorClosing()

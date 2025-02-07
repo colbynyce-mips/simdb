@@ -662,13 +662,23 @@ inline void Collections::serializeElementTree_(TreeNode* start, const int parent
 /// Called manually during simulation to trigger automatic collection of all collections.
 inline void Collections::collectAll()
 {
-    if (!timestamp_->ensureTimeHasAdvanced()) {
-        throw DBException("Cannot perform  - time has not advanced");
+    for (const auto& kvp : clk_periods_) {
+        const auto& clk_domain = kvp.first;
+        collectDomain(clk_domain);
+    }
+}
+
+inline void Collections::collectDomain(const std::string& clk_name)
+{
+    if (!timestamp_->ensureTimeHasAdvanced(clk_name)) {
+        throw DBException("Cannot collect  - time has not advanced");
     }
 
     CollectionBuffer buffer(all_collection_data_);
     for (auto& collection : collections_) {
-        collection->collect(buffer);
+        if (collection->getClockDomain(clks_by_location_) == clk_name) {
+            collection->collect(buffer);
+        }
     }
 
     if (timeseries_collector_) {
