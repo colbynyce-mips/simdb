@@ -1,16 +1,27 @@
-// <Structs> -*- C++ -*-
+// <Serialize.hpp> -*- C++ -*-
 
 #pragma once
 
-#include "simdb/async/AsyncTaskQueue.hpp"
-#include "simdb/collection/CollectionBase.hpp"
-#include "simdb/sqlite/DatabaseManager.hpp"
+#include "simdb/serialize/CollectionBuffer.hpp"
+#include "simdb/utils/StringMap.hpp"
 #include "simdb/utils/MetaStructs.hpp"
-#include "simdb/utils/TreeSerializer.hpp"
-#include <cstring>
+
+#include <stdint.h>
+#include <memory>
+#include <map>
+#include <string>
+#include <vector>
+#include <unordered_set>
 
 namespace simdb
 {
+
+enum class Format
+{
+    none = 0,
+    hex = 1,
+    boolalpha = 2
+};
 
 /// Data types supported by the collection system. Note that
 /// enum struct fields use the std::underlying_type of that
@@ -52,18 +63,18 @@ template <> inline StructFields getFieldDTypeEnum<std::string>() { return Struct
 inline std::string getFieldDTypeStr(const StructFields dtype)
 {
     switch (dtype) {
-        case StructFields::char_t:   return "char_t";
-        case StructFields::int8_t:   return "int8_t";
-        case StructFields::uint8_t:  return "uint8_t";
-        case StructFields::int16_t:  return "int16_t";
-        case StructFields::uint16_t: return "uint16_t";
-        case StructFields::int32_t:  return "int32_t";
-        case StructFields::uint32_t: return "uint32_t";
-        case StructFields::int64_t:  return "int64_t";
-        case StructFields::uint64_t: return "uint64_t";
-        case StructFields::float_t:  return "float_t";
-        case StructFields::double_t: return "double_t";
-        case StructFields::string_t: return "string_t";
+        case StructFields::char_t   : return "char_t";
+        case StructFields::int8_t   : return "int8_t";
+        case StructFields::uint8_t  : return "uint8_t";
+        case StructFields::int16_t  : return "int16_t";
+        case StructFields::uint16_t : return "uint16_t";
+        case StructFields::int32_t  : return "int32_t";
+        case StructFields::uint32_t : return "uint32_t";
+        case StructFields::int64_t  : return "int64_t";
+        case StructFields::uint64_t : return "uint64_t";
+        case StructFields::float_t  : return "float_t";
+        case StructFields::double_t : return "double_t";
+        case StructFields::string_t : return "string_t";
     }
 
     throw DBException("Invalid data type");
@@ -72,17 +83,17 @@ inline std::string getFieldDTypeStr(const StructFields dtype)
 inline size_t getDTypeNumBytes(const StructFields dtype)
 {
     switch (dtype) {
-        case StructFields::char_t:   return sizeof(char);
-        case StructFields::int8_t:   return sizeof(int8_t);
-        case StructFields::uint8_t:  return sizeof(uint8_t);
-        case StructFields::int16_t:  return sizeof(int16_t);
-        case StructFields::uint16_t: return sizeof(uint16_t);
-        case StructFields::int32_t:  return sizeof(int32_t);
-        case StructFields::uint32_t: return sizeof(uint32_t);
-        case StructFields::int64_t:  return sizeof(int64_t);
-        case StructFields::uint64_t: return sizeof(uint64_t);
-        case StructFields::float_t:  return sizeof(float);
-        case StructFields::double_t: return sizeof(double);
+        case StructFields::char_t   : return sizeof(char);
+        case StructFields::int8_t   : return sizeof(int8_t);
+        case StructFields::uint8_t  : return sizeof(uint8_t);
+        case StructFields::int16_t  : return sizeof(int16_t);
+        case StructFields::uint16_t : return sizeof(uint16_t);
+        case StructFields::int32_t  : return sizeof(int32_t);
+        case StructFields::uint32_t : return sizeof(uint32_t);
+        case StructFields::int64_t  : return sizeof(int64_t);
+        case StructFields::uint64_t : return sizeof(uint64_t);
+        case StructFields::float_t  : return sizeof(float);
+        case StructFields::double_t : return sizeof(double);
         default: break;
     }
 
@@ -203,9 +214,10 @@ public:
                 enum_val_blob.data_ptr = enum_val_vec.data();
                 enum_val_blob.num_bytes = enum_val_vec.size();
 
-                db_mgr->INSERT(SQL_TABLE("EnumDefns"),
-                               SQL_COLUMNS("EnumName", "EnumValStr", "EnumValBlob", "IntType"),
-                               SQL_VALUES(enum_name_, enum_val_str, enum_val_blob, int_type_str));
+                //TODO cnyce
+                //db_mgr->INSERT(SQL_TABLE("EnumDefns"),
+                //               SQL_COLUMNS("EnumName", "EnumValStr", "EnumValBlob", "IntType"),
+                //               SQL_VALUES(enum_name_, enum_val_str, enum_val_blob, int_type_str));
             }
 
             serialized_ = true;
@@ -265,9 +277,10 @@ public:
         const auto is_autocolorize_key = (int)isAutocolorizeKey();
         const auto is_displayed_by_default = (int)isDisplayedByDefault();
 
-        db_mgr->INSERT(SQL_TABLE("StructFields"),
-                       SQL_COLUMNS("StructName", "FieldName", "FieldType", "FormatCode", "IsAutoColorizeKey", "IsDisplayedByDefault"),
-                       SQL_VALUES(struct_name, name_, field_dtype_str, fmt, is_autocolorize_key, is_displayed_by_default));
+        //TODO cnyce
+        //db_mgr->INSERT(SQL_TABLE("StructFields"),
+        //               SQL_COLUMNS("StructName", "FieldName", "FieldType", "FormatCode", "IsAutoColorizeKey", "IsDisplayedByDefault"),
+        //               SQL_VALUES(struct_name, name_, field_dtype_str, fmt, is_autocolorize_key, is_displayed_by_default));
     }
 
     void setIsAutocolorizeKey(bool is_autocolorize_key)
@@ -320,9 +333,10 @@ public:
         const auto is_autocolorize_key = (int)isAutocolorizeKey();
         const auto is_displayed_by_default = (int)isDisplayedByDefault();
 
-        db_mgr->INSERT(SQL_TABLE("StructFields"),
-                       SQL_COLUMNS("StructName", "FieldName", "FieldType", "IsAutoColorizeKey", "IsDisplayedByDefault"),
-                       SQL_VALUES(struct_name, field_name, enum_name_, is_autocolorize_key, is_displayed_by_default));
+        //TODO cnyce
+        //db_mgr->INSERT(SQL_TABLE("StructFields"),
+        //               SQL_COLUMNS("StructName", "FieldName", "FieldType", "IsAutoColorizeKey", "IsDisplayedByDefault"),
+        //               SQL_VALUES(struct_name, field_name, enum_name_, is_autocolorize_key, is_displayed_by_default));
 
         EnumMap<EnumT>::instance()->serializeDefn(db_mgr);
     }
@@ -584,187 +598,6 @@ public:
 
 private:
     StructSchema schema_;
-};
-
-/*!
- * \class ScalarStructCollection
- *
- * \brief This class is used to collect struct-like data structures commonly encountered
- *        in simulators, with support for enum and string fields. If you want to collect 
- *        vectors/deques of structs use the IterableStructCollection class.
- */
-template <typename StructT>
-class ScalarStructCollection : public CollectionBase
-{
-public:
-    using UnderlyingStructT = meta_utils::remove_any_pointer_t<StructT>;
-
-    /// Construct with a name for this collection.
-    ScalarStructCollection(const std::string& name)
-        : name_(name)
-    {
-        static_assert(!meta_utils::is_any_pointer<UnderlyingStructT>::value,
-                      "Template type must be a value type");
-    }
-
-    /// \brief   Add a struct to this collection using a backpointer to the struct.
-    ///
-    /// \param   struct_path Unique struct path e.g. variable name like "struct_foo", or a 
-    ///                      dot-delimited simulator location such as "structs.foo"
-    ///
-    /// \param   struct_ptr Backpointer to the struct.
-    ///
-    /// \warning This pointer will be read every time the collect() method is called.
-    ///          You must ensure that this is a valid pointer for the life of the simulation
-    ///          else your program will crash or send bogus data to the database.
-    ///
-    /// \throws  Throws an exception if called after finalize() or if the struct_path is not unique.
-    ///          Also throws if the struct path cannot later be used in python (do not use uuids of
-    ///          the form "abc123-def456").
-    void addStruct(const std::string& struct_path, const UnderlyingStructT* struct_ptr, const std::string& clk_name = "")
-    {
-        validatePath_(struct_path);
-        structs_.emplace_back(struct_ptr, struct_path, clk_name);
-    }
-
-    /// Get the name of this collection.
-    std::string getName() const override
-    {
-        return name_;
-    }
-
-    /// Get if the given element path ("root.child1.child2") is in this collection.
-    bool hasElement(const std::string& element_path) const override
-    {
-        for (const auto& tup : structs_) {
-            if (std::get<1>(tup) == element_path) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /// Get the element offset in the collection. This is for collections where we
-    /// pack all stats of the same data type into the same collection buffer, specifically
-    /// StatCollection<T> and ScalarStructCollection<T>.
-    int getElementOffset(const std::string& element_path) const override
-    {
-        for (size_t idx = 0; idx < structs_.size(); ++idx) {
-            if (std::get<1>(structs_[idx]) == element_path) {
-                return idx;
-            }
-        }
-        return -1;
-    }
-
-    /// Get the type of widget that should be displayed when the given element
-    /// is dragged-and-dropped onto the Argos widget canvas.
-    std::string getWidgetType(const std::string& element_path) const override
-    {
-        if (hasElement(element_path)) {
-            return "StructViewer";
-        }
-        return "";
-    }
-
-    /// Write metadata about this collection to the database.
-    /// Returns the collection's primary key in the Collections table.
-    int writeCollectionMetadata(DatabaseManager* db_mgr) override
-    {
-        if (collection_pkey_ != -1) {
-            return collection_pkey_;
-        }
-
-        auto record = db_mgr->INSERT(SQL_TABLE("Collections"),
-                                     SQL_COLUMNS("Name", "DataType", "IsContainer", "IsSparse", "Capacity"),
-                                     SQL_VALUES(name_, meta_serializer_.getStructName(), 0, 0, (int)structs_.size()));
-
-        collection_pkey_ = record->getId();
-        meta_serializer_.serializeDefn(db_mgr);
-
-        return collection_pkey_;
-    }
-
-    /// Method does not apply to this collection type.
-    bool rerouteTimeseries(TimeseriesCollector*) override
-    {
-        return false;
-    }
-
-    /// Give collections a chance to write to the database after simulation.
-    void onPipelineCollectorClosing(DatabaseManager*) override
-    {
-    }
-
-    /// Set the heartbeat for this collection. This is the max number of cycles
-    /// that we employ the optimization "only write to the database if the collected
-    /// data is different from the last collected data". This prevents Argos from
-    /// having to go back more than N cycles to find the last known value.
-    void setHeartbeat(const size_t heartbeat) override
-    {
-        (void)heartbeat;
-    }
-
-    /// \brief  Finalize this collection.
-    /// \throws Throws an exception if called more than once.
-    void finalize() override
-    {
-        if (finalized_) {
-            throw DBException("Cannot call finalize() on a collection more than once");
-        }
-
-        blob_serializer_ = meta_serializer_.createBlobSerializer();
-        finalized_ = true;
-    }
-
-    /// \brief  Collect all structs in this collection into one data vector
-    ///         and write the blob to the database.
-    ///
-    /// \throws Throws an exception if finalize() was not already called first.
-    void collect(CollectionBuffer& buffer) override
-    {
-        if (!finalized_) {
-            throw DBException("Cannot call collect() on a collection before calling finalize()");
-        }
-
-        buffer.writeHeader(collection_pkey_, structs_.size());
-        for (const auto& tup : structs_) {
-            const UnderlyingStructT *container = std::get<0>(tup);
-            writeStruct_(container, buffer);
-        }
-    }
-
-private:
-    template <typename S=UnderlyingStructT>
-    typename std::enable_if<meta_utils::is_any_pointer<S>::value, void>::type
-    writeStruct_(const S s, CollectionBuffer& buffer)
-    {
-        if (s) {
-            writeStruct_(*s, buffer);            
-        }
-    }
-
-    template <typename S=UnderlyingStructT>
-    typename std::enable_if<!meta_utils::is_any_pointer<S>::value, void>::type
-    writeStruct_(const S& s, CollectionBuffer& buffer)
-    {
-        blob_serializer_->writeStruct(&s, buffer);
-    }
-
-    /// Name of this collection. Serialized to the database.
-    std::string name_;
-
-    /// All the structs' backpointers their paths, and their clock names.
-    std::vector<std::tuple<const UnderlyingStructT*, std::string, std::string>> structs_;
-
-    /// Our primary key in the Collections table.
-    int collection_pkey_ = -1;
-
-    /// Serializer to write all info about this struct to the DB.
-    StructDefnSerializer<UnderlyingStructT> meta_serializer_;
-
-    /// Serializer to pack all struct data into a blob.
-    std::unique_ptr<StructBlobSerializer> blob_serializer_;
 };
 
 } // namespace simdb
