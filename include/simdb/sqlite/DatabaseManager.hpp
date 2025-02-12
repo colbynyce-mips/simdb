@@ -8,6 +8,7 @@
 #include "simdb/sqlite/SQLiteTable.hpp"
 #include "simdb/utils/PerfDiagnostics.hpp"
 #include "simdb/serialize/Serialize.hpp"
+#include "simdb/serialize/CollectionMgr.hpp"
 
 namespace simdb
 {
@@ -143,6 +144,22 @@ public:
     SQLiteTransaction* getConnection() const
     {
         return db_conn_.get();
+    }
+
+    /// Access the data collection system for e.g. pipeline collection
+    /// or stats collection (CSV/JSON).
+    CollectionMgr* getCollectionMgr()
+    {
+        if (!db_conn_) {
+            return nullptr;
+        }
+
+        if (!collection_mgr_) {
+            collection_mgr_ = std::make_unique<CollectionMgr>(this, db_conn_.get());
+            collection_mgr_->defineSchema(schema_);
+        }
+
+        return collection_mgr_.get();
     }
 
     /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
@@ -423,6 +440,9 @@ private:
 
     /// Database connection.
     std::shared_ptr<SQLiteConnection> db_conn_;
+
+    /// Collection manager (CSV/JSON/Argos).
+    std::unique_ptr<CollectionMgr> collection_mgr_;
 
     /// Schema for this database as given to createDatabaseFromSchema()
     /// and optionally appendSchema().
