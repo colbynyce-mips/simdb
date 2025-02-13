@@ -3,12 +3,116 @@
 #pragma once
 
 #include "simdb/schema/SchemaDef.hpp"
+#include "simdb/serialize/Serialize.hpp"
 
 namespace simdb
 {
 
+class CollectionPointBase
+{
+public:
+    CollectionPointBase(const std::string& path, const std::string& clock)
+        : path_(path)
+        , clock_(clock)
+    {}
+
+    const std::string& getPath() const
+    {
+        return path_;
+    }
+
+    const std::string& getClock() const
+    {
+        return clock_;
+    }
+
+    virtual ~CollectionPointBase() = default;
+
+    virtual void getStructSchema(StructSchema& schema) const = 0;
+
+    virtual std::string getDataTypeStr() const = 0;
+
+    virtual void sweep() = 0;
+
+private:
+    std::string path_;
+    std::string clock_;
+};
+
+template <typename T>
+class Collectable : public CollectionPointBase
+{
+public:
+    Collectable(const std::string& path, const std::string& clock, const T* data = nullptr)
+        : CollectionPointBase(path, clock)
+        , data_(data)
+    {}
+
+    void getStructSchema(StructSchema& schema) const override
+    {
+        using value_type = typename meta_utils::remove_any_pointer_t<T>;
+        defineStructSchema<value_type>(schema);
+    }
+
+    std::string getDataTypeStr() const override
+    {
+        using value_type = typename meta_utils::remove_any_pointer_t<T>;
+
+        if constexpr (std::is_trivial<value_type>::value && !std::is_same<value_type, bool>::value) {
+            return getFieldDTypeStr(getFieldDTypeEnum<value_type>());
+        } else if constexpr (std::is_same<value_type, std::string>::value) {
+            return "string";
+        } else if constexpr (std::is_same<value_type, bool>::value) {
+            return "bool";
+        } else {
+            return "TODO";
+        }
+    }
+
+    void sweep() override
+    {
+        (void)data_;
+    }
+
+private:
+    const T* data_;
+};
+
+template <typename T, bool Sparse>
+class IterableCollector : public CollectionPointBase
+{
+public:
+    IterableCollector(const std::string& path, const std::string& clock, const T* data)
+        : CollectionPointBase(path, clock)
+        , data_(data)
+    {}
+
+    void getStructSchema(StructSchema& schema) const override
+    {
+        using value_type = meta_utils::remove_any_pointer_t<typename T::value_type>;
+        defineStructSchema<value_type>(schema);
+    }
+
+    std::string getDataTypeStr() const override
+    {
+        std::string dtype_str;
+        using value_type = typename meta_utils::remove_any_pointer_t<typename T::value_type>;
+        dtype_str += demangle(typeid(value_type).name()) + "_";
+        dtype_str += (Sparse ? "sparse" : "contig");
+        dtype_str += "_capacity" + std::to_string(data_->capacity());
+        return dtype_str;
+    }
+
+    void sweep() override
+    {
+        (void)data_;
+    }
+
+private:
+    const T* data_;
+};
+
 class DatabaseManager;
-class SQLiteTransaction;
 
 /*!
  * \class CollectionMgr
@@ -19,39 +123,25 @@ class CollectionMgr
 {
 public:
     /// Construct with the DatabaseManager and SQLiteTransaction.
-    CollectionMgr(DatabaseManager* db_mgr, SQLiteTransaction* db_conn)
-        : db_mgr_(db_mgr)
-        , db_conn_(db_conn)
+    CollectionMgr(size_t heartbeat)
+        : pipeline_heartbeat_(heartbeat)
     {
     }
 
-    /// Set the heartbeat for all collections. This is the max number of cycles
-    /// that we employ the optimization "only write to the database if the collected
-    /// data is different from the last collected data". This prevents Argos from
-    /// having to go back more than N cycles to find the last known value.
-    void setHeartbeat(size_t heartbeat)
+    /// Add a new clock domain for collection.
+    void addClock(const std::string& name, const uint32_t period)
     {
-        pipeline_heartbeat_ = heartbeat;
+        clocks_[name] = period;
     }
 
-    /// Get the heartbeat for all collections.
-    size_t getHeartbeat() const
-    {
-        return pipeline_heartbeat_;
-    }
-
-    /// Set the compression level for all collections. This is the zlib compression
-    /// level, where 0 is no compression, 1 is fastest, and 9 is best compression.
-    void setCompressionLevel(int level)
-    {
-        compression_level_ = level;
-    }
-
-    /// Populate the schema with the appropriate tables for all the
-    /// collections.
+    /// Populate the schema with the appropriate tables for all the collections.
     void defineSchema(Schema& schema) const
     {
         using dt = SqlDataType;
+
+        schema.addTable("CollectionGlobals")
+            .addColumn("Heartbeat", dt::int32_t)
+            .setColumnDefaultValue("Heartbeat", 10);
 
         schema.addTable("Clocks")
             .addColumn("Name", dt::string_t)
@@ -64,21 +154,9 @@ public:
         schema.addTable("CollectableTreeNodes")
             .addColumn("ElementTreeNodeID", dt::int32_t)
             .addColumn("ClockID", dt::int32_t)
-            // DataType could be:
-            //    int16_t                          <-- Collectable<int16_t>
-            //    double                           <-- Collectable<double>
-            //    ExampleInst                      <-- Collectable<ExampleInst>
-            //    ExampleInst_sparse_capacity64    <-- IterableCollector<ExampleInst, SchedulingPhase::Collection, true>
-            //    ExampleInst_contig_capacity8     <-- IterableCollector<ExampleInst, SchedulingPhase::Collection, false>
             .addColumn("DataType", dt::string_t);
 
         schema.addTable("StructFields")
-            // This table is populated when non-POD types are encountered at the
-            // collectable leaves. For example, if a Collectable<ExampleInst> is
-            // encountered, numerous entries will be added to this table that all
-            // have the StructName "ExampleInst". Each entry will represent a field
-            // in the ExampleInst struct, and the order of the entries will be the
-            // order in which the fields were added to the Collectable<ExampleInst>.
             .addColumn("StructName", dt::string_t)
             .addColumn("FieldName", dt::string_t)
             .addColumn("FieldType", dt::string_t)
@@ -87,37 +165,52 @@ public:
             .addColumn("IsDisplayedByDefault", dt::int32_t)
             .setColumnDefaultValue("IsAutoColorizeKey", 0)
             .setColumnDefaultValue("IsDisplayedByDefault", 1);
+
+        schema.addTable("EnumDefns")
+            .addColumn("EnumName", dt::string_t)
+            .addColumn("EnumValStr", dt::string_t)
+            .addColumn("EnumValBlob", dt::blob_t)
+            .addColumn("IntType", dt::string_t);
+
+        schema.addTable("StringMap")
+            .addColumn("IntVal", dt::int32_t)
+            .addColumn("String", dt::string_t);
+    }
+
+    template <typename T>
+    std::shared_ptr<Collectable<T>> createCollectable(
+        const std::string& path,
+        const std::string& clock,
+        const T* data = nullptr)
+    {
+        auto collectable = std::make_shared<Collectable<T>>(path, clock, data);
+        collectables_.push_back(collectable);
+        return collectable;
+    }
+
+    template <typename T, bool Sparse>
+    std::shared_ptr<IterableCollector<T, Sparse>> createIterableCollector(
+        const std::string& path,
+        const std::string& clock,
+        const T* data = nullptr)
+    {
+        auto collector = std::make_shared<IterableCollector<T, Sparse>>(path, clock, data);
+        collectables_.push_back(collector);
+        return collector;
     }
 
 private:
-    /// DatabaseManager. Needed so we can call finalize() and collect() on the
-    /// CollectionBase objects.
-    DatabaseManager* db_mgr_;
-
-    /// SQLiteTransaction. Needed so we can put synchronously serialized collections
-    /// inside BEGIN/COMMIT TRANSACTION calls for best performance.
-    SQLiteTransaction* db_conn_;
-
     /// The max number of cycles that we employ the optimization "only write to the
     /// database if the collected data is different from the last collected data".
     /// This prevents Argos from having to go back more than N cycles to find the
     /// last known value.
-    size_t pipeline_heartbeat_ = 10;
+    const size_t pipeline_heartbeat_;
 
-    /// Compression level. This starts out as the default compromise between speed and compression,
-    /// and will gradually move towards fastest compression if the worker thread is falling behind.
-    /// Note that the levels are 0-9, where 0 is no compression, 1 is fastest, and 9 is best compression.
-    /// We currently do not go all the way to zero compression or the database will be too large.
-    int compression_level_ = 6;
+    /// All registered clocks.
+    std::unordered_map<std::string, uint32_t> clocks_;
 
-    /// Keep track of the "highwater mark" representing the number of tasks in the queue at
-    /// the time of each collection. Start with a highwater mark of 5 so we do not inadvertently
-    /// lower the compression level too soon. We want to give the worker thread a chance to catch up.
-    size_t num_tasks_highwater_mark_ = 5;
-
-    /// Keep track of how many times the highwater mark is exceeded. When it reaches 3, we will
-    /// decrement the compression level to make it go faster and reset this count back to 0.
-    size_t num_times_highwater_mark_exceeded_ = 0;
+    /// All collectables.
+    std::vector<std::shared_ptr<CollectionPointBase>> collectables_;
 
     friend class DatabaseManager;
 };

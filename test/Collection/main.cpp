@@ -158,9 +158,6 @@ namespace simdb
 
 } // namespace simdb
 
-#define STRUCT_GROUP_CAPACITY 8
-#define SPARSE_STRUCT_GROUP_CAPACITY 16
-
 /// Example simulator that configures all supported types of collections.
 class Sim
 {
@@ -172,56 +169,69 @@ public:
 
     void runSimulation()
     {
-        configCollections_();
+        configCollectables_();
 
-        while (false) {
-            generateRandomStats_();
-            generateRandomStructs_();
-            generateRandomStructGroups_();
+        size_t count = 0;
+        while (count++ < 100) {
+            u64 = generateRandomInt<uint64_t>();
+            b = rand() % 2 == 0;
+            dummy_packet_ = *generateRandomDummyPacket();
+
+            dummy_packet_vec_contig_.clear();
+            for (size_t i = 0; i < rand() % 10; ++i) {
+                dummy_packet_vec_contig_.push_back(generateRandomDummyPacket());
+            }
+
+            dummy_packet_vec_sparse_.clear();
+            dummy_packet_vec_sparse_.resize(32);
+            for (size_t i = 0; i < rand() % 10; ++i) {
+                if (rand() % 2 == 0) {
+                    dummy_packet_vec_sparse_[i] = generateRandomDummyPacket();
+                }
+            }
         }
 
         db_mgr_->getConnection()->getTaskQueue()->stopThread();
     }
 
 private:
-    void configCollections_()
+    void configCollectables_()
     {
-    }
+        db_mgr_->enableCollection(10);
+        auto collection_mgr = db_mgr_->getCollectionMgr();
+        collection_mgr->addClock("root", 1);
 
-    void generateRandomStats_()
-    {
-        int8_ = generateRandomInt<int8_t>();
-        int16_ = generateRandomInt<int16_t>();
-        int32_ = generateRandomInt<int32_t>();
-        int64_ = generateRandomInt<int64_t>();
-        uint8_ = generateRandomInt<uint8_t>();
-        uint16_ = generateRandomInt<uint16_t>();
-        uint32_ = generateRandomInt<uint32_t>();
-        uint64_ = generateRandomInt<uint64_t>();
-        flt_ = generateRandomFloat<float>();
-        dbl_ = generateRandomFloat<double>();
-    }
+        auto_uint64_collectable_ = collection_mgr->createCollectable<uint64_t>("top.uint64", "root", &u64);
+        auto_bool_collectable_ = collection_mgr->createCollectable<bool>("top.bool", "root", &b);
+        auto_packet_collectable_ = collection_mgr->createCollectable<DummyPacket>("top.dummy_packet_auto", "root", &dummy_packet_);
+        manual_packet_collectable_ = collection_mgr->createCollectable<DummyPacket>("top.dummy_packet_manual", "root");
+        dummy_collectable_vec_contig_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, false>("top.dummy_packet_vec_contig", "root", &dummy_packet_vec_contig_);
+        dummy_collectable_vec_sparse_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, true>("top.dummy_packet_vec_sparse", "root", &dummy_packet_vec_sparse_);
 
-    void generateRandomStructs_()
-    {
-    }
+        // The capacities must all be set prior to calling finalizeCollections()
+        dummy_packet_vec_contig_.reserve(32);
+        dummy_packet_vec_sparse_.resize(32);
 
-    void generateRandomStructGroups_()
-    {
+        db_mgr_->finalizeCollections();
     }
 
     simdb::DatabaseManager* db_mgr_;
 
-    int8_t int8_;
-    int16_t int16_;
-    int32_t int32_;
-    int64_t int64_;
-    uint8_t uint8_;
-    uint16_t uint16_;
-    uint32_t uint32_;
-    uint64_t uint64_;
-    float flt_;
-    double dbl_;
+    uint64_t u64;
+    std::shared_ptr<simdb::Collectable<uint64_t>> auto_uint64_collectable_;
+
+    bool b;
+    std::shared_ptr<simdb::Collectable<bool>> auto_bool_collectable_;
+
+    DummyPacket dummy_packet_;
+    std::shared_ptr<simdb::Collectable<DummyPacket>> auto_packet_collectable_;
+    std::shared_ptr<simdb::Collectable<DummyPacket>> manual_packet_collectable_;
+
+    DummyPacketPtrVec dummy_packet_vec_contig_;
+    std::shared_ptr<simdb::IterableCollector<DummyPacketPtrVec, false>> dummy_collectable_vec_contig_;
+
+    DummyPacketPtrVec dummy_packet_vec_sparse_;
+    std::shared_ptr<simdb::IterableCollector<DummyPacketPtrVec, true>> dummy_collectable_vec_sparse_;
 };
 
 int main()

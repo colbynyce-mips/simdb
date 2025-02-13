@@ -7,7 +7,7 @@
 #include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/sqlite/SQLiteTable.hpp"
 #include "simdb/utils/PerfDiagnostics.hpp"
-#include "simdb/serialize/Serialize.hpp"
+#include "simdb/utils/TreeBuilder.hpp"
 #include "simdb/serialize/CollectionMgr.hpp"
 
 namespace simdb
@@ -146,20 +146,31 @@ public:
         return db_conn_.get();
     }
 
+    /// Initialize the collection manager prior to calling getCollectionMgr().
+    void enableCollection(size_t heartbeat)
+    {
+        if (!collection_mgr_) {
+            collection_mgr_ = std::make_unique<CollectionMgr>(heartbeat);
+
+            Schema schema;
+            collection_mgr_->defineSchema(schema);
+            appendSchema(schema);
+        }
+    }
+
     /// Access the data collection system for e.g. pipeline collection
     /// or stats collection (CSV/JSON).
     CollectionMgr* getCollectionMgr()
     {
-        if (!db_conn_) {
-            return nullptr;
-        }
-
-        if (!collection_mgr_) {
-            collection_mgr_ = std::make_unique<CollectionMgr>(this, db_conn_.get());
-            collection_mgr_->defineSchema(schema_);
-        }
-
         return collection_mgr_.get();
+    }
+
+    /// One-time call to get the collection system ready.
+    void finalizeCollections()
+    {
+        safeTransaction([&](){
+            return finalizeCollections_();
+        });
     }
 
     /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
@@ -319,10 +330,6 @@ public:
         return std::unique_ptr<SqlQuery>(new SqlQuery(table_name, db_conn_->getDatabase()));
     }
 
-    /// Called at the end of simulation (or collection) right before the
-    /// task thread is shut down and the database is closed.
-    void onPipelineCollectorClosing();
-
     /// Close the sqlite3 connection and stop the AsyncTaskQueue thread
     /// if it is still running.
     void closeDatabase()
@@ -438,6 +445,100 @@ private:
         }
     }
 
+    /// Finalize the collection system.
+    bool finalizeCollections_()
+    {
+        if (collection_mgr_) {
+            INSERT(SQL_TABLE("CollectionGlobals"),
+                   SQL_COLUMNS("Heartbeat"),
+                   SQL_VALUES((int)collection_mgr_->pipeline_heartbeat_));
+
+            std::unordered_map<std::string, int> clock_db_ids_by_name;
+            for (const auto& clock : collection_mgr_->clocks_) {
+                auto record = INSERT(SQL_TABLE("Clocks"),
+                                    SQL_COLUMNS("Name", "Period"),
+                                    SQL_VALUES(clock.first, (int)clock.second));
+
+                clock_db_ids_by_name[clock.first] = record->getId();
+            }
+
+            std::vector<std::string> sim_paths;
+            for (const auto& collectable : collection_mgr_->collectables_) {
+                sim_paths.push_back(collectable->getPath());
+            }
+
+            std::unordered_map<std::string, std::string> clocks_by_sim_path;
+            for (const auto& collectable : collection_mgr_->collectables_) {
+                clocks_by_sim_path[collectable->getPath()] = collectable->getClock();
+            }
+
+            std::unordered_map<std::string, std::string> dtype_strs_by_sim_path;
+            for (const auto& collectable : collection_mgr_->collectables_) {
+                dtype_strs_by_sim_path[collectable->getPath()] = collectable->getDataTypeStr();
+            }
+
+            std::unique_ptr<TreeNode> root = buildTree(sim_paths);
+            serializeElementTree_(root.get());
+            serializeCollectableTree_(root.get(), clocks_by_sim_path, clock_db_ids_by_name, dtype_strs_by_sim_path);
+
+            for (const auto& collectable : collection_mgr_->collectables_) {
+                StructSchema struct_schema;
+                collectable->getStructSchema(struct_schema);
+
+                if (!struct_schema.getStructName().empty()) {
+                    struct_schema.serializeDefn(this);
+                }
+            }
+
+            return true;
+        }
+        return false;
+    }
+
+    void serializeElementTree_(TreeNode* start,
+                               const int parent_db_id = 0)
+    {
+        if (!start) {
+            return;
+        }
+
+        auto node_record = INSERT(SQL_TABLE("ElementTreeNodes"),
+                                  SQL_COLUMNS("Name", "ParentID"),
+                                  SQL_VALUES(start->name, parent_db_id));
+
+        start->db_id = node_record->getId();
+        for (const auto& child : start->children) {
+            serializeElementTree_(child.get(), node_record->getId());
+        }
+    }
+
+    void serializeCollectableTree_(
+        TreeNode* start,
+        const std::unordered_map<std::string, std::string>& clocks_by_sim_path,
+        const std::unordered_map<std::string, int>& clock_db_ids_by_name,
+        const std::unordered_map<std::string, std::string>& dtype_strs_by_sim_path)
+    {
+        if (!start) {
+            return;
+        }
+
+        auto loc = start->getLocation();
+        auto iter = clocks_by_sim_path.find(loc);
+        if (iter != clocks_by_sim_path.end()) {
+            const int elem_id = start->db_id;
+            const int clk_id = clock_db_ids_by_name.at(iter->second);
+            const auto& dtype_str = dtype_strs_by_sim_path.at(loc);
+
+            INSERT(SQL_TABLE("CollectableTreeNodes"),
+                   SQL_COLUMNS("ElementTreeNodeID", "ClockID", "DataType"),
+                   SQL_VALUES(elem_id, clk_id, dtype_str));
+        }
+
+        for (const auto& child : start->children) {
+            serializeCollectableTree_(child.get(), clocks_by_sim_path, clock_db_ids_by_name, dtype_strs_by_sim_path);
+        }
+    }
+
     /// Database connection.
     std::shared_ptr<SQLiteConnection> db_conn_;
 
@@ -464,5 +565,57 @@ private:
     /// with its intended use.
     std::unique_ptr<PerfDiagnostics> perf_diagnostics_;
 };
+
+inline void FieldBase::serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const
+{
+    const auto field_dtype_str = getFieldDTypeStr(dtype_);
+    const auto fmt = static_cast<int>(format_);
+    const auto is_autocolorize_key = (int)isAutocolorizeKey();
+    const auto is_displayed_by_default = (int)isDisplayedByDefault();
+
+    db_mgr->INSERT(SQL_TABLE("StructFields"),
+                   SQL_COLUMNS("StructName", "FieldName", "FieldType", "FormatCode", "IsAutoColorizeKey", "IsDisplayedByDefault"),
+                   SQL_VALUES(struct_name, name_, field_dtype_str, fmt, is_autocolorize_key, is_displayed_by_default));
+}
+
+template <typename EnumT>
+inline void EnumMap<EnumT>::serializeDefn(DatabaseManager* db_mgr) const
+{
+    using enum_int_t = typename std::underlying_type<EnumT>::type;
+
+    if (!serialized_) {
+        auto dtype = getFieldDTypeEnum<enum_int_t>();
+        auto int_type_str = getFieldDTypeStr(dtype);
+
+        for (const auto& kvp : *map_) {
+            auto enum_val_str = kvp.first;
+            auto enum_val_vec = convertIntToBlob<enum_int_t>(kvp.second);
+
+            SqlBlob enum_val_blob;
+            enum_val_blob.data_ptr = enum_val_vec.data();
+            enum_val_blob.num_bytes = enum_val_vec.size();
+
+            db_mgr->INSERT(SQL_TABLE("EnumDefns"),
+                           SQL_COLUMNS("EnumName", "EnumValStr", "EnumValBlob", "IntType"),
+                           SQL_VALUES(enum_name_, enum_val_str, enum_val_blob, int_type_str));
+        }
+
+        serialized_ = true;
+    }
+}
+
+template <typename EnumT>
+inline void EnumField<EnumT>::serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const
+{
+    const auto field_name = getName();
+    const auto is_autocolorize_key = (int)isAutocolorizeKey();
+    const auto is_displayed_by_default = (int)isDisplayedByDefault();
+
+    db_mgr->INSERT(SQL_TABLE("StructFields"),
+                   SQL_COLUMNS("StructName", "FieldName", "FieldType", "IsAutoColorizeKey", "IsDisplayedByDefault"),
+                   SQL_VALUES(struct_name, field_name, enum_name_, is_autocolorize_key, is_displayed_by_default));
+
+    EnumMap<EnumT>::instance()->serializeDefn(db_mgr);
+}
 
 } // namespace simdb

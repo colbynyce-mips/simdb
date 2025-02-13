@@ -16,10 +16,8 @@ struct TreeNode {
     std::vector<std::unique_ptr<TreeNode>> children;
     const TreeNode* parent = nullptr;
 
-    int clk_id = -1;
-    int collection_id = -1;
-    int collection_offset = 0;
-    std::string widget_type;
+    int db_id = -1;
+    std::string data_type_str;
 
     TreeNode(const std::string& name, const TreeNode* parent = nullptr)
         : name(name)

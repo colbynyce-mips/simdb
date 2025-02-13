@@ -12,9 +12,37 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <cxxabi.h>
 
 namespace simdb
 {
+
+/*!
+ * \brief Represents the internal buffer size for demangling C++ symbols via
+ * sparta::demangle
+ */
+#define DEMANGLE_BUF_LENGTH 4096
+
+/*!
+ * \brief Demangles a C++ symbol
+ * \param Name Symbol name to demangle
+ * \return Demangled name if successful. If failed, returns the input
+ * name. Note that demangled names may match input name.
+ * \note Demangling is limited by DEMANGLE_BUF_LENGTH. results may be
+ * truncated or fail for very symbols. Change this value to support longer
+ * symbol names.
+ */
+inline std::string demangle(const std::string& name) noexcept
+{
+    char buf[DEMANGLE_BUF_LENGTH];
+    size_t buf_size = DEMANGLE_BUF_LENGTH;
+    int status;
+    char* out = __cxxabiv1::__cxa_demangle(name.c_str(), buf, &buf_size, &status);
+    if(nullptr == out){
+        return name;
+    }
+    return std::string(out);
+}
 
 enum class Format
 {
@@ -200,29 +228,7 @@ public:
         return enum_name_;
     }
 
-    void serializeDefn(DatabaseManager* db_mgr) const
-    {
-        if (!serialized_) {
-            auto dtype = getFieldDTypeEnum<enum_int_t>();
-            auto int_type_str = getFieldDTypeStr(dtype);
-
-            for (const auto& kvp : *map_) {
-                auto enum_val_str = kvp.first;
-                auto enum_val_vec = convertIntToBlob<enum_int_t>(kvp.second);
-
-                SqlBlob enum_val_blob;
-                enum_val_blob.data_ptr = enum_val_vec.data();
-                enum_val_blob.num_bytes = enum_val_vec.size();
-
-                //TODO cnyce
-                //db_mgr->INSERT(SQL_TABLE("EnumDefns"),
-                //               SQL_COLUMNS("EnumName", "EnumValStr", "EnumValBlob", "IntType"),
-                //               SQL_VALUES(enum_name_, enum_val_str, enum_val_blob, int_type_str));
-            }
-
-            serialized_ = true;
-        }
-    }
+    void serializeDefn(DatabaseManager* db_mgr) const;
 
 private:
     EnumMap()
@@ -270,18 +276,7 @@ public:
         return getDTypeNumBytes(dtype_);
     }
 
-    virtual void serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const
-    {
-        const auto field_dtype_str = getFieldDTypeStr(dtype_);
-        const auto fmt = static_cast<int>(format_);
-        const auto is_autocolorize_key = (int)isAutocolorizeKey();
-        const auto is_displayed_by_default = (int)isDisplayedByDefault();
-
-        //TODO cnyce
-        //db_mgr->INSERT(SQL_TABLE("StructFields"),
-        //               SQL_COLUMNS("StructName", "FieldName", "FieldType", "FormatCode", "IsAutoColorizeKey", "IsDisplayedByDefault"),
-        //               SQL_VALUES(struct_name, name_, field_dtype_str, fmt, is_autocolorize_key, is_displayed_by_default));
-    }
+    virtual void serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const;
 
     void setIsAutocolorizeKey(bool is_autocolorize_key)
     {
@@ -327,19 +322,7 @@ public:
     {
     }
 
-    virtual void serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const override
-    {
-        const auto field_name = getName();
-        const auto is_autocolorize_key = (int)isAutocolorizeKey();
-        const auto is_displayed_by_default = (int)isDisplayedByDefault();
-
-        //TODO cnyce
-        //db_mgr->INSERT(SQL_TABLE("StructFields"),
-        //               SQL_COLUMNS("StructName", "FieldName", "FieldType", "IsAutoColorizeKey", "IsDisplayedByDefault"),
-        //               SQL_VALUES(struct_name, field_name, enum_name_, is_autocolorize_key, is_displayed_by_default));
-
-        EnumMap<EnumT>::instance()->serializeDefn(db_mgr);
-    }
+    virtual void serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const override;
 
 private:
     const typename EnumMap<EnumT>::enum_map_t map_;
