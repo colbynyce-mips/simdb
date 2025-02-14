@@ -417,8 +417,8 @@ private:
 class StructBlobSerializer
 {
 public:
-    StructBlobSerializer(std::vector<std::unique_ptr<FieldBase>>&& fields)
-        : fields_(std::move(fields))
+    StructBlobSerializer(const std::vector<std::unique_ptr<FieldBase>>& fields)
+        : fields_(fields)
     {
     }
 
@@ -437,7 +437,7 @@ public:
     }
 
 private:
-    std::vector<std::unique_ptr<FieldBase>> fields_;
+    const std::vector<std::unique_ptr<FieldBase>>& fields_;
 };
 
 class StructSchema
@@ -536,7 +536,7 @@ public:
 
     std::unique_ptr<StructBlobSerializer> createBlobSerializer()
     {
-        return std::unique_ptr<StructBlobSerializer>(new StructBlobSerializer(std::move(fields_)));
+        return std::unique_ptr<StructBlobSerializer>(new StructBlobSerializer(fields_));
     }
 
 private:

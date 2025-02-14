@@ -6,12 +6,138 @@
 #include "simdb/sqlite/SQLiteConnection.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/sqlite/SQLiteTable.hpp"
+#include "simdb/serialize/CollectionPoints.hpp"
+#include "simdb/serialize/Serialize.hpp"
 #include "simdb/utils/PerfDiagnostics.hpp"
 #include "simdb/utils/TreeBuilder.hpp"
-#include "simdb/serialize/CollectionMgr.hpp"
+#include "simdb/utils/Compress.hpp"
 
 namespace simdb
 {
+
+/*!
+ * \class CollectionMgr
+ *
+ * \brief This class provides an easy way to handle simulation-wide data collection.
+ */
+class CollectionMgr
+{
+public:
+    /// Construct with the DatabaseManager and SQLiteTransaction.
+    CollectionMgr(DatabaseManager* db_mgr, size_t heartbeat);
+
+    /// Add a new clock domain for collection.
+    void addClock(const std::string& name, const uint32_t period);
+
+    /// Populate the schema with the appropriate tables for all the collections.
+    void defineSchema(Schema& schema) const;
+
+    // Manually collect non-iterable data (POD types).
+    template <typename T>
+    typename std::enable_if<std::is_trivial<T>::value, TrivialManualCollectablePtr<T>>::type createCollectable(
+        const std::string& path,
+        const std::string& clock);
+
+    // Automatically collect non-iterable data (POD types).
+    template <typename T>
+    typename std::enable_if<std::is_trivial<T>::value, TrivialAutoCollectablePtr<T>>::type createCollectable(
+        const std::string& path,
+        const std::string& clock,
+        const T* data);
+
+    // Manually collect non-iterable data (non-POD types).
+    template <typename T>
+    typename std::enable_if<!std::is_trivial<T>::value, StructManualCollectablePtr<T>>::type createCollectable(
+        const std::string& path,
+        const std::string& clock);
+
+    // Automatically collect non-iterable data (non-POD types).
+    template <typename T>
+    typename std::enable_if<!std::is_trivial<T>::value, StructAutoCollectablePtr<T>>::type createCollectable(
+        const std::string& path,
+        const std::string& clock,
+        const T* data);
+
+    // Automatically collect iterable data (non-POD types).
+    template <typename T, bool Sparse>
+    IterableCollectorPtr<T, Sparse> createIterableCollector(
+        const std::string& path,
+        const std::string& clock,
+        const size_t capacity,
+        const T* data);
+
+    // Sweep the collection system for all active collectables and send
+    // their data to the database. Since there can be multiple clocks, the
+    // tick is used to determine which clock's data to collect.
+    void sweep(uint64_t tick);
+
+private:
+    ///
+    void sweep_(uint64_t tick, const std::string& clk);
+
+    /// tree piecemeal as the simulator gets access to all the collection
+    /// points it needs.
+    ///
+    /// Returns the ElementTreeNodeID for the given path.
+    TreeNode* updateTree_(const std::string& path, const std::string& clk);
+
+    /// One-time call to get the collection system ready.
+    void finalizeCollections_();
+
+    /// The DatabaseManager that we are collecting data for.
+    DatabaseManager* db_mgr_;
+
+    /// The max number of cycles that we employ the optimization "only write to the
+    /// database if the collected data is different from the last collected data".
+    /// This prevents Argos from having to go back more than N cycles to find the
+    /// last known value.
+    const size_t heartbeat_;
+
+    /// All registered clocks (name->period).
+    std::unordered_map<std::string, uint32_t> clocks_;
+
+    /// 
+
+    /// All collectables.
+    std::vector<std::shared_ptr<CollectionPointBase>> collectables_;
+
+    /// Mapping of collectable paths to the collectable objects.
+    std::unordered_map<std::string, CollectionPointBase*> collectables_by_path_;
+
+    /// All collected data in the call to sweep().
+    std::vector<char> swept_data_;
+
+    /// All compressed data in the call to sweep().
+    std::vector<char> compressed_swept_data_;
+
+    /// The root of the serialized element tree.
+    std::unique_ptr<TreeNode> root_;
+
+    /// Mapping of clock names to clock IDs.
+    std::unordered_map<std::string, int> clock_db_ids_by_name_;
+
+    friend class DatabaseManager;
+
+    class CollectionPointDataWriter : public WorkerTask
+    {
+    public:
+        CollectionPointDataWriter(DatabaseManager* db_mgr, const std::vector<char>& data, int64_t timestamp, bool compressed)
+            : db_mgr_(db_mgr)
+            , data_(data)
+            , timestamp_(timestamp)
+            , compressed_(compressed)
+        {
+        }
+    
+    private:
+        void completeTask() override;
+    
+        DatabaseManager* db_mgr_;
+        std::vector<char> data_;
+        int64_t timestamp_;
+        bool compressed_;
+    };
+};
 
 /*!
  * \class DatabaseManager
@@ -150,7 +276,7 @@ public:
     void enableCollection(size_t heartbeat)
     {
         if (!collection_mgr_) {
-            collection_mgr_ = std::make_unique<CollectionMgr>(heartbeat);
+            collection_mgr_ = std::make_unique<CollectionMgr>(this, heartbeat);
 
             Schema schema;
             collection_mgr_->defineSchema(schema);
@@ -449,94 +575,10 @@ private:
     bool finalizeCollections_()
     {
         if (collection_mgr_) {
-            INSERT(SQL_TABLE("CollectionGlobals"),
-                   SQL_COLUMNS("Heartbeat"),
-                   SQL_VALUES((int)collection_mgr_->pipeline_heartbeat_));
-
-            std::unordered_map<std::string, int> clock_db_ids_by_name;
-            for (const auto& clock : collection_mgr_->clocks_) {
-                auto record = INSERT(SQL_TABLE("Clocks"),
-                                    SQL_COLUMNS("Name", "Period"),
-                                    SQL_VALUES(clock.first, (int)clock.second));
-
-                clock_db_ids_by_name[clock.first] = record->getId();
-            }
-
-            std::vector<std::string> sim_paths;
-            for (const auto& collectable : collection_mgr_->collectables_) {
-                sim_paths.push_back(collectable->getPath());
-            }
-
-            std::unordered_map<std::string, std::string> clocks_by_sim_path;
-            for (const auto& collectable : collection_mgr_->collectables_) {
-                clocks_by_sim_path[collectable->getPath()] = collectable->getClock();
-            }
-
-            std::unordered_map<std::string, std::string> dtype_strs_by_sim_path;
-            for (const auto& collectable : collection_mgr_->collectables_) {
-                dtype_strs_by_sim_path[collectable->getPath()] = collectable->getDataTypeStr();
-            }
-
-            std::unique_ptr<TreeNode> root = buildTree(sim_paths);
-            serializeElementTree_(root.get());
-            serializeCollectableTree_(root.get(), clocks_by_sim_path, clock_db_ids_by_name, dtype_strs_by_sim_path);
-
-            for (const auto& collectable : collection_mgr_->collectables_) {
-                StructSchema struct_schema;
-                collectable->getStructSchema(struct_schema);
-
-                if (!struct_schema.getStructName().empty()) {
-                    struct_schema.serializeDefn(this);
-                }
-            }
-
+            collection_mgr_->finalizeCollections_();
             return true;
         }
         return false;
-    }
-
-    void serializeElementTree_(TreeNode* start,
-                               const int parent_db_id = 0)
-    {
-        if (!start) {
-            return;
-        }
-
-        auto node_record = INSERT(SQL_TABLE("ElementTreeNodes"),
-                                  SQL_COLUMNS("Name", "ParentID"),
-                                  SQL_VALUES(start->name, parent_db_id));
-
-        start->db_id = node_record->getId();
-        for (const auto& child : start->children) {
-            serializeElementTree_(child.get(), node_record->getId());
-        }
-    }
-
-    void serializeCollectableTree_(
-        TreeNode* start,
-        const std::unordered_map<std::string, std::string>& clocks_by_sim_path,
-        const std::unordered_map<std::string, int>& clock_db_ids_by_name,
-        const std::unordered_map<std::string, std::string>& dtype_strs_by_sim_path)
-    {
-        if (!start) {
-            return;
-        }
-
-        auto loc = start->getLocation();
-        auto iter = clocks_by_sim_path.find(loc);
-        if (iter != clocks_by_sim_path.end()) {
-            const int elem_id = start->db_id;
-            const int clk_id = clock_db_ids_by_name.at(iter->second);
-            const auto& dtype_str = dtype_strs_by_sim_path.at(loc);
-
-            INSERT(SQL_TABLE("CollectableTreeNodes"),
-                   SQL_COLUMNS("ElementTreeNodeID", "ClockID", "DataType"),
-                   SQL_VALUES(elem_id, clk_id, dtype_str));
-        }
-
-        for (const auto& child : start->children) {
-            serializeCollectableTree_(child.get(), clocks_by_sim_path, clock_db_ids_by_name, dtype_strs_by_sim_path);
-        }
     }
 
     /// Database connection.
@@ -616,6 +658,281 @@ inline void EnumField<EnumT>::serializeDefn(DatabaseManager* db_mgr, const std::
                    SQL_VALUES(struct_name, field_name, enum_name_, is_autocolorize_key, is_displayed_by_default));
 
     EnumMap<EnumT>::instance()->serializeDefn(db_mgr);
+}
+
+inline CollectionMgr::CollectionMgr(DatabaseManager* db_mgr, size_t heartbeat)
+    : db_mgr_(db_mgr)
+    , heartbeat_(heartbeat)
+{
+}
+
+inline void CollectionMgr::addClock(const std::string& name, const uint32_t period)
+{
+    clocks_[name] = period;
+}
+
+inline void CollectionMgr::defineSchema(Schema& schema) const
+{
+    using dt = SqlDataType;
+
+    schema.addTable("CollectionGlobals")
+        .addColumn("Heartbeat", dt::int32_t)
+        .setColumnDefaultValue("Heartbeat", 10);
+
+    schema.addTable("Clocks")
+        .addColumn("Name", dt::string_t)
+        .addColumn("Period", dt::int32_t);
+
+    schema.addTable("ElementTreeNodes")
+        .addColumn("Name", dt::string_t)
+        .addColumn("ParentID", dt::int32_t);
+
+    schema.addTable("CollectableTreeNodes")
+        .addColumn("ElementTreeNodeID", dt::int32_t)
+        .addColumn("ClockID", dt::int32_t)
+        .addColumn("DataType", dt::string_t);
+
+    schema.addTable("StructFields")
+        .addColumn("StructName", dt::string_t)
+        .addColumn("FieldName", dt::string_t)
+        .addColumn("FieldType", dt::string_t)
+        .addColumn("FormatCode", dt::int32_t)
+        .addColumn("IsAutoColorizeKey", dt::int32_t)
+        .addColumn("IsDisplayedByDefault", dt::int32_t)
+        .setColumnDefaultValue("IsAutoColorizeKey", 0)
+        .setColumnDefaultValue("IsDisplayedByDefault", 1);
+
+    schema.addTable("EnumDefns")
+        .addColumn("EnumName", dt::string_t)
+        .addColumn("EnumValStr", dt::string_t)
+        .addColumn("EnumValBlob", dt::blob_t)
+        .addColumn("IntType", dt::string_t);
+
+    schema.addTable("StringMap")
+        .addColumn("IntVal", dt::int32_t)
+        .addColumn("String", dt::string_t);
+
+    schema.addTable("CollectionRecords")
+        .addColumn("Timestamp", dt::int64_t)
+        .addColumn("Data", dt::blob_t)
+        .addColumn("IsCompressed", dt::int32_t)
+        .createIndexOn("Timestamp");
+}
+
+template <typename T>
+inline typename std::enable_if<std::is_trivial<T>::value, TrivialManualCollectablePtr<T>>::type CollectionMgr::createCollectable(
+    const std::string& path,
+    const std::string& clock)
+{
+    auto treenode = updateTree_(path, clock);
+    auto elem_id = treenode->db_id;
+    auto clk_id = treenode->clk_id;
+
+    auto collectable = std::make_shared<TrivialManualCollectable<T>>(elem_id, clk_id, heartbeat_);
+    collectables_.push_back(collectable);
+    collectables_by_path_[path] = collectable.get();
+    return collectable;
+}
+
+template <typename T>
+inline typename std::enable_if<std::is_trivial<T>::value, TrivialAutoCollectablePtr<T>>::type CollectionMgr::createCollectable(
+    const std::string& path,
+    const std::string& clock,
+    const T* data)
+{
+    auto treenode = updateTree_(path, clock);
+    auto elem_id = treenode->db_id;
+    auto clk_id = treenode->clk_id;
+
+    auto collectable = std::make_shared<TrivialAutoCollectable<T>>(elem_id, clk_id, data, heartbeat_);
+    collectables_.push_back(collectable);
+    collectables_by_path_[path] = collectable.get();
+    return collectable;
+}
+
+template <typename T>
+inline typename std::enable_if<!std::is_trivial<T>::value, StructManualCollectablePtr<T>>::type CollectionMgr::createCollectable(
+    const std::string& path,
+    const std::string& clock)
+{
+    auto treenode = updateTree_(path, clock);
+    auto elem_id = treenode->db_id;
+    auto clk_id = treenode->clk_id;
+
+    auto collectable = std::make_shared<StructManualCollectable<T>>(elem_id, clk_id, heartbeat_);
+    collectables_.push_back(collectable);
+    collectables_by_path_[path] = collectable.get();
+    return collectable;
+}
+
+template <typename T>
+inline typename std::enable_if<!std::is_trivial<T>::value, StructAutoCollectablePtr<T>>::type CollectionMgr::createCollectable(
+    const std::string& path,
+    const std::string& clock,
+    const T* data)
+{
+    auto treenode = updateTree_(path, clock);
+    auto elem_id = treenode->db_id;
+    auto clk_id = treenode->clk_id;
+
+    auto collectable = std::make_shared<StructAutoCollectable<T>>(elem_id, clk_id, data, heartbeat_);
+    collectables_.push_back(collectable);
+    collectables_by_path_[path] = collectable.get();
+    return collectable;
+}
+
+template <typename T, bool Sparse>
+inline IterableCollectorPtr<T, Sparse> CollectionMgr::createIterableCollector(
+    const std::string& path,
+    const std::string& clock,
+    const size_t capacity,
+    const T* data)
+{
+    auto treenode = updateTree_(path, clock);
+    auto elem_id = treenode->db_id;
+    auto clk_id = treenode->clk_id;
+
+    auto collectable = std::make_shared<IterableCollector<T, Sparse>>(elem_id, clk_id, capacity, data, heartbeat_);
+    collectables_.push_back(collectable);
+    collectables_by_path_[path] = collectable.get();
+    return collectable;
+}
+
+inline void CollectionMgr::sweep(uint64_t tick)
+{
+    for (const auto& kvp : clocks_) {
+        const auto& clk = kvp.first;
+        const auto period = kvp.second;
+        const bool take = (tick % period == 0);
+        if (take) {
+            sweep_(tick, clk);
+        }
+    }
+}
+
+inline void CollectionMgr::sweep_(uint64_t tick, const std::string& clk)
+{
+    const auto clk_id = clock_db_ids_by_name_.at(clk);
+
+    swept_data_.clear();
+    for (auto& collectable : collectables_) {
+        if (collectable->getClockId() == clk_id) {
+            collectable->autoCollect();
+            collectable->sweep(swept_data_);
+        }
+    }
+
+    if (swept_data_.empty()) {
+        return;
+    }
+
+    // Since all records are in the same clock domain, we can safely
+    // reorganize all the collected data into one buffer, marked with
+    // a single timestamp.
+    compressDataVec(swept_data_, compressed_swept_data_);
+
+    std::unique_ptr<WorkerTask> task(new CollectionPointDataWriter(
+        db_mgr_, compressed_swept_data_, tick, true));
+
+    db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
+}
+
+inline void CollectionMgr::CollectionPointDataWriter::completeTask()
+{
+    db_mgr_->INSERT(SQL_TABLE("CollectionRecords"),
+                    SQL_COLUMNS("Timestamp", "Data", "IsCompressed"),
+                    SQL_VALUES(timestamp_, data_, (int)compressed_));
+}
+
+inline TreeNode* CollectionMgr::updateTree_(const std::string& path, const std::string& clk)
+{
+    if (!root_) {
+        root_ = std::make_unique<TreeNode>("root");
+
+        auto record = db_mgr_->INSERT(SQL_TABLE("ElementTreeNodes"),
+                                      SQL_COLUMNS("Name", "ParentID"),
+                                      SQL_VALUES("root", 0));
+
+        root_->db_id = record->getId();
+    }
+
+    if (clock_db_ids_by_name_.find(clk) == clock_db_ids_by_name_.end()) {
+        auto period = clocks_.at(clk);
+
+        auto record = db_mgr_->INSERT(SQL_TABLE("Clocks"),
+                                      SQL_COLUMNS("Name", "Period"),
+                                      SQL_VALUES(clk, period));
+
+        clock_db_ids_by_name_[clk] = record->getId();
+    }
+
+    auto node = root_.get();
+    auto path_parts = split_string(path, '.');
+    for (size_t part_idx = 0; part_idx < path_parts.size(); ++part_idx) {
+        auto part = path_parts[part_idx];
+        auto found = false;
+        for (const auto& child : node->children) {
+            if (child->name == part) {
+                node = child.get();
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            auto new_node = std::make_unique<TreeNode>(part, node);
+            node->children.push_back(std::move(new_node));
+            node = node->children.back().get();
+
+            auto record = db_mgr_->INSERT(SQL_TABLE("ElementTreeNodes"),
+                                          SQL_COLUMNS("Name", "ParentID"),
+                                          SQL_VALUES(part, node->parent->db_id));
+
+            node->db_id = record->getId();
+            if (part_idx == path_parts.size() - 1) {
+                node->clk_id = clock_db_ids_by_name_.at(clk);
+            }
+        }
+    }
+
+    return node;
+}
+
+inline void CollectionMgr::finalizeCollections_()
+{
+    db_mgr_->INSERT(SQL_TABLE("CollectionGlobals"),
+                    SQL_COLUMNS("Heartbeat"),
+                    SQL_VALUES((int)heartbeat_));
+
+    for (auto& collectable : collectables_) {
+        collectable->serializeDefn(db_mgr_);
+    }
+
+    std::vector<TreeNode*> leaf_nodes;
+
+    std::function<void(TreeNode*)> findLeafNodes = [&](TreeNode* node) {
+        if (node->children.empty()) {
+            leaf_nodes.push_back(node);
+        } else {
+            for (auto& child : node->children) {
+                findLeafNodes(child.get());
+            }
+        }
+    };
+
+    findLeafNodes(root_.get());
+
+    for (auto leaf : leaf_nodes) {
+        auto elem_id = leaf->db_id;
+        auto clk_id = leaf->clk_id;
+        auto loc = leaf->getLocation();
+        auto collectable = collectables_by_path_.at(loc);
+        auto dtype = collectable->getDataTypeStr();
+
+        db_mgr_->INSERT(SQL_TABLE("CollectableTreeNodes"),
+                        SQL_COLUMNS("ElementTreeNodeID", "ClockID", "DataType"),
+                        SQL_VALUES(elem_id, clk_id, dtype));
+    }
 }
 
 } // namespace simdb

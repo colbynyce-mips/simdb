@@ -171,24 +171,52 @@ public:
     {
         configCollectables_();
 
-        size_t count = 0;
-        while (count++ < 100) {
-            u64 = generateRandomInt<uint64_t>();
-            b = rand() % 2 == 0;
-            dummy_packet_ = *generateRandomDummyPacket();
+        size_t tick = 0;
+        while (++tick < 10000) {
+            randomizeAutoCollectables_();
 
-            dummy_packet_vec_contig_.clear();
-            for (size_t i = 0; i < rand() % 10; ++i) {
-                dummy_packet_vec_contig_.push_back(generateRandomDummyPacket());
+            // The collection system "black box" operates as follows:
+            //
+            //   [=========================================================]
+            //   [  *ManualCollectable<T>                                  ]
+            //   [    - activate(T) starts collecting the given <T>        ]
+            //   [    - deactivate() stops sending the value to the DB     ]
+            //   [                                                         ]
+            //   [  *AutoCollectable<T>                                    ]
+            //   [    - always active: collected every cycle               ]
+            //   [    - no activate()/deactivate() methods                 ]
+
+            // Manually collect a random uint64_t between ticks 10 and 25
+            if (tick == 1000) {
+                manual_uint64_collectable_->activate(generateRandomInt<uint64_t>());
+            } else if (tick == 2000) {
+                manual_uint64_collectable_->deactivate();
             }
 
-            dummy_packet_vec_sparse_.clear();
-            dummy_packet_vec_sparse_.resize(32);
-            for (size_t i = 0; i < rand() % 10; ++i) {
-                if (rand() % 2 == 0) {
-                    dummy_packet_vec_sparse_[i] = generateRandomDummyPacket();
-                }
+            // Manually collect a random bool between ticks 18 and 22
+            if (tick == 1500) {
+                manual_bool_collectable_->activate(rand() % 2 == 0);
+            } else if (tick == 2500) {
+                manual_bool_collectable_->deactivate();
             }
+
+            // Manually collect a random DummyPacket between ticks 30 and 40
+            if (tick == 2000) {
+                manual_packet_collectable_->activate(generateRandomDummyPacket());
+            } else if (tick == 3000) {
+                manual_packet_collectable_->deactivate();
+            }
+
+            // Collect some different values for just one cycle
+            if (tick >= 5000 && tick % 5 == 0) {
+                manual_uint64_collectable_->activate(generateRandomInt<uint64_t>(), true);
+                manual_bool_collectable_->activate(rand() % 2 == 0, true);
+                manual_packet_collectable_->activate(generateRandomDummyPacket(), true);
+            }
+
+            // "Sweep" the collection system for the current cycle,
+            // sending all active values to the database.
+            db_mgr_->getCollectionMgr()->sweep(tick);
         }
 
         db_mgr_->getConnection()->getTaskQueue()->stopThread();
@@ -199,39 +227,60 @@ private:
     {
         db_mgr_->enableCollection(10);
         auto collection_mgr = db_mgr_->getCollectionMgr();
-        collection_mgr->addClock("root", 1);
+        collection_mgr->addClock("root", 10);
 
         auto_uint64_collectable_ = collection_mgr->createCollectable<uint64_t>("top.uint64", "root", &u64);
         auto_bool_collectable_ = collection_mgr->createCollectable<bool>("top.bool", "root", &b);
         auto_packet_collectable_ = collection_mgr->createCollectable<DummyPacket>("top.dummy_packet_auto", "root", &dummy_packet_);
+        dummy_collectable_vec_contig_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, false>("top.dummy_packet_vec_contig", "root", 32, &dummy_packet_vec_contig_);
+        dummy_collectable_vec_sparse_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, true>("top.dummy_packet_vec_sparse", "root", 32, &dummy_packet_vec_sparse_);
+        manual_uint64_collectable_ = collection_mgr->createCollectable<uint64_t>("top.uint64_manual", "root");
+        manual_bool_collectable_ = collection_mgr->createCollectable<bool>("top.bool_manual", "root");
         manual_packet_collectable_ = collection_mgr->createCollectable<DummyPacket>("top.dummy_packet_manual", "root");
-        dummy_collectable_vec_contig_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, false>("top.dummy_packet_vec_contig", "root", &dummy_packet_vec_contig_);
-        dummy_collectable_vec_sparse_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, true>("top.dummy_packet_vec_sparse", "root", &dummy_packet_vec_sparse_);
-
-        // The capacities must all be set prior to calling finalizeCollections()
-        dummy_packet_vec_contig_.reserve(32);
-        dummy_packet_vec_sparse_.resize(32);
 
         db_mgr_->finalizeCollections();
+    }
+
+    void randomizeAutoCollectables_()
+    {
+        u64 = generateRandomInt<uint64_t>();
+        b = rand() % 2 == 0;
+        dummy_packet_ = *generateRandomDummyPacket();
+
+        dummy_packet_vec_contig_.clear();
+        for (size_t i = 0; i < rand() % 10; ++i) {
+            dummy_packet_vec_contig_.push_back(generateRandomDummyPacket());
+        }
+
+        dummy_packet_vec_sparse_.clear();
+        dummy_packet_vec_sparse_.resize(32);
+        for (size_t i = 0; i < rand() % 10; ++i) {
+            if (rand() % 2 == 0) {
+                dummy_packet_vec_sparse_[i] = generateRandomDummyPacket();
+            }
+        }
     }
 
     simdb::DatabaseManager* db_mgr_;
 
     uint64_t u64;
-    std::shared_ptr<simdb::Collectable<uint64_t>> auto_uint64_collectable_;
+    simdb::TrivialAutoCollectablePtr<uint64_t> auto_uint64_collectable_;
 
     bool b;
-    std::shared_ptr<simdb::Collectable<bool>> auto_bool_collectable_;
+    simdb::TrivialAutoCollectablePtr<bool> auto_bool_collectable_;
 
     DummyPacket dummy_packet_;
-    std::shared_ptr<simdb::Collectable<DummyPacket>> auto_packet_collectable_;
-    std::shared_ptr<simdb::Collectable<DummyPacket>> manual_packet_collectable_;
+    simdb::StructAutoCollectablePtr<DummyPacket> auto_packet_collectable_;
 
     DummyPacketPtrVec dummy_packet_vec_contig_;
-    std::shared_ptr<simdb::IterableCollector<DummyPacketPtrVec, false>> dummy_collectable_vec_contig_;
+    simdb::IterableCollectorPtr<DummyPacketPtrVec, false> dummy_collectable_vec_contig_;
 
     DummyPacketPtrVec dummy_packet_vec_sparse_;
-    std::shared_ptr<simdb::IterableCollector<DummyPacketPtrVec, true>> dummy_collectable_vec_sparse_;
+    simdb::IterableCollectorPtr<DummyPacketPtrVec, true> dummy_collectable_vec_sparse_;
+
+    simdb::TrivialManualCollectablePtr<uint64_t> manual_uint64_collectable_;
+    simdb::TrivialManualCollectablePtr<bool> manual_bool_collectable_;
+    simdb::StructManualCollectablePtr<DummyPacket> manual_packet_collectable_;
 };
 
 int main()

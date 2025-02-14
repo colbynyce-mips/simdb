@@ -51,6 +51,12 @@ public:
         memcpy(dest, data, num_bytes);
     }
 
+    template <typename T>
+    void write(const T& data)
+    {
+        writeBytes(&data, sizeof(T));
+    }
+
 private:
     std::vector<char> &all_collection_data_;
 };
