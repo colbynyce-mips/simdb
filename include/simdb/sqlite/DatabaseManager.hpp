@@ -48,12 +48,15 @@ public:
     // Sweep the collection system for all active collectables and send
     // their data to the database. Since there can be multiple clocks, the
     // tick is used to determine which clock's data to collect.
+    //
+    // TODO cnyce: This method is only used by the unit test. Clean this up.
     void sweep(uint64_t tick);
 
-private:
-    ///
-    void sweep_(uint64_t tick, const std::string& clk);
+    // Sweep the collection system for all active collectables that exist on
+    // the given clock, and send their data to the database.
+    void sweep(const std::string& clk, uint64_t tick);
 
+private:
     /// tree piecemeal as the simulator gets access to all the collection
     /// points it needs.
     ///
@@ -753,12 +756,12 @@ inline void CollectionMgr::sweep(uint64_t tick)
         const auto period = kvp.second;
         const bool take = (tick % period == 0);
         if (take) {
-            sweep_(tick, clk);
+            sweep(clk, tick);
         }
     }
 }
 
-inline void CollectionMgr::sweep_(uint64_t tick, const std::string& clk)
+inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
 {
     const auto clk_id = clock_db_ids_by_name_.at(clk);
 
