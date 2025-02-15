@@ -165,13 +165,13 @@ public:
 private:
     template <typename T, bool sparse = Sparse>
     typename std::enable_if<sparse, void>::type
-    readSparse_(const T* container)
+    readSparse_(const T& container)
     {
         uint16_t num_valid = 0;
 
         {
-            auto itr = container->begin();
-            auto eitr = container->end();
+            auto itr = container.begin();
+            auto eitr = container.end();
 
             while (itr != eitr) {
                 if constexpr (is_std_vector_v<T>) {
@@ -189,8 +189,8 @@ private:
         buffer.writeHeader(getElemId(), num_valid);
 
         uint16_t bin_idx = 0;
-        auto itr = container->begin();
-        auto eitr = container->end();
+        auto itr = container.begin();
+        auto eitr = container.end();
         while (itr != eitr && bin_idx < expected_capacity_) {
             bool valid;
             if constexpr (is_std_vector_v<T>) {
@@ -210,13 +210,13 @@ private:
     template <typename T>
     void readContig_(const T& container)
     {
-        auto size = container->size();
+        auto size = container.size();
 
         CollectionBuffer buffer(argos_record_.data);
         buffer.writeHeader(getElemId(), size);
 
-        auto itr = container->begin();
-        auto eitr = container->end();
+        auto itr = container.begin();
+        auto eitr = container.end();
         uint16_t bin_idx = 0;
 
         while (itr != eitr && bin_idx < expected_capacity_) {
