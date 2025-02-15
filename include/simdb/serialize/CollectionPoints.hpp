@@ -33,14 +33,13 @@ struct ArgosRecord
 class CollectionPointBase
 {
 public:
-    CollectionPointBase(uint16_t elem_id, uint16_t clk_id, size_t heartbeat)
+    CollectionPointBase(uint16_t elem_id, uint16_t clk_id, size_t heartbeat, const std::string& dtype)
         : argos_record_(elem_id)
         , elem_id_(elem_id)
         , clk_id_(clk_id)
         , heartbeat_(heartbeat)
+        , dtype_(dtype)
     {}
-
-    virtual ~CollectionPointBase() = default;
 
     uint16_t getElemId() const { return elem_id_; }
 
@@ -48,11 +47,7 @@ public:
 
     size_t getHeartbeat() const { return heartbeat_; }
 
-    virtual std::string getDataTypeStr() const = 0;
-
-    virtual void serializeDefn(DatabaseManager* db_mgr) = 0;
-
-    virtual void autoCollect() {}
+    const std::string& getDataTypeStr() const { return dtype_; }
 
     void sweep(std::vector<char>& swept_data)
     {
@@ -72,205 +67,8 @@ private:
     const uint16_t elem_id_;
     const uint16_t clk_id_;
     const size_t heartbeat_;
+    const std::string dtype_;
 };
-
-template <typename T>
-class TrivialAutoCollectable : public CollectionPointBase
-{
-public:
-    TrivialAutoCollectable(uint16_t elem_id, uint16_t clk_id, const T* data, size_t heartbeat)
-        : CollectionPointBase(elem_id, clk_id, heartbeat)
-        , data_(data)
-    {
-        static_assert(!meta_utils::is_any_pointer<T>::value, "Pointer-to-pointer types are not supported");
-        assert(data_);
-
-        // Auto-collectables are always in the "READ" state
-        argos_record_.status = ArgosRecord::Status::READ;
-    }
-
-    std::string getDataTypeStr() const override
-    {
-        if constexpr (std::is_same<T, bool>::value) {
-            return "bool";
-        } else {
-            auto dtype = getFieldDTypeEnum<T>();
-            return getFieldDTypeStr(dtype);
-        }
-    }
-
-    void serializeDefn(DatabaseManager*) override
-    {
-        // Trivial types don't need to serialize anything
-    }
-
-    void autoCollect() override
-    {
-        CollectionBuffer buffer(argos_record_.data);
-        buffer.write(getElemId());
-        buffer.write(*data_);
-    }
-
-private:
-    const T* data_;
-};
-
-template <typename T>
-using TrivialAutoCollectablePtr = std::shared_ptr<TrivialAutoCollectable<T>>;
-
-template <typename T>
-class TrivialManualCollectable : public CollectionPointBase
-{
-public:
-    TrivialManualCollectable(uint16_t elem_id, uint16_t clk_id, size_t heartbeat)
-        : CollectionPointBase(elem_id, clk_id, heartbeat)
-    {
-    }
-
-    std::string getDataTypeStr() const override
-    {
-        if constexpr (std::is_same<T, bool>::value) {
-            return "bool";
-        } else {
-            auto dtype = getFieldDTypeEnum<T>();
-            return getFieldDTypeStr(dtype);
-        }
-    }
-
-    void serializeDefn(DatabaseManager*) override
-    {
-        // Trivial types don't need to serialize anything
-    }
-
-    template <typename tt = T>
-    typename std::enable_if<meta_utils::is_any_pointer<tt>::value, void>::type
-    activate(const tt& data, bool once = false)
-    {
-        if (data) {
-            activate(*data, once);
-        } else {
-            deactivate();
-        }
-    }
-
-    template <typename tt = T>
-    typename std::enable_if<!meta_utils::is_any_pointer<tt>::value, void>::type
-    activate(const tt& data, bool once = false)
-    {
-        CollectionBuffer buffer(argos_record_.data);
-        buffer.write(getElemId());
-        buffer.write(data);
-        argos_record_.status = once ? ArgosRecord::Status::READ_ONCE : ArgosRecord::Status::READ;
-    }
-
-    void deactivate()
-    {
-        argos_record_.status = ArgosRecord::Status::DONT_READ;
-    }
-};
-
-template <typename T>
-using TrivialManualCollectablePtr = std::shared_ptr<TrivialManualCollectable<T>>;
-
-template <typename T>
-class StructAutoCollectable : public CollectionPointBase
-{
-public:
-    using value_type = meta_utils::remove_any_pointer_t<T>;
-
-    StructAutoCollectable(uint16_t elem_id, uint16_t clk_id, const T* data, size_t heartbeat)
-        : CollectionPointBase(elem_id, clk_id, heartbeat)
-        , data_(data)
-    {
-        struct_serializer_ = defn_serializer_.createBlobSerializer();
-        static_assert(!meta_utils::is_any_pointer<value_type>::value, "Pointer-to-pointer types are not supported");
-        assert(data_);
-
-        // Auto-collectables are always in the "READ" state
-        argos_record_.status = ArgosRecord::Status::READ;
-    }
-
-    std::string getDataTypeStr() const override
-    {
-        return defn_serializer_.getStructName();
-    }
-
-    void serializeDefn(DatabaseManager* db_mgr) override
-    {
-        defn_serializer_.serializeDefn(db_mgr);
-    }
-
-    void autoCollect() override
-    {
-        CollectionBuffer buffer(argos_record_.data);
-        buffer.write(getElemId());
-        struct_serializer_->writeStruct(data_, buffer);
-    }
-    
-private:
-    StructDefnSerializer<value_type> defn_serializer_;
-    std::unique_ptr<StructBlobSerializer> struct_serializer_;
-    const T* data_;
-};
-
-template <typename T>
-using StructAutoCollectablePtr = std::shared_ptr<StructAutoCollectable<T>>;
-
-template <typename T>
-class StructManualCollectable : public CollectionPointBase
-{
-public:
-    using value_type = meta_utils::remove_any_pointer_t<T>;
-
-    StructManualCollectable(uint16_t elem_id, uint16_t clk_id, size_t heartbeat)
-        : CollectionPointBase(elem_id, clk_id, heartbeat)
-    {
-        struct_serializer_ = defn_serializer_.createBlobSerializer();
-    }
-
-    std::string getDataTypeStr() const override
-    {
-        return defn_serializer_.getStructName();
-    }
-
-    void serializeDefn(DatabaseManager* db_mgr) override
-    {
-        defn_serializer_.serializeDefn(db_mgr);
-    }
-
-    template <typename tt = T>
-    typename std::enable_if<meta_utils::is_any_pointer<tt>::value, void>::type
-    activate(const tt& data, bool once = false)
-    {
-        if (data) {
-            activate(*data, once);
-        } else {
-            deactivate();
-        }
-    }
-
-    template <typename tt = T>
-    typename std::enable_if<!meta_utils::is_any_pointer<tt>::value, void>::type
-    activate(const tt& data, bool once = false)
-    {
-        CollectionBuffer buffer(argos_record_.data);
-        buffer.write(getElemId());
-        struct_serializer_->writeStruct(&data, buffer);
-        argos_record_.status = once ? ArgosRecord::Status::READ_ONCE : ArgosRecord::Status::READ;
-    }
-
-    void deactivate()
-    {
-        argos_record_.status = ArgosRecord::Status::DONT_READ;
-    }
-
-private:
-    StructDefnSerializer<value_type> defn_serializer_;
-    std::unique_ptr<StructBlobSerializer> struct_serializer_;
-};
-
-template <typename T>
-using StructManualCollectablePtr = std::shared_ptr<StructManualCollectable<T>>;
 
 template <typename T>
 struct is_std_vector : std::false_type {};
@@ -281,56 +79,94 @@ struct is_std_vector<std::vector<T>> : std::true_type {};
 template <typename T>
 static constexpr bool is_std_vector_v = is_std_vector<T>::value;
 
-template <typename T, bool Sparse>
-class IterableCollector : public CollectionPointBase
+class CollectionPoint : public CollectionPointBase
 {
 public:
-    using value_type = meta_utils::remove_any_pointer_t<typename T::value_type>;
+    template <typename... Args>
+    CollectionPoint(Args&&... args) : CollectionPointBase(std::forward<Args>(args)...) {}
 
-    IterableCollector(uint16_t elem_id, uint16_t clk_id, size_t capacity, const T* data, size_t heartbeat)
-        : CollectionPointBase(elem_id, clk_id, heartbeat)
-        , capacity_(capacity)
-        , data_(data)
+    template <typename T>
+    typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type
+    activate(const T& val, bool once = false)
     {
-        struct_serializer_ = defn_serializer_.createBlobSerializer();
-        static_assert(!meta_utils::is_any_pointer<value_type>::value, "Pointer-to-pointer types are not supported");
-        assert(data_);
-
-        // Auto-collectables are always in the "READ" state
-        argos_record_.status = ArgosRecord::Status::READ;
-    }
-
-    std::string getDataTypeStr() const override
-    {
-        std::string dtype;
-        dtype += defn_serializer_.getStructName();
-
-        if constexpr (Sparse) {
-            dtype += "_sparse";
+        if (val) {
+            activate(*val, once);
         } else {
-            dtype += "_contig";
+            deactivate();
         }
-
-        dtype += "_capacity" + std::to_string(capacity_);
-        return dtype;
     }
 
-    void serializeDefn(DatabaseManager* db_mgr) override
+    template <typename T>
+    typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type
+    activate(const T& val, bool once = false)
     {
-        defn_serializer_.serializeDefn(db_mgr);
+        activateImpl_(val);
+        argos_record_.status = once ? ArgosRecord::Status::READ_ONCE : ArgosRecord::Status::READ;
     }
 
-    void autoCollect() override
+    void deactivate()
     {
-        autoCollect_();
+        argos_record_.status = ArgosRecord::Status::DONT_READ;
     }
 
 private:
-    template <bool sparse = Sparse>
-    typename std::enable_if<sparse, void>::type
-    autoCollect_()
+    template <typename T>
+    typename std::enable_if<std::is_trivial<T>::value && std::is_standard_layout<T>::value, void>::type
+    activateImpl_(const T val)
     {
-        const auto container = data_;
+        CollectionBuffer buffer(argos_record_.data);
+        buffer.write(getElemId());
+        buffer.write(val);
+    }
+
+    template <typename T>
+    typename std::enable_if<!std::is_trivial<T>::value || !std::is_standard_layout<T>::value, void>::type
+    activateImpl_(const T& val)
+    {
+        CollectionBuffer buffer(argos_record_.data);
+        buffer.write(getElemId());
+
+        static std::unique_ptr<StructBlobSerializer> struct_serializer;
+        if (!struct_serializer) {
+            static StructDefnSerializer<T> defn_serializer;
+            struct_serializer = defn_serializer.createBlobSerializer();
+        }
+
+        struct_serializer->writeStruct(&val, buffer);
+    }
+};
+
+template <bool Sparse>
+class IterableCollectionPoint : public CollectionPointBase
+{
+public:
+    IterableCollectionPoint(uint16_t elem_id, uint16_t clk_id, size_t heartbeat, const std::string& dtype, size_t capacity)
+        : CollectionPointBase(elem_id, clk_id, heartbeat, dtype)
+        , expected_capacity_(capacity)
+    {}
+
+    template <typename T>
+    void activate(const T* container)
+    {
+        activate(*container);
+    }
+
+    template <typename T>
+    void activate(const T& container)
+    {
+        if constexpr (Sparse) {
+            readSparse_(container);
+        } else {
+            readContig_(container);
+        }
+        argos_record_.status = ArgosRecord::Status::READ;
+    }
+
+private:
+    template <typename T, bool sparse = Sparse>
+    typename std::enable_if<sparse, void>::type
+    readSparse_(const T* container)
+    {
         uint16_t num_valid = 0;
 
         {
@@ -338,7 +174,11 @@ private:
             auto eitr = container->end();
 
             while (itr != eitr) {
-                if (checkValid_(itr)) {
+                if constexpr (is_std_vector_v<T>) {
+                    if (*itr) {
+                        ++num_valid;
+                    }
+                } else if (itr.isValid()) {
                     ++num_valid;
                 }
                 ++itr;
@@ -351,8 +191,15 @@ private:
         uint16_t bin_idx = 0;
         auto itr = container->begin();
         auto eitr = container->end();
-        while (itr != eitr) {
-            if (checkValid_(itr)) {
+        while (itr != eitr && bin_idx < expected_capacity_) {
+            bool valid;
+            if constexpr (is_std_vector_v<T>) {
+                valid = *itr != nullptr;
+            } else {
+                valid = itr.isValid();
+            }
+
+            if (valid) {
                 writeStruct_(*itr, buffer, bin_idx);
             }
             ++itr;
@@ -360,11 +207,9 @@ private:
         }
     }
 
-    template <bool sparse = Sparse>
-    typename std::enable_if<!sparse, void>::type
-    autoCollect_()
+    template <typename T>
+    void readContig_(const T& container)
     {
-        const auto container = data_;
         auto size = container->size();
 
         CollectionBuffer buffer(argos_record_.data);
@@ -374,16 +219,16 @@ private:
         auto eitr = container->end();
         uint16_t bin_idx = 0;
 
-        while (itr != eitr) {
+        while (itr != eitr && bin_idx < expected_capacity_) {
             writeStruct_(*itr, buffer, bin_idx);
             ++itr;
             ++bin_idx;
         }
     }
 
-    template <typename tt = T>
-    typename std::enable_if<meta_utils::is_any_pointer<tt>::value, bool>::type
-    writeStruct_(const tt& el, CollectionBuffer& buffer, uint16_t bin_idx)
+    template <typename T>
+    typename std::enable_if<meta_utils::is_any_pointer<T>::value, bool>::type
+    writeStruct_(const T& el, CollectionBuffer& buffer, uint16_t bin_idx)
     {
         if (el) {
             return writeStruct_(*el, buffer, bin_idx);
@@ -391,45 +236,25 @@ private:
         return false;
     }
 
-    template <typename tt = T>
-    typename std::enable_if<!meta_utils::is_any_pointer<tt>::value, bool>::type
-    writeStruct_(const tt& el, CollectionBuffer& buffer, uint16_t bin_idx)
+    template <typename T>
+    typename std::enable_if<!meta_utils::is_any_pointer<T>::value, bool>::type
+    writeStruct_(const T& el, CollectionBuffer& buffer, uint16_t bin_idx)
     {
         if constexpr (Sparse) {
             buffer.writeBucket(bin_idx);
         }
-        struct_serializer_->writeStruct(&el, buffer);
+
+        static std::unique_ptr<StructBlobSerializer> struct_serializer;
+        if (!struct_serializer) {
+            static StructDefnSerializer<T> defn_serializer;
+            struct_serializer = defn_serializer.createBlobSerializer();
+        }
+
+        struct_serializer->writeStruct(&el, buffer);
         return true;
     }
 
-    template <typename tt = T, bool sparse = Sparse>
-    typename std::enable_if<sparse && is_std_vector_v<T>, bool>::type
-    checkValid_(typename T::const_iterator itr)
-    {
-        return *itr != nullptr;
-    }
-
-    template <typename tt = T, bool sparse = Sparse>
-    typename std::enable_if<sparse && !is_std_vector_v<T>, bool>::type
-    checkValid_(typename T::const_iterator itr)
-    {
-        return itr.isValid();
-    }
-
-    template <bool sparse = Sparse>
-    typename std::enable_if<!sparse, bool>::type
-    checkValid_(typename T::const_iterator)
-    {
-        return true;
-    }
-
-    StructDefnSerializer<value_type> defn_serializer_;
-    std::unique_ptr<StructBlobSerializer> struct_serializer_;
-    const size_t capacity_;
-    const T* data_;
+    const size_t expected_capacity_;
 };
-
-template <typename T, bool Sparse>
-using IterableCollectorPtr = std::shared_ptr<IterableCollector<T, Sparse>>;
 
 } // namespace simdb

@@ -214,6 +214,12 @@ public:
                 manual_packet_collectable_->activate(generateRandomDummyPacket(), true);
             }
 
+            auto_uint64_collectable_->activate(u64);
+            auto_bool_collectable_->activate(b);
+            auto_packet_collectable_->activate(dummy_packet_);
+            dummy_collectable_vec_contig_->activate(&dummy_packet_vec_contig_);
+            dummy_collectable_vec_sparse_->activate(&dummy_packet_vec_sparse_);
+
             // "Sweep" the collection system for the current cycle,
             // sending all active values to the database.
             db_mgr_->getCollectionMgr()->sweep(tick);
@@ -229,11 +235,11 @@ private:
         auto collection_mgr = db_mgr_->getCollectionMgr();
         collection_mgr->addClock("root", 10);
 
-        auto_uint64_collectable_ = collection_mgr->createCollectable<uint64_t>("top.uint64", "root", &u64);
-        auto_bool_collectable_ = collection_mgr->createCollectable<bool>("top.bool", "root", &b);
-        auto_packet_collectable_ = collection_mgr->createCollectable<DummyPacket>("top.dummy_packet_auto", "root", &dummy_packet_);
-        dummy_collectable_vec_contig_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, false>("top.dummy_packet_vec_contig", "root", 32, &dummy_packet_vec_contig_);
-        dummy_collectable_vec_sparse_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, true>("top.dummy_packet_vec_sparse", "root", 32, &dummy_packet_vec_sparse_);
+        auto_uint64_collectable_ = collection_mgr->createCollectable<uint64_t>("top.uint64", "root");
+        auto_bool_collectable_ = collection_mgr->createCollectable<bool>("top.bool", "root");
+        auto_packet_collectable_ = collection_mgr->createCollectable<DummyPacket>("top.dummy_packet_auto", "root");
+        dummy_collectable_vec_contig_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, false>("top.dummy_packet_vec_contig", "root", 32);
+        dummy_collectable_vec_sparse_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, true>("top.dummy_packet_vec_sparse", "root", 32);
         manual_uint64_collectable_ = collection_mgr->createCollectable<uint64_t>("top.uint64_manual", "root");
         manual_bool_collectable_ = collection_mgr->createCollectable<bool>("top.bool_manual", "root");
         manual_packet_collectable_ = collection_mgr->createCollectable<DummyPacket>("top.dummy_packet_manual", "root");
@@ -264,23 +270,23 @@ private:
     simdb::DatabaseManager* db_mgr_;
 
     uint64_t u64;
-    simdb::TrivialAutoCollectablePtr<uint64_t> auto_uint64_collectable_;
+    std::shared_ptr<simdb::CollectionPoint> auto_uint64_collectable_;
 
     bool b;
-    simdb::TrivialAutoCollectablePtr<bool> auto_bool_collectable_;
+    std::shared_ptr<simdb::CollectionPoint> auto_bool_collectable_;
 
     DummyPacket dummy_packet_;
-    simdb::StructAutoCollectablePtr<DummyPacket> auto_packet_collectable_;
+    std::shared_ptr<simdb::CollectionPoint> auto_packet_collectable_;
 
     DummyPacketPtrVec dummy_packet_vec_contig_;
-    simdb::IterableCollectorPtr<DummyPacketPtrVec, false> dummy_collectable_vec_contig_;
+    std::shared_ptr<simdb::IterableCollectionPoint<false>> dummy_collectable_vec_contig_;
 
     DummyPacketPtrVec dummy_packet_vec_sparse_;
-    simdb::IterableCollectorPtr<DummyPacketPtrVec, true> dummy_collectable_vec_sparse_;
+    std::shared_ptr<simdb::IterableCollectionPoint<true>> dummy_collectable_vec_sparse_;
 
-    simdb::TrivialManualCollectablePtr<uint64_t> manual_uint64_collectable_;
-    simdb::TrivialManualCollectablePtr<bool> manual_bool_collectable_;
-    simdb::StructManualCollectablePtr<DummyPacket> manual_packet_collectable_;
+    std::shared_ptr<simdb::CollectionPoint> manual_uint64_collectable_;
+    std::shared_ptr<simdb::CollectionPoint> manual_bool_collectable_;
+    std::shared_ptr<simdb::CollectionPoint> manual_packet_collectable_;
 };
 
 int main()

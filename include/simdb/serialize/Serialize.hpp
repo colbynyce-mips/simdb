@@ -5,6 +5,7 @@
 #include "simdb/serialize/CollectionBuffer.hpp"
 #include "simdb/utils/StringMap.hpp"
 #include "simdb/utils/MetaStructs.hpp"
+#include "simdb/Exceptions.hpp"
 
 #include <stdint.h>
 #include <memory>
@@ -16,6 +17,8 @@
 
 namespace simdb
 {
+
+class DatabaseManager;
 
 /*!
  * \brief Represents the internal buffer size for demangling C++ symbols via

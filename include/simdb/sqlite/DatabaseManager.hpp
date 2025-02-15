@@ -32,39 +32,18 @@ public:
     /// Populate the schema with the appropriate tables for all the collections.
     void defineSchema(Schema& schema) const;
 
-    // Manually collect non-iterable data (POD types).
+    /// Create a collection point for a POD or struct-like type.
     template <typename T>
-    typename std::enable_if<std::is_trivial<T>::value, TrivialManualCollectablePtr<T>>::type createCollectable(
+    std::shared_ptr<CollectionPoint> createCollectable(
         const std::string& path,
         const std::string& clock);
-
-    // Automatically collect non-iterable data (POD types).
-    template <typename T>
-    typename std::enable_if<std::is_trivial<T>::value, TrivialAutoCollectablePtr<T>>::type createCollectable(
-        const std::string& path,
-        const std::string& clock,
-        const T* data);
-
-    // Manually collect non-iterable data (non-POD types).
-    template <typename T>
-    typename std::enable_if<!std::is_trivial<T>::value, StructManualCollectablePtr<T>>::type createCollectable(
-        const std::string& path,
-        const std::string& clock);
-
-    // Automatically collect non-iterable data (non-POD types).
-    template <typename T>
-    typename std::enable_if<!std::is_trivial<T>::value, StructAutoCollectablePtr<T>>::type createCollectable(
-        const std::string& path,
-        const std::string& clock,
-        const T* data);
 
     // Automatically collect iterable data (non-POD types).
     template <typename T, bool Sparse>
-    IterableCollectorPtr<T, Sparse> createIterableCollector(
+    std::shared_ptr<IterableCollectionPoint<Sparse>> createIterableCollector(
         const std::string& path,
         const std::string& clock,
-        const size_t capacity,
-        const T* data);
+        const size_t capacity);
 
     // Sweep the collection system for all active collectables and send
     // their data to the database. Since there can be multiple clocks, the
@@ -720,7 +699,7 @@ inline void CollectionMgr::defineSchema(Schema& schema) const
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_trivial<T>::value, TrivialManualCollectablePtr<T>>::type CollectionMgr::createCollectable(
+inline std::shared_ptr<CollectionPoint> CollectionMgr::createCollectable(
     const std::string& path,
     const std::string& clock)
 {
@@ -728,71 +707,40 @@ inline typename std::enable_if<std::is_trivial<T>::value, TrivialManualCollectab
     auto elem_id = treenode->db_id;
     auto clk_id = treenode->clk_id;
 
-    auto collectable = std::make_shared<TrivialManualCollectable<T>>(elem_id, clk_id, heartbeat_);
+    using value_type = meta_utils::remove_any_pointer_t<T>;
+    auto dtype = demangle(typeid(value_type).name());
+    auto collectable = std::make_shared<CollectionPoint>(elem_id, clk_id, heartbeat_, dtype);
+
+    if constexpr (!std::is_trivial<value_type>::value) {
+        static std::unordered_set<std::string> serialized_structs;
+        if (serialized_structs.insert(dtype).second) {
+            auto struct_defn = StructDefnSerializer<value_type>();
+            struct_defn.serializeDefn(db_mgr_);
+        }
+    }
+
     collectables_.push_back(collectable);
     collectables_by_path_[path] = collectable.get();
-    return collectable;
-}
 
-template <typename T>
-inline typename std::enable_if<std::is_trivial<T>::value, TrivialAutoCollectablePtr<T>>::type CollectionMgr::createCollectable(
-    const std::string& path,
-    const std::string& clock,
-    const T* data)
-{
-    auto treenode = updateTree_(path, clock);
-    auto elem_id = treenode->db_id;
-    auto clk_id = treenode->clk_id;
-
-    auto collectable = std::make_shared<TrivialAutoCollectable<T>>(elem_id, clk_id, data, heartbeat_);
-    collectables_.push_back(collectable);
-    collectables_by_path_[path] = collectable.get();
-    return collectable;
-}
-
-template <typename T>
-inline typename std::enable_if<!std::is_trivial<T>::value, StructManualCollectablePtr<T>>::type CollectionMgr::createCollectable(
-    const std::string& path,
-    const std::string& clock)
-{
-    auto treenode = updateTree_(path, clock);
-    auto elem_id = treenode->db_id;
-    auto clk_id = treenode->clk_id;
-
-    auto collectable = std::make_shared<StructManualCollectable<T>>(elem_id, clk_id, heartbeat_);
-    collectables_.push_back(collectable);
-    collectables_by_path_[path] = collectable.get();
-    return collectable;
-}
-
-template <typename T>
-inline typename std::enable_if<!std::is_trivial<T>::value, StructAutoCollectablePtr<T>>::type CollectionMgr::createCollectable(
-    const std::string& path,
-    const std::string& clock,
-    const T* data)
-{
-    auto treenode = updateTree_(path, clock);
-    auto elem_id = treenode->db_id;
-    auto clk_id = treenode->clk_id;
-
-    auto collectable = std::make_shared<StructAutoCollectable<T>>(elem_id, clk_id, data, heartbeat_);
-    collectables_.push_back(collectable);
-    collectables_by_path_[path] = collectable.get();
     return collectable;
 }
 
 template <typename T, bool Sparse>
-inline IterableCollectorPtr<T, Sparse> CollectionMgr::createIterableCollector(
+std::shared_ptr<IterableCollectionPoint<Sparse>> CollectionMgr::createIterableCollector(
     const std::string& path,
     const std::string& clock,
-    const size_t capacity,
-    const T* data)
+    const size_t capacity)
 {
     auto treenode = updateTree_(path, clock);
     auto elem_id = treenode->db_id;
     auto clk_id = treenode->clk_id;
 
-    auto collectable = std::make_shared<IterableCollector<T, Sparse>>(elem_id, clk_id, capacity, data, heartbeat_);
+    using value_type = meta_utils::remove_any_pointer_t<typename T::value_type>;
+    std::string dtype = demangle(typeid(value_type).name()) + "_";
+    dtype += Sparse ? "sparse" : "contig";
+    dtype += "_capacity" + std::to_string(capacity);
+
+    auto collectable = std::make_shared<IterableCollectionPoint<Sparse>>(elem_id, clk_id, heartbeat_, dtype, capacity);
     collectables_.push_back(collectable);
     collectables_by_path_[path] = collectable.get();
     return collectable;
@@ -817,7 +765,6 @@ inline void CollectionMgr::sweep_(uint64_t tick, const std::string& clk)
     swept_data_.clear();
     for (auto& collectable : collectables_) {
         if (collectable->getClockId() == clk_id) {
-            collectable->autoCollect();
             collectable->sweep(swept_data_);
         }
     }
@@ -903,10 +850,6 @@ inline void CollectionMgr::finalizeCollections_()
     db_mgr_->INSERT(SQL_TABLE("CollectionGlobals"),
                     SQL_COLUMNS("Heartbeat"),
                     SQL_VALUES((int)heartbeat_));
-
-    for (auto& collectable : collectables_) {
-        collectable->serializeDefn(db_mgr_);
-    }
 
     std::vector<TreeNode*> leaf_nodes;
 
