@@ -44,8 +44,9 @@ public:
     }
 
     template <typename T>
-    void writeBytes(const T* data, size_t num_bytes)
+    void writeBytes(const T* data, size_t count)
     {
+        const size_t num_bytes = count * sizeof(T);
         all_collection_data_.resize(all_collection_data_.size() + num_bytes);
         auto dest = all_collection_data_.data() + all_collection_data_.size() - num_bytes;
         memcpy(dest, data, num_bytes);
@@ -54,7 +55,18 @@ public:
     template <typename T>
     void write(const T& data)
     {
-        writeBytes(&data, sizeof(T));
+        writeBytes(&data, 1);
+    }
+
+    template <typename T>
+    void write(const std::vector<T>& data)
+    {
+        writeBytes(data.data(), data.size());
+    }
+
+    void reset()
+    {
+        all_collection_data_.clear();
     }
 
 private:
@@ -62,11 +74,11 @@ private:
 };
 
 template <>
-inline void CollectionBuffer::writeBytes<bool>(const bool* data, size_t num_bytes)
+inline void CollectionBuffer::writeBytes<bool>(const bool* data, size_t count)
 {
-    for (size_t idx = 0; idx < num_bytes; ++idx) {
+    for (size_t idx = 0; idx < count; ++idx) {
         int32_t val = data[idx] ? 1 : 0;
-        writeBytes(&val, sizeof(int32_t));
+        writeBytes(&val, 1);
     }
 }
 

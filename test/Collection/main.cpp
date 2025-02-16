@@ -105,9 +105,8 @@ DummyPacketPtr generateRandomDummyPacket()
 namespace simdb
 {
     template <>
-    void defineStructSchema<DummyPacket>(StructSchema& schema)
+    void defineStructSchema<DummyPacket>(StructSchema<DummyPacket>& schema)
     {
-        schema.setStructName("DummyPacket");
         schema.addField<Colors>("color");
         schema.addField<char>("ch");
         schema.addField<int8_t>("int8");

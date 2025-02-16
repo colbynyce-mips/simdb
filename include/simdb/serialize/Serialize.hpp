@@ -384,7 +384,7 @@ public:
             throw DBException("Data type mismatch in writing struct field");
         }
 
-        buffer_.writeBytes(&val, num_bytes);
+        buffer_.writeBytes(&val, 1);
         ++current_field_idx_;
     }
 
@@ -443,14 +443,10 @@ private:
     const std::vector<std::unique_ptr<FieldBase>>& fields_;
 };
 
+template <typename StructT>
 class StructSchema
 {
 public:
-    void setStructName(const std::string& name)
-    {
-        struct_name_ = name;
-    }
-
     const std::string& getStructName() const
     {
         return struct_name_;
@@ -543,12 +539,12 @@ public:
     }
 
 private:
-    std::string struct_name_;
+    const std::string struct_name_ = demangle(typeid(StructT).name());
     std::vector<std::unique_ptr<FieldBase>> fields_;
 };
 
 template <typename StructT>
-inline void defineStructSchema(StructSchema& schema)
+inline void defineStructSchema(StructSchema<StructT>& schema)
 {
     (void)schema;
 }
@@ -557,9 +553,11 @@ template <typename StructT>
 class StructDefnSerializer
 {
 public:
+    using value_type = meta_utils::remove_any_pointer_t<StructT>;
+
     StructDefnSerializer()
     {
-        defineStructSchema<meta_utils::remove_any_pointer_t<StructT>>(schema_);
+        defineStructSchema<value_type>(schema_);
     }
 
     const std::string& getStructName() const
@@ -583,7 +581,7 @@ public:
     }
 
 private:
-    StructSchema schema_;
+    StructSchema<value_type> schema_;
 };
 
 } // namespace simdb

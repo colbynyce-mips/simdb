@@ -114,6 +114,9 @@ private:
     typename std::enable_if<std::is_trivial<T>::value && std::is_standard_layout<T>::value, void>::type
     activateImpl_(const T val)
     {
+        // Note that we do not do the carry-over optimization for POD types, as
+        // it will not really result in any compression. The benefit starts with
+        // types like structures or queues/vectors.
         CollectionBuffer buffer(argos_record_.data);
         buffer.write(getElemId());
         buffer.write(val);
@@ -123,17 +126,29 @@ private:
     typename std::enable_if<!std::is_trivial<T>::value || !std::is_standard_layout<T>::value, void>::type
     activateImpl_(const T& val)
     {
-        CollectionBuffer buffer(argos_record_.data);
-        buffer.write(getElemId());
-
         static std::unique_ptr<StructBlobSerializer> struct_serializer;
         if (!struct_serializer) {
             static StructDefnSerializer<T> defn_serializer;
             struct_serializer = defn_serializer.createBlobSerializer();
         }
 
+        CollectionBuffer buffer(argos_record_.data);
+        buffer.write(getElemId());
         struct_serializer->writeStruct(&val, buffer);
+
+        if (num_carry_overs_ < getHeartbeat() && argos_record_.data == prev_data_) {
+            buffer.reset();
+            buffer.write(getElemId());
+            buffer.write(UINT16_MAX);
+            ++num_carry_overs_;
+        } else {
+            prev_data_ = argos_record_.data;
+            num_carry_overs_ = 0;
+        }
     }
+
+    std::vector<char> prev_data_;
+    size_t num_carry_overs_ = 0;
 };
 
 template <bool Sparse>
@@ -143,7 +158,10 @@ public:
     IterableCollectionPoint(uint16_t elem_id, uint16_t clk_id, size_t heartbeat, const std::string& dtype, size_t capacity)
         : CollectionPointBase(elem_id, clk_id, heartbeat, dtype)
         , expected_capacity_(capacity)
-    {}
+    {
+        prev_data_by_bin_.resize(capacity);
+        num_carry_overs_by_bin_.resize(capacity, 0);
+    }
 
     template <typename T>
     void activate(const T* container)
@@ -211,6 +229,9 @@ private:
     void readContig_(const T& container)
     {
         auto size = container.size();
+        if (size > expected_capacity_) {
+            size = expected_capacity_;
+        }
 
         CollectionBuffer buffer(argos_record_.data);
         buffer.writeHeader(getElemId(), size);
@@ -219,8 +240,10 @@ private:
         auto eitr = container.end();
         uint16_t bin_idx = 0;
 
-        while (itr != eitr && bin_idx < expected_capacity_) {
-            writeStruct_(*itr, buffer, bin_idx);
+        while (itr != eitr && bin_idx < size) {
+            if (!writeStruct_(*itr, buffer, bin_idx)) {
+                break;
+            }
             ++itr;
             ++bin_idx;
         }
@@ -240,21 +263,36 @@ private:
     typename std::enable_if<!meta_utils::is_any_pointer<T>::value, bool>::type
     writeStruct_(const T& el, CollectionBuffer& buffer, uint16_t bin_idx)
     {
-        if constexpr (Sparse) {
-            buffer.writeBucket(bin_idx);
-        }
-
         static std::unique_ptr<StructBlobSerializer> struct_serializer;
         if (!struct_serializer) {
             static StructDefnSerializer<T> defn_serializer;
             struct_serializer = defn_serializer.createBlobSerializer();
         }
 
-        struct_serializer->writeStruct(&el, buffer);
+        if constexpr (!Sparse) {
+            return true;
+        }
+
+        buffer.writeBucket(bin_idx);
+
+        CollectionBuffer buffer2(struct_bytes_);
+        struct_serializer->writeStruct(&el, buffer2);
+
+        if (num_carry_overs_by_bin_[bin_idx] < getHeartbeat() && struct_bytes_ == prev_data_by_bin_[bin_idx]) {
+            buffer.write(UINT16_MAX);
+            ++num_carry_overs_by_bin_[bin_idx];
+        } else {
+            buffer.write(struct_bytes_);
+            prev_data_by_bin_[bin_idx] = struct_bytes_;
+        }
+
         return true;
     }
 
     const size_t expected_capacity_;
+    std::vector<char> struct_bytes_;
+    std::vector<std::vector<char>> prev_data_by_bin_;
+    std::vector<size_t> num_carry_overs_by_bin_;
 };
 
 } // namespace simdb
