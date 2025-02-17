@@ -761,7 +761,7 @@ std::shared_ptr<std::conditional_t<Sparse, SparseIterableCollectionPoint, Contig
         dtype = demangle(typeid(value_type).name()) + "_";
     }
 
-    dtype += Sparse ? "sparse" : "contig";
+    dtype += "contig";
     dtype += "_capacity" + std::to_string(capacity);
 
     using collection_point_type = std::conditional_t<Sparse, SparseIterableCollectionPoint, ContigIterableCollectionPoint>;

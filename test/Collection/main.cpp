@@ -237,8 +237,8 @@ private:
         auto_uint64_collectable_ = collection_mgr->createCollectable<uint64_t>("top.uint64", "root");
         auto_bool_collectable_ = collection_mgr->createCollectable<bool>("top.bool", "root");
         auto_packet_collectable_ = collection_mgr->createCollectable<DummyPacket>("top.dummy_packet_auto", "root");
-        dummy_collectable_vec_contig_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, false>("top.dummy_packet_vec_contig", "root", 32);
-        dummy_collectable_vec_sparse_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, true>("top.dummy_packet_vec_sparse", "root", 32);
+        dummy_collectable_vec_contig_ = collection_mgr->createContigIterableCollector<DummyPacketPtrVec>("top.dummy_packet_vec_contig", "root", 32);
+        dummy_collectable_vec_sparse_ = collection_mgr->createSparseIterableCollector<DummyPacketPtrVec>("top.dummy_packet_vec_sparse", "root", 32);
         manual_uint64_collectable_ = collection_mgr->createCollectable<uint64_t>("top.uint64_manual", "root");
         manual_bool_collectable_ = collection_mgr->createCollectable<bool>("top.bool_manual", "root");
         manual_packet_collectable_ = collection_mgr->createCollectable<DummyPacket>("top.dummy_packet_manual", "root");
