@@ -103,10 +103,9 @@ private:
     class CollectionPointDataWriter : public WorkerTask
     {
     public:
-        CollectionPointDataWriter(DatabaseManager* db_mgr, const std::vector<char>& data, const int clk_id, int64_t tick, bool compressed)
+        CollectionPointDataWriter(DatabaseManager* db_mgr, const std::vector<char>& data, int64_t tick, bool compressed)
             : db_mgr_(db_mgr)
             , data_(data)
-            , clk_id_(clk_id)
             , tick_(tick)
             , compressed_(compressed)
         {
@@ -117,7 +116,6 @@ private:
     
         DatabaseManager* db_mgr_;
         std::vector<char> data_;
-        int clk_id_;
         int64_t tick_;
         bool compressed_;
     };
@@ -697,11 +695,10 @@ inline void CollectionMgr::defineSchema(Schema& schema) const
         .addColumn("String", dt::string_t);
 
     schema.addTable("CollectionRecords")
-        .addColumn("ClockId", dt::int32_t)
         .addColumn("Tick", dt::int64_t)
         .addColumn("Data", dt::blob_t)
         .addColumn("IsCompressed", dt::int32_t)
-        .createCompoundIndexOn(SQL_COLUMNS("ClockId", "Tick"));
+        .createIndexOn("Tick");
 }
 
 template <typename T>
@@ -798,8 +795,15 @@ inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
         return;
     }
 
+#if 0
+    compressDataVec(swept_data_, compressed_swept_data_);
+
     std::unique_ptr<WorkerTask> task(new CollectionPointDataWriter(
-        db_mgr_, swept_data_, clk_id, tick, false));
+        db_mgr_, compressed_swept_data_, tick, true));
+#else
+    std::unique_ptr<WorkerTask> task(new CollectionPointDataWriter(
+        db_mgr_, swept_data_, tick, false));
+#endif
 
     db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
 }
@@ -807,8 +811,8 @@ inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
 inline void CollectionMgr::CollectionPointDataWriter::completeTask()
 {
     db_mgr_->INSERT(SQL_TABLE("CollectionRecords"),
-                    SQL_COLUMNS("ClockId", "Tick", "Data", "IsCompressed"),
-                    SQL_VALUES(clk_id_, tick_, data_, (int)compressed_));
+                    SQL_COLUMNS("Tick", "Data", "IsCompressed"),
+                    SQL_VALUES(tick_, data_, (int)compressed_));
 }
 
 inline TreeNode* CollectionMgr::updateTree_(const std::string& path, const std::string& clk)

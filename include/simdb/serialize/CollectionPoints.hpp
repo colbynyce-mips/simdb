@@ -136,15 +136,15 @@ private:
         buffer.write(getElemId());
         struct_serializer->writeStruct(&val, buffer);
 
-        if (num_carry_overs_ < getHeartbeat() && argos_record_.data == prev_data_) {
-            buffer.reset();
-            buffer.write(getElemId());
-            buffer.write(UINT16_MAX);
-            ++num_carry_overs_;
-        } else {
-            prev_data_ = argos_record_.data;
-            num_carry_overs_ = 0;
-        }
+        //if (num_carry_overs_ < getHeartbeat() && argos_record_.data == prev_data_) {
+        //    buffer.reset();
+        //    buffer.write(getElemId());
+        //    buffer.write(UINT16_MAX);
+        //    ++num_carry_overs_;
+        //} else {
+        //    prev_data_ = argos_record_.data;
+        //    num_carry_overs_ = 0;
+        //}
     }
 
     std::vector<char> prev_data_;
@@ -223,17 +223,18 @@ private:
         }
 
         buffer.writeBucket(bin_idx);
+        struct_serializer->writeStruct(&el, buffer);
 
-        CollectionBuffer buffer2(struct_bytes_);
-        struct_serializer->writeStruct(&el, buffer2);
+        //CollectionBuffer buffer2(struct_bytes_);
+        //struct_serializer->writeStruct(&el, buffer2);
 
-        if (num_carry_overs_by_bin_[bin_idx] < getHeartbeat() && struct_bytes_ == prev_data_by_bin_[bin_idx]) {
-            buffer.write(UINT16_MAX);
-            ++num_carry_overs_by_bin_[bin_idx];
-        } else {
-            buffer.write(struct_bytes_);
-            prev_data_by_bin_[bin_idx] = struct_bytes_;
-        }
+        //if (num_carry_overs_by_bin_[bin_idx] < getHeartbeat() && struct_bytes_ == prev_data_by_bin_[bin_idx]) {
+        //    buffer.write(UINT16_MAX);
+        //    ++num_carry_overs_by_bin_[bin_idx];
+        //} else {
+        //    buffer.write(struct_bytes_);
+        //    prev_data_by_bin_[bin_idx] = struct_bytes_;
+        //}
 
         return true;
     }
@@ -335,17 +336,18 @@ private:
         }
 
         buffer.writeBucket(bin_idx);
+        struct_serializer->writeStruct(&el, buffer);
 
-        CollectionBuffer buffer2(struct_bytes_);
-        struct_serializer->writeStruct(&el, buffer2);
+        //CollectionBuffer buffer2(struct_bytes_);
+        //struct_serializer->writeStruct(&el, buffer2);
 
-        if (num_carry_overs_by_bin_[bin_idx] < getHeartbeat() && struct_bytes_ == prev_data_by_bin_[bin_idx]) {
-            buffer.write(UINT16_MAX);
-            ++num_carry_overs_by_bin_[bin_idx];
-        } else {
-            buffer.write(struct_bytes_);
-            prev_data_by_bin_[bin_idx] = struct_bytes_;
-        }
+        //if (num_carry_overs_by_bin_[bin_idx] < getHeartbeat() && struct_bytes_ == prev_data_by_bin_[bin_idx]) {
+        //    buffer.write(UINT16_MAX);
+        //    ++num_carry_overs_by_bin_[bin_idx];
+        //} else {
+        //    buffer.write(struct_bytes_);
+        //    prev_data_by_bin_[bin_idx] = struct_bytes_;
+        //}
 
         return true;
     }
