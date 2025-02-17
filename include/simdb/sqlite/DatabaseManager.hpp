@@ -38,9 +38,16 @@ public:
         const std::string& path,
         const std::string& clock);
 
-    // Automatically collect iterable data (non-POD types).
-    template <typename T, bool Sparse>
-    std::shared_ptr<IterableCollectionPoint<Sparse>> createIterableCollector(
+    // Automatically collect iterable data (non-POD types, contig).
+    template <typename T>
+    std::shared_ptr<ContigIterableCollectionPoint> createContigIterableCollector(
+        const std::string& path,
+        const std::string& clock,
+        const size_t capacity);
+
+    // Automatically collect iterable data (non-POD types, sparse).
+    template <typename T>
+    std::shared_ptr<SparseIterableCollectionPoint> createSparseIterableCollector(
         const std::string& path,
         const std::string& clock,
         const size_t capacity);
@@ -740,8 +747,8 @@ inline std::shared_ptr<CollectionPoint> CollectionMgr::createCollectable(
     return collectable;
 }
 
-template <typename T, bool Sparse>
-std::shared_ptr<IterableCollectionPoint<Sparse>> CollectionMgr::createIterableCollector(
+template <typename T>
+inline std::shared_ptr<ContigIterableCollectionPoint> CollectionMgr::createContigIterableCollector(
     const std::string& path,
     const std::string& clock,
     const size_t capacity)
@@ -761,10 +768,40 @@ std::shared_ptr<IterableCollectionPoint<Sparse>> CollectionMgr::createIterableCo
         dtype = demangle(typeid(value_type).name()) + "_";
     }
 
-    dtype += Sparse ? "sparse" : "contig";
+    dtype += "contig";
     dtype += "_capacity" + std::to_string(capacity);
 
-    auto collectable = std::make_shared<IterableCollectionPoint<Sparse>>(elem_id, clk_id, heartbeat_, dtype, capacity);
+    auto collectable = std::make_shared<ContigIterableCollectionPoint>(elem_id, clk_id, heartbeat_, dtype, capacity);
+    collectables_.push_back(collectable);
+    collectables_by_path_[path] = collectable.get();
+    return collectable;
+}
+
+template <typename T>
+inline std::shared_ptr<SparseIterableCollectionPoint> CollectionMgr::createSparseIterableCollector(
+    const std::string& path,
+    const std::string& clock,
+    const size_t capacity)
+{
+    auto treenode = updateTree_(path, clock);
+    auto elem_id = treenode->db_id;
+    auto clk_id = treenode->clk_id;
+
+    using value_type = meta_utils::remove_any_pointer_t<typename T::value_type>;
+
+    std::string dtype;
+    if constexpr (std::is_same_v<value_type, bool>) {
+        dtype = "bool";
+    } else if constexpr (std::is_trivial_v<value_type>) {
+        dtype = getFieldDTypeStr(getFieldDTypeEnum<value_type>());
+    } else {
+        dtype = demangle(typeid(value_type).name()) + "_";
+    }
+
+    dtype += "sparse";
+    dtype += "_capacity" + std::to_string(capacity);
+
+    auto collectable = std::make_shared<SparseIterableCollectionPoint>(elem_id, clk_id, heartbeat_, dtype, capacity);
     collectables_.push_back(collectable);
     collectables_by_path_[path] = collectable.get();
     return collectable;
