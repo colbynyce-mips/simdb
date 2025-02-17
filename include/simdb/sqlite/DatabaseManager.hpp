@@ -40,7 +40,7 @@ public:
 
     // Automatically collect iterable data (non-POD types).
     template <typename T, bool Sparse>
-    std::shared_ptr<IterableCollectionPoint<Sparse>> createIterableCollector(
+    std::shared_ptr<std::conditional_t<Sparse, SparseIterableCollectionPoint, ContigIterableCollectionPoint>> createIterableCollector(
         const std::string& path,
         const std::string& clock,
         const size_t capacity);
@@ -741,7 +741,7 @@ inline std::shared_ptr<CollectionPoint> CollectionMgr::createCollectable(
 }
 
 template <typename T, bool Sparse>
-std::shared_ptr<IterableCollectionPoint<Sparse>> CollectionMgr::createIterableCollector(
+std::shared_ptr<std::conditional_t<Sparse, SparseIterableCollectionPoint, ContigIterableCollectionPoint>> CollectionMgr::createIterableCollector(
     const std::string& path,
     const std::string& clock,
     const size_t capacity)
@@ -764,7 +764,8 @@ std::shared_ptr<IterableCollectionPoint<Sparse>> CollectionMgr::createIterableCo
     dtype += Sparse ? "sparse" : "contig";
     dtype += "_capacity" + std::to_string(capacity);
 
-    auto collectable = std::make_shared<IterableCollectionPoint<Sparse>>(elem_id, clk_id, heartbeat_, dtype, capacity);
+    using collection_point_type = std::conditional_t<Sparse, SparseIterableCollectionPoint, ContigIterableCollectionPoint>;
+    auto collectable = std::make_shared<collection_point_type>(elem_id, clk_id, heartbeat_, dtype, capacity);
     collectables_.push_back(collectable);
     collectables_by_path_[path] = collectable.get();
     return collectable;

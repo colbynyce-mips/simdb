@@ -278,10 +278,10 @@ private:
     std::shared_ptr<simdb::CollectionPoint> auto_packet_collectable_;
 
     DummyPacketPtrVec dummy_packet_vec_contig_;
-    std::shared_ptr<simdb::IterableCollectionPoint<false>> dummy_collectable_vec_contig_;
+    std::shared_ptr<simdb::ContigIterableCollectionPoint> dummy_collectable_vec_contig_;
 
     DummyPacketPtrVec dummy_packet_vec_sparse_;
-    std::shared_ptr<simdb::IterableCollectionPoint<true>> dummy_collectable_vec_sparse_;
+    std::shared_ptr<simdb::SparseIterableCollectionPoint> dummy_collectable_vec_sparse_;
 
     std::shared_ptr<simdb::CollectionPoint> manual_uint64_collectable_;
     std::shared_ptr<simdb::CollectionPoint> manual_bool_collectable_;
