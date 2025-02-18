@@ -384,7 +384,7 @@ public:
             throw DBException("Data type mismatch in writing struct field");
         }
 
-        buffer_.writeBytes(&val, 1);
+        buffer_ << val;
         ++current_field_idx_;
     }
 
@@ -423,6 +423,15 @@ public:
     StructBlobSerializer(const std::vector<std::unique_ptr<FieldBase>>& fields)
         : fields_(fields)
     {
+    }
+
+    size_t getStructNumBytes() const
+    {
+        size_t num_bytes = 0;
+        for (const auto& field : fields_) {
+            num_bytes += field->getNumBytes();
+        }
+        return num_bytes;
     }
 
     template <typename StructT>

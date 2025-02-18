@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "simdb/utils/MetaStructs.hpp"
+
 #include <vector>
 #include <stdint.h>
 #include <cstring>
+#include <iostream>
 
 namespace simdb
 {
@@ -21,65 +24,56 @@ namespace simdb
 class CollectionBuffer
 {
 public:
-    CollectionBuffer(std::vector<char> &all_collection_data)
-        : all_collection_data_(all_collection_data)
+    CollectionBuffer(std::vector<char> &buffer)
+        : buffer_(buffer)
     {
-        all_collection_data_.clear();
-        all_collection_data_.reserve(all_collection_data_.capacity());
+        buffer_.clear();
+        buffer_.reserve(buffer_.capacity());
     }
 
-    void writeHeader(uint16_t collection_id, uint16_t num_elems)
+    void append(const void* data, size_t num_bytes)
     {
-        all_collection_data_.resize(all_collection_data_.size() + 2 * sizeof(uint16_t));
-        auto dest = all_collection_data_.data() + all_collection_data_.size() - 2 * sizeof(uint16_t);
-        memcpy(dest, &collection_id, sizeof(uint16_t));
-        memcpy(dest + sizeof(uint16_t), &num_elems, sizeof(uint16_t));
-    }
-
-    void writeBucket(uint16_t bucket_id)
-    {
-        all_collection_data_.resize(all_collection_data_.size() + sizeof(uint16_t));
-        auto dest = all_collection_data_.data() + all_collection_data_.size() - sizeof(uint16_t);
-        memcpy(dest, &bucket_id, sizeof(uint16_t));
-    }
-
-    template <typename T>
-    void writeBytes(const T* data, size_t count)
-    {
-        const size_t num_bytes = count * sizeof(T);
-        all_collection_data_.resize(all_collection_data_.size() + num_bytes);
-        auto dest = all_collection_data_.data() + all_collection_data_.size() - num_bytes;
-        memcpy(dest, data, num_bytes);
-    }
-
-    template <typename T>
-    void write(const T& data)
-    {
-        writeBytes(&data, 1);
-    }
-
-    template <typename T>
-    void write(const std::vector<T>& data)
-    {
-        writeBytes(data.data(), data.size());
-    }
-
-    void reset()
-    {
-        all_collection_data_.clear();
+        const char* bytes = static_cast<const char*>(data);
+        buffer_.insert(buffer_.end(), bytes, bytes + num_bytes);
     }
 
 private:
-    std::vector<char> &all_collection_data_;
+    std::vector<char> &buffer_;
 };
 
-template <>
-inline void CollectionBuffer::writeBytes<bool>(const bool* data, size_t count)
+template <typename T>
+inline
+typename std::enable_if<std::is_arithmetic<T>::value &&
+                        std::is_scalar<T>::value && 
+                        !meta_utils::is_any_pointer<T>::value, CollectionBuffer&>::type
+operator<<(CollectionBuffer& buffer, const T& val)
 {
-    for (size_t idx = 0; idx < count; ++idx) {
-        int32_t val = data[idx] ? 1 : 0;
-        writeBytes(&val, 1);
+    if constexpr (std::is_same<T, bool>::value) {
+        buffer << static_cast<int>(val);
+    } else {
+        buffer.append(&val, sizeof(T));
     }
+
+    return buffer;
 }
+
+template <typename T>
+inline
+typename std::enable_if<std::is_enum<T>::value, CollectionBuffer&>::type
+operator<<(CollectionBuffer& buffer, const T& val)
+{
+    using dtype = typename std::underlying_type<T>::type;
+    return buffer << static_cast<dtype>(val);
+}
+
+inline CollectionBuffer& operator<<(CollectionBuffer& buffer, const std::vector<char>& bytes)
+{
+    buffer.append(bytes.data(), bytes.size());
+    return buffer;
+}
+
+// Go through StringMap to serialize as uint32_t
+inline CollectionBuffer& operator<<(CollectionBuffer& buffer, const std::string& val) = delete;
+inline CollectionBuffer& operator<<(CollectionBuffer& buffer, const char* val) = delete;
 
 } // namespace simdb
