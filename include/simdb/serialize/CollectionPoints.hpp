@@ -131,13 +131,7 @@ private:
             return;
         }
 
-        static std::unique_ptr<StructBlobSerializer> struct_serializer;
-        if (!struct_serializer) {
-            static StructDefnSerializer<T> defn_serializer;
-            struct_serializer = defn_serializer.createBlobSerializer();
-        }
-
-        struct_serializer->extract(&val, curr_data_);
+        StructSerializer<T>::getInstance()->extract(&val, curr_data_);
         if (num_carry_overs_ < getHeartbeat() && curr_data_ == prev_data_) {
             buffer << CollectionPoint::Action::CARRY;
             ++num_carry_overs_;
@@ -201,12 +195,7 @@ private:
         } else if constexpr (std::is_enum<T>::value) {
             num_bytes_ = sizeof(typename std::underlying_type<T>::type);
         } else {
-            static std::unique_ptr<StructDefnSerializer<T>> defn_serializer;
-            if (!defn_serializer) {
-                defn_serializer = std::make_unique<StructDefnSerializer<T>>();
-            }
-
-            num_bytes_ = defn_serializer->getStructNumBytes();
+            num_bytes_ = StructSerializer<T>::getInstance()->getStructNumBytes();
         }
 
         if (num_bytes_ == 0) {
@@ -445,13 +434,7 @@ private:
     typename std::enable_if<!meta_utils::is_any_pointer<T>::value, bool>::type
     writeStruct_(const T& el, IterableSnapshot& snapshot, uint16_t bin_idx)
     {
-        static std::unique_ptr<StructBlobSerializer> struct_serializer;
-        if (!struct_serializer) {
-            static StructDefnSerializer<T> defn_serializer;
-            struct_serializer = defn_serializer.createBlobSerializer();
-        }
-
-        struct_serializer->extract(&el, snapshot[bin_idx]);
+        StructSerializer<T>::getInstance()->extract(&el, snapshot[bin_idx]);
         return true;
     }
 
@@ -544,15 +527,8 @@ private:
     typename std::enable_if<!meta_utils::is_any_pointer<T>::value, bool>::type
     writeStruct_(const T& el, CollectionBuffer& buffer, uint16_t bin_idx)
     {
-        static std::unique_ptr<StructBlobSerializer> struct_serializer;
-        if (!struct_serializer) {
-            static StructDefnSerializer<T> defn_serializer;
-            struct_serializer = defn_serializer.createBlobSerializer();
-        }
-
-        // TODO cnyce - optimize this
         buffer << bin_idx;
-        struct_serializer->writeStruct(&el, buffer);
+        StructSerializer<T>::getInstance()->writeStruct(&el, buffer);
         return true;
     }
 

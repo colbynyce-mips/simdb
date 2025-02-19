@@ -724,11 +724,7 @@ inline std::shared_ptr<CollectionPoint> CollectionMgr::createCollectable(
     auto collectable = std::make_shared<CollectionPoint>(elem_id, clk_id, heartbeat_, dtype);
 
     if constexpr (!std::is_trivial<value_type>::value) {
-        static std::unordered_set<std::string> serialized_structs;
-        if (serialized_structs.insert(dtype).second) {
-            auto struct_defn = StructDefnSerializer<value_type>();
-            struct_defn.serializeDefn(db_mgr_);
-        }
+        StructSerializer<value_type>::getInstance()->serializeDefn(db_mgr_);
     }
 
     collectables_.push_back(collectable);

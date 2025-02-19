@@ -436,40 +436,8 @@ private:
     CollectionBuffer& buffer_;
 };
 
-class StructBlobSerializer
-{
-public:
-    StructBlobSerializer(const std::vector<std::unique_ptr<FieldBase>>& fields)
-        : fields_(fields)
-    {
-    }
-
-    size_t getStructNumBytes() const
-    {
-        size_t num_bytes = 0;
-        for (const auto& field : fields_) {
-            num_bytes += field->getNumBytes();
-        }
-        return num_bytes;
-    }
-
-    template <typename StructT>
-    void writeStruct(const StructT* s, CollectionBuffer& buffer) const
-    {
-        StructFieldSerializer<StructT> field_serializer(fields_, buffer);
-        field_serializer.writeFields(s);
-    }
-
-    template <typename StructT>
-    void extract(const StructT* s, std::vector<char>& bytes) const
-    {
-        CollectionBuffer buffer(bytes);
-        writeStruct(s, buffer);
-    }
-
-private:
-    const std::vector<std::unique_ptr<FieldBase>>& fields_;
-};
+template <typename StructT>
+class StructSerializer;
 
 template <typename StructT>
 class StructSchema
@@ -561,14 +529,11 @@ public:
         }
     }
 
-    std::unique_ptr<StructBlobSerializer> createBlobSerializer()
-    {
-        return std::unique_ptr<StructBlobSerializer>(new StructBlobSerializer(fields_));
-    }
-
 private:
     const std::string struct_name_ = demangle(typeid(StructT).name());
     std::vector<std::unique_ptr<FieldBase>> fields_;
+
+    friend class StructSerializer<StructT>;
 };
 
 template <typename StructT>
@@ -578,14 +543,16 @@ inline void defineStructSchema(StructSchema<StructT>& schema)
 }
 
 template <typename StructT>
-class StructDefnSerializer
+class StructSerializer
 {
 public:
-    using value_type = meta_utils::remove_any_pointer_t<StructT>;
-
-    StructDefnSerializer()
+    static StructSerializer* getInstance()
     {
-        defineStructSchema<value_type>(schema_);
+        static_assert(!meta_utils::is_any_pointer<StructT>::value,
+                      "StructSerializer does not support pointer types");
+
+        static StructSerializer serializer;
+        return &serializer;
     }
 
     const std::string& getStructName() const
@@ -603,13 +570,25 @@ public:
         schema_.serializeDefn(db_mgr);
     }
 
-    std::unique_ptr<StructBlobSerializer> createBlobSerializer()
+    void writeStruct(const StructT* s, CollectionBuffer& buffer) const
     {
-        return schema_.createBlobSerializer();
+        StructFieldSerializer<StructT> field_serializer(schema_.fields_, buffer);
+        field_serializer.writeFields(s);
+    }
+
+    void extract(const StructT* s, std::vector<char>& bytes) const
+    {
+        CollectionBuffer buffer(bytes);
+        writeStruct(s, buffer);
     }
 
 private:
-    StructSchema<value_type> schema_;
+    StructSerializer()
+    {
+        defineStructSchema<StructT>(schema_);
+    }
+
+    StructSchema<StructT> schema_;
 };
 
 } // namespace simdb
