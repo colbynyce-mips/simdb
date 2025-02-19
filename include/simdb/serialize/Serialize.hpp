@@ -74,20 +74,39 @@ enum class StructFields
 };
 
 template <typename FieldT>
-StructFields getFieldDTypeEnum() = delete;
-
-template <> inline StructFields getFieldDTypeEnum<char>() { return StructFields::char_t; }
-template <> inline StructFields getFieldDTypeEnum<int8_t>() { return StructFields::int8_t; }
-template <> inline StructFields getFieldDTypeEnum<uint8_t>() { return StructFields::uint8_t; }
-template <> inline StructFields getFieldDTypeEnum<int16_t>() { return StructFields::int16_t; }
-template <> inline StructFields getFieldDTypeEnum<uint16_t>() { return StructFields::uint16_t; }
-template <> inline StructFields getFieldDTypeEnum<int32_t>() { return StructFields::int32_t; }
-template <> inline StructFields getFieldDTypeEnum<uint32_t>() { return StructFields::uint32_t; }
-template <> inline StructFields getFieldDTypeEnum<int64_t>() { return StructFields::int64_t; }
-template <> inline StructFields getFieldDTypeEnum<uint64_t>() { return StructFields::uint64_t; }
-template <> inline StructFields getFieldDTypeEnum<float>() { return StructFields::float_t; }
-template <> inline StructFields getFieldDTypeEnum<double>() { return StructFields::double_t; }
-template <> inline StructFields getFieldDTypeEnum<std::string>() { return StructFields::string_t; }
+inline StructFields getFieldDTypeEnum()
+{
+    if constexpr (std::is_same_v<FieldT, char>) {
+        return StructFields::char_t;
+    } else if constexpr (std::is_same_v<FieldT, int8_t>) {
+        return StructFields::int8_t;
+    } else if constexpr (std::is_same_v<FieldT, uint8_t>) {
+        return StructFields::uint8_t;
+    } else if constexpr (std::is_same_v<FieldT, int16_t>) {
+        return StructFields::int16_t;
+    } else if constexpr (std::is_same_v<FieldT, uint16_t>) {
+        return StructFields::uint16_t;
+    } else if constexpr (std::is_same_v<FieldT, int32_t>) {
+        return StructFields::int32_t;
+    } else if constexpr (std::is_same_v<FieldT, uint32_t>) {
+        return StructFields::uint32_t;
+    } else if constexpr (std::is_same_v<FieldT, int64_t>) {
+        return StructFields::int64_t;
+    } else if constexpr (std::is_same_v<FieldT, uint64_t>) {
+        return StructFields::uint64_t;
+    } else if constexpr (std::is_same_v<FieldT, float>) {
+        return StructFields::float_t;
+    } else if constexpr (std::is_same_v<FieldT, double>) {
+        return StructFields::double_t;
+    } else if constexpr (std::is_same_v<FieldT, std::string>) {
+        return StructFields::string_t;
+    } else if constexpr (std::is_enum<FieldT>::value) {
+        using enum_int_t = typename std::underlying_type<FieldT>::type;
+        return getFieldDTypeEnum<enum_int_t>();
+    } else {
+        throw DBException("Unsupported data type: ") << demangle(typeid(FieldT).name());
+    }
+}
 
 /// These dtype strings are stored in the database to inform the downstream 
 /// python module how to interpret the structs' serialized raw bytes.

@@ -172,50 +172,45 @@ public:
 
         size_t tick = 0;
         while (++tick < 10000) {
-            randomizeAutoCollectables_();
+            randomizeDummyPacketCollectables_();
 
-            // The collection system "black box" operates as follows:
-            //
-            //   [=========================================================]
-            //   [  *ManualCollectable<T>                                  ]
-            //   [    - activate(T) starts collecting the given <T>        ]
-            //   [    - deactivate() stops sending the value to the DB     ]
-            //   [                                                         ]
-            //   [  *AutoCollectable<T>                                    ]
-            //   [    - always active: collected every cycle               ]
-            //   [    - no activate()/deactivate() methods                 ]
-
-            // Manually collect a random uint64_t between ticks 10 and 25
+            // Collect a random uint64_t between ticks 10 and 25
             if (tick == 1000) {
-                manual_uint64_collectable_->activate(generateRandomInt<uint64_t>());
+                uint64_collectable_->activate(generateRandomInt<uint64_t>());
             } else if (tick == 2000) {
-                manual_uint64_collectable_->deactivate();
+                uint64_collectable_->deactivate();
             }
 
-            // Manually collect a random bool between ticks 18 and 22
+            // Collect a random bool between ticks 1500 and 2500
             if (tick == 1500) {
-                manual_bool_collectable_->activate(rand() % 2 == 0);
+                bool_collectable_->activate(rand() % 2 == 0);
             } else if (tick == 2500) {
-                manual_bool_collectable_->deactivate();
+                bool_collectable_->deactivate();
             }
 
-            // Manually collect a random DummyPacket between ticks 30 and 40
+            // Collect a random enum between ticks 1800 and 2800
+            if (tick == 1800) {
+                enum_collectable_->activate(generateRandomColor());
+            } else if (tick == 2800) {
+                enum_collectable_->deactivate();
+            }
+
+            // Collect a random DummyPacket between ticks 2000 and 3000
             if (tick == 2000) {
-                manual_packet_collectable_->activate(generateRandomDummyPacket());
+                dummy_packet_collectable_->activate(generateRandomDummyPacket());
             } else if (tick == 3000) {
-                manual_packet_collectable_->deactivate();
+                dummy_packet_collectable_->deactivate();
             }
 
-            // Collect some different values for just one cycle
+            // Collect some different values for just one cycle. To do this, we call
+            // the activate() method, passing in "once=true".
             if (tick >= 5000 && tick % 5 == 0) {
-                manual_uint64_collectable_->activate(generateRandomInt<uint64_t>(), true);
-                manual_bool_collectable_->activate(rand() % 2 == 0, true);
-                manual_packet_collectable_->activate(generateRandomDummyPacket(), true);
+                uint64_collectable_->activate(generateRandomInt<uint64_t>(), true);
+                bool_collectable_->activate(rand() % 2 == 0, true);
+                enum_collectable_->activate(generateRandomColor(), true);
+                dummy_packet_collectable_->activate(generateRandomDummyPacket(), true);
             }
 
-            auto_uint64_collectable_->activate(u64);
-            auto_bool_collectable_->activate(b);
-            auto_packet_collectable_->activate(dummy_packet_);
             dummy_collectable_vec_contig_->activate(&dummy_packet_vec_contig_);
             dummy_collectable_vec_sparse_->activate(&dummy_packet_vec_sparse_);
 
@@ -234,24 +229,18 @@ private:
         auto collection_mgr = db_mgr_->getCollectionMgr();
         collection_mgr->addClock("root", 10);
 
-        auto_uint64_collectable_ = collection_mgr->createCollectable<uint64_t>("top.uint64", "root");
-        auto_bool_collectable_ = collection_mgr->createCollectable<bool>("top.bool", "root");
-        auto_packet_collectable_ = collection_mgr->createCollectable<DummyPacket>("top.dummy_packet_auto", "root");
+        uint64_collectable_ = collection_mgr->createCollectable<uint64_t>("top.uint64", "root");
+        bool_collectable_ = collection_mgr->createCollectable<bool>("top.bool", "root");
+        enum_collectable_ = collection_mgr->createCollectable<Colors>("top.enum", "root");
+        dummy_packet_collectable_ = collection_mgr->createCollectable<DummyPacket>("top.dummy_packet", "root");
         dummy_collectable_vec_contig_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, false>("top.dummy_packet_vec_contig", "root", 32);
         dummy_collectable_vec_sparse_ = collection_mgr->createIterableCollector<DummyPacketPtrVec, true>("top.dummy_packet_vec_sparse", "root", 32);
-        manual_uint64_collectable_ = collection_mgr->createCollectable<uint64_t>("top.uint64_manual", "root");
-        manual_bool_collectable_ = collection_mgr->createCollectable<bool>("top.bool_manual", "root");
-        manual_packet_collectable_ = collection_mgr->createCollectable<DummyPacket>("top.dummy_packet_manual", "root");
 
         db_mgr_->finalizeCollections();
     }
 
-    void randomizeAutoCollectables_()
+    void randomizeDummyPacketCollectables_()
     {
-        u64 = generateRandomInt<uint64_t>();
-        b = rand() % 2 == 0;
-        dummy_packet_ = *generateRandomDummyPacket();
-
         dummy_packet_vec_contig_.clear();
         for (size_t i = 0; i < rand() % 10; ++i) {
             dummy_packet_vec_contig_.push_back(generateRandomDummyPacket());
@@ -268,24 +257,16 @@ private:
 
     simdb::DatabaseManager* db_mgr_;
 
-    uint64_t u64;
-    std::shared_ptr<simdb::CollectionPoint> auto_uint64_collectable_;
-
-    bool b;
-    std::shared_ptr<simdb::CollectionPoint> auto_bool_collectable_;
-
-    DummyPacket dummy_packet_;
-    std::shared_ptr<simdb::CollectionPoint> auto_packet_collectable_;
+    std::shared_ptr<simdb::CollectionPoint> uint64_collectable_;
+    std::shared_ptr<simdb::CollectionPoint> bool_collectable_;
+    std::shared_ptr<simdb::CollectionPoint> enum_collectable_;
+    std::shared_ptr<simdb::CollectionPoint> dummy_packet_collectable_;
 
     DummyPacketPtrVec dummy_packet_vec_contig_;
     std::shared_ptr<simdb::ContigIterableCollectionPoint> dummy_collectable_vec_contig_;
 
     DummyPacketPtrVec dummy_packet_vec_sparse_;
     std::shared_ptr<simdb::SparseIterableCollectionPoint> dummy_collectable_vec_sparse_;
-
-    std::shared_ptr<simdb::CollectionPoint> manual_uint64_collectable_;
-    std::shared_ptr<simdb::CollectionPoint> manual_bool_collectable_;
-    std::shared_ptr<simdb::CollectionPoint> manual_packet_collectable_;
 };
 
 int main()

@@ -198,6 +198,8 @@ private:
             num_bytes_ = sizeof(double);
         } else if constexpr (std::is_same_v<T, std::string>) {
             num_bytes_ = sizeof(uint32_t);
+        } else if constexpr (std::is_enum<T>::value) {
+            num_bytes_ = sizeof(typename std::underlying_type<T>::type);
         } else {
             static std::unique_ptr<StructDefnSerializer<T>> defn_serializer;
             if (!defn_serializer) {
