@@ -761,10 +761,15 @@ std::shared_ptr<std::conditional_t<Sparse, SparseIterableCollectionPoint, Contig
     } else if constexpr (std::is_trivial_v<value_type>) {
         dtype = getFieldDTypeStr(getFieldDTypeEnum<value_type>());
     } else {
-        dtype = demangle(typeid(value_type).name()) + "_";
+        dtype = demangle(typeid(value_type).name());
     }
 
-    dtype += "contig";
+    if constexpr (Sparse) {
+        dtype += "_sparse";
+    } else {
+        dtype += "_contig";
+    }
+
     dtype += "_capacity" + std::to_string(capacity);
 
     using collection_point_type = std::conditional_t<Sparse, SparseIterableCollectionPoint, ContigIterableCollectionPoint>;

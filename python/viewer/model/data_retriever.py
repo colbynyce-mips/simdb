@@ -85,21 +85,16 @@ class DataRetriever:
             self._deserializers_by_dtype[struct_name] = deserializer
 
         cursor.execute('SELECT ElementTreeNodeID,DataType FROM CollectableTreeNodes')
-        self._replayers_by_dtype = {}
-        self._dtypes_by_elem_path = {}
+        self._replayers_by_elem_path = {}
         for id, dtype in cursor.fetchall():
             elem_path = simhier.GetElemPath(id)
-            self._dtypes_by_elem_path[elem_path] = dtype
-
-            if dtype in self._replayers_by_dtype:
-                continue
 
             if dtype in ('char', 'int8_t', 'int16_t', 'int32_t', 'int64_t', 'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'float_t', 'double_t', 'bool'):
-                self._replayers_by_dtype[dtype] = PODReplayer(dtype)
+                self._replayers_by_elem_path[elem_path] = PODReplayer(dtype)
             elif dtype == 'string_t':
-                self._replayers_by_dtype[dtype] = StringReplayer(strings_by_int)
+                self._replayers_by_elem_path[elem_path] = StringReplayer(strings_by_int)
             elif dtype in enums_by_name:
-                self._replayers_by_dtype[dtype] = EnumReplayer(dtype, enums_by_name)
+                self._replayers_by_elem_path[elem_path] = EnumReplayer(dtype, enums_by_name)
             elif '_contig_capacity' in dtype:
                 pattern = re.compile(r'(.*)_contig_capacity(\d+)')
                 match = pattern.match(dtype)
@@ -109,7 +104,7 @@ class DataRetriever:
                 struct_name = match.group(1)
                 capacity = int(match.group(2))
                 struct_num_bytes = struct_num_bytes_by_struct_name[struct_name]
-                self._replayers_by_dtype[dtype] = ContigIterableReplayer(struct_num_bytes, capacity)
+                self._replayers_by_elem_path[elem_path] = ContigIterableReplayer(struct_num_bytes, capacity)
             elif '_sparse_capacity' in dtype:
                 pattern = re.compile(r'(.*)_sparse_capacity(\d+)')
                 match = pattern.match(dtype)
@@ -119,11 +114,11 @@ class DataRetriever:
                 struct_name = match.group(1)
                 capacity = int(match.group(2))
                 struct_num_bytes = struct_num_bytes_by_struct_name[struct_name]
-                self._replayers_by_dtype[dtype] = SparseIterableReplayer(struct_num_bytes, capacity)
+                self._replayers_by_elem_path[elem_path] = SparseIterableReplayer(struct_num_bytes, capacity)
             else:
                 struct_name = dtype
                 struct_num_bytes = struct_num_bytes_by_struct_name[struct_name]
-                self._replayers_by_dtype[dtype] = ScalarStructReplayer(struct_num_bytes)
+                self._replayers_by_elem_path[elem_path] = ScalarStructReplayer(struct_num_bytes)
 
     def GetCurrentViewSettings(self):
         settings = {}
@@ -281,12 +276,11 @@ class DataRetriever:
         # of them are NOT for <elem_path>. This is because the replayers
         # are stateful and we have to reset them all to ensure that the
         # one we are interested in is in a clean state.
-        for replayer in self._replayers_by_dtype.values():
+        for replayer in self._replayers_by_elem_path.values():
             replayer.Reset()
 
+        requested_elem_path = elem_path
         dtype = self._dtypes_by_elem_path[elem_path]
-        replayer = self._replayers_by_dtype[dtype]
-
         for data_blob, is_compressed in self.cursor.fetchall():
             if is_compressed:
                 data_blob = zlib.decompress(data_blob)
@@ -296,15 +290,17 @@ class DataRetriever:
                 # followed by the raw bytes of that collectable, then
                 # another collectable ID, and so on.
                 cid = struct.unpack('H', data_blob[:2])[0]
+                #print ('Analyzing collectable ID: %d' % cid)
                 data_blob = data_blob[2:]
 
-                dtype = self._dtypes_by_elem_path[self.simhier.GetElemPath(cid)]
-                replayer = self._replayers_by_dtype[dtype]
-
+                #print ('... Replaying data blob...')
+                replayer = self._replayers_by_elem_path[self.simhier.GetElemPath(cid)]
                 num_bytes_read = replayer.Replay(data_blob)
                 if num_bytes_read == 0:
+                    #print ('...... no bytes read')
                     break
 
+                #print ('...... %d bytes read' % num_bytes_read)
                 data_blob = data_blob[num_bytes_read:]
                 if len(data_blob) == 0:
                     break
@@ -366,13 +362,16 @@ class PODReplayer:
         # without the Action enum.
         if self.num_bytes < 16:
             self.value = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
+            #print ('...... num_bytes < 16, self.value = {}'.format(self.value))
             return self.num_bytes
 
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
+        #print ('...... action = %s' % action)
 
         if action == self.Actions.WRITE:
             self.value = struct.unpack(self.format_code, data_blob[1:1+self.num_bytes])[0]
+            #print ('...... self.value = {}'.format(self.value))
             return 1 + self.num_bytes
         else:
             return 1
@@ -434,14 +433,17 @@ class StringReplayer:
         # without the Action enum.
         if self.num_bytes < 16:
             self.value = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
+            #print ('...... num_bytes < 16, self.value = {}'.format(self.value))
             return self.num_bytes
 
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
+        #print ('...... action = %s' % action)
 
         if action == self.Actions.WRITE:
             string_id = struct.unpack(self.format_code, data_blob[1:1+self.num_bytes])[0]
             self.value = self.strings_by_int[string_id]
+            #print ('...... self.value = {}'.format(self.value))
             return 1 + self.num_bytes
         else:
             return 1
@@ -473,14 +475,17 @@ class EnumReplayer:
         # without the Action enum.
         if self.num_bytes < 16:
             self.value = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
+            #print ('...... num_bytes < 16, self.value = {}'.format(self.value))
             return self.num_bytes
 
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
+        #print ('...... action = %s' % action)
 
         if action == self.Actions.WRITE:
             enum_int = struct.unpack(self.format_code, data_blob[1:1+self.num_bytes])[0]
             self.value = self.enum_handler.Convert(enum_int)
+            #print ('...... self.value = {}'.format(self.value))
             return 1 + self.num_bytes
         else:
             return 1
@@ -583,13 +588,16 @@ class ScalarStructReplayer:
         # without the Action enum.
         if self.struct_num_bytes < 16:
             self.value = data_blob[:self.struct_num_bytes]
+            #print ('...... num_bytes < 16, self.value = {}'.format(self.value))
             return self.struct_num_bytes
 
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
+        #print ('...... action = %s' % action)
 
         if action == self.Actions.WRITE:
             self.value = data_blob[1:1+self.struct_num_bytes]
+            #print ('...... self.value = {}'.format(self.value))
             return 1 + self.struct_num_bytes
         else:
             return 1
@@ -622,10 +630,12 @@ class ContigIterableReplayer:
     def Replay(self, data_blob):
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
+        #print ('...... action = %s' % action)
 
         if action == self.Actions.FULL:
             # The number of structs is given here as a uint16_t
             size = struct.unpack('H', data_blob[1:3])[0]
+            #print ('...... size = %d' % size)
             self.values = []
             for i in range(size):
                 struct_blob = data_blob[3+i*self.struct_num_bytes:3+(i+1)*self.struct_num_bytes]
@@ -634,6 +644,7 @@ class ContigIterableReplayer:
             return 3 + size*self.struct_num_bytes
 
         if self.values is None:
+            #print ('...... self.values has not been initialized')
             return self.num_bytes_to_advance[action]
 
         if action == self.Actions.ARRIVE:
@@ -651,6 +662,7 @@ class ContigIterableReplayer:
             # The changed bin index is written to the blob as a uint16_t, followed
             # by the changed struct's bytes.
             bin_idx = struct.unpack('H', data_blob[1:3])[0]
+            #print ('...... changed bin_idx = %d' % bin_idx)
             struct_blob = data_blob[3:3+self.struct_num_bytes]
             self.values[bin_idx] = struct_blob
             return self.num_bytes_to_advance[action]
