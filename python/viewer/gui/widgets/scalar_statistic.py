@@ -24,12 +24,9 @@ class ScalarStatistic(wx.Panel):
         if is_compressed:
             time_vals_blob = zlib.decompress(time_vals_blob)
 
-        time_type = frame.data_retriever.GetTimeType()
-        time_format = 'Q' if time_type == 'INT' else 'd'
-
         time_vals = []
         while len(time_vals_blob) > 0:
-            time_vals.append(struct.unpack(time_format, time_vals_blob[:8])[0])
+            time_vals.append(struct.unpack('Q', time_vals_blob[:8])[0])
             time_vals_blob = time_vals_blob[8:]
 
         stat_values = {'TimeVals': time_vals, 'DataVals': data_vals}

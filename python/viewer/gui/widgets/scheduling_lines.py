@@ -29,7 +29,7 @@ class SchedulingLinesWidget(wx.Panel):
         vsizer.AddStretchSpacer()
 
         cursor = frame.db.cursor()
-        cmd = 'SELECT CollectionID,MaxSize FROM QueueMaxSizes'
+        cmd = 'SELECT CollectableTreeNodeID,MaxSize FROM QueueMaxSizes'
 
         cursor.execute(cmd)
         self.queue_max_sizes_by_collection_id = {}

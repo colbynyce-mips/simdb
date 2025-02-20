@@ -60,6 +60,8 @@ public:
         }
     }
 
+    virtual void postSim(DatabaseManager*) {}
+
 protected:
     ArgosRecord argos_record_;
 
@@ -304,7 +306,7 @@ private:
                     buffer << ContigIterableCollectionPoint::Action::FULL;
                     buffer << size();
                     for (uint16_t idx = 0; idx < size(); ++idx) {
-                        buffer << idx << bytes_by_bin_[idx];
+                        buffer << bytes_by_bin_[idx];
                     }
                     break;
             }
@@ -394,6 +396,7 @@ private:
             size = prev_snapshot_.capacity();
         }
 
+        queue_max_size_ = std::max(queue_max_size_, (uint16_t)size);
         curr_snapshot_.clear();
 
         auto itr = container.begin();
@@ -438,8 +441,11 @@ private:
         return true;
     }
 
+    void postSim(DatabaseManager* db_mgr) override;
+
     IterableSnapshot curr_snapshot_;
     IterableSnapshot prev_snapshot_;
+    uint16_t queue_max_size_ = 0;
 };
 
 class SparseIterableCollectionPoint : public CollectionPointBase
@@ -490,7 +496,8 @@ private:
             }
         }
 
-        // TODO cnyce - optimize this
+        queue_max_size_ = std::max(queue_max_size_, num_valid);
+
         CollectionBuffer buffer(argos_record_.data);
         buffer << getElemId() << num_valid;
 
@@ -532,10 +539,13 @@ private:
         return true;
     }
 
+    void postSim(DatabaseManager* db_mgr) override;
+
     const size_t expected_capacity_;
     std::vector<char> struct_bytes_;
     std::vector<std::vector<char>> prev_data_by_bin_;
     std::vector<size_t> num_carry_overs_by_bin_;
+    uint16_t queue_max_size_ = 0;
 };
 
 } // namespace simdb

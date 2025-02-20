@@ -1,10 +1,10 @@
 import wx
 from viewer.gui.widgets.queue_utiliz import QueueUtilizWidget
 from viewer.gui.widgets.scheduling_lines import SchedulingLinesWidget
-from viewer.gui.widgets.scalar_statistic import ScalarStatistic
+#from viewer.gui.widgets.scalar_statistic import ScalarStatistic
 from viewer.gui.widgets.scalar_struct import ScalarStruct
 from viewer.gui.widgets.iterable_struct import IterableStruct
-from viewer.gui.widgets.ipc import IPCWidget
+#from viewer.gui.widgets.ipc import IPCWidget
 
 class WidgetCreator:
     def __init__(self, frame):
@@ -21,11 +21,13 @@ class WidgetCreator:
         elif widget_creation_key == 'Scheduling Lines':
             return SchedulingLinesWidget(widget_container, self.frame)
         elif widget_creation_key == 'IPC':
-            return IPCWidget(widget_container, self.frame)
+            #return IPCWidget(widget_container, self.frame)
+            wx.MessageBox('IPC widget is not implemented', 'Error', wx.OK | wx.ICON_ERROR)
         elif widget_creation_key.find('$') != -1:
             widget_name, elem_path = widget_creation_key.split('$')
             if widget_name == 'ScalarStatistic':
-                return ScalarStatistic(widget_container, self.frame, elem_path)
+                #return ScalarStatistic(widget_container, self.frame, elem_path)
+                wx.MessageBox('ScalarStatistic widget is not implemented', 'Error', wx.OK | wx.ICON_ERROR)
             elif widget_name == 'ScalarStruct':
                 return ScalarStruct(widget_container, self.frame, elem_path)
             elif widget_name == 'IterableStruct':

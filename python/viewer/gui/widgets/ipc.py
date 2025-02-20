@@ -61,7 +61,6 @@ class IPCWidget(ScalarStatistic):
         return data_vals
     
     def __UpdatePlotSize(self):
-        #import pdb; pdb.set_trace()
         # Desired size in pixels
         desired_width_pixels = self.GetParent().GetSize().GetWidth() - 10
         desired_height_pixels = 50

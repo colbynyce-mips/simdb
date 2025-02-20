@@ -45,16 +45,12 @@ public:
         const std::string& clock,
         const size_t capacity);
 
-    // Sweep the collection system for all active collectables and send
-    // their data to the database. Since there can be multiple clocks, the
-    // tick is used to determine which clock's data to collect.
-    //
-    // TODO cnyce: This method is only used by the unit test. Clean this up.
-    void sweep(uint64_t tick);
-
     // Sweep the collection system for all active collectables that exist on
     // the given clock, and send their data to the database.
     void sweep(const std::string& clk, uint64_t tick);
+
+    // One-time call to write post-simulation metadata to SimDB.
+    void postSim();
 
 private:
     /// tree piecemeal as the simulator gets access to all the collection
@@ -475,6 +471,12 @@ public:
         }
     }
 
+    // One-time call to write post-simulation metadata to SimDB.
+    void postSim()
+    {
+        collection_mgr_->postSim();
+    }
+
 private:
     /// \brief  Open a database connection to an existing database file.
     ///
@@ -699,6 +701,10 @@ inline void CollectionMgr::defineSchema(Schema& schema) const
         .addColumn("Data", dt::blob_t)
         .addColumn("IsCompressed", dt::int32_t)
         .createIndexOn("Tick");
+
+    schema.addTable("QueueMaxSizes")
+        .addColumn("CollectableTreeNodeID", dt::int32_t)
+        .addColumn("MaxSize", dt::int32_t);
 }
 
 template <typename T>
@@ -745,6 +751,10 @@ std::shared_ptr<std::conditional_t<Sparse, SparseIterableCollectionPoint, Contig
 
     using value_type = meta_utils::remove_any_pointer_t<typename T::value_type>;
 
+    if constexpr (!std::is_trivial<value_type>::value) {
+        StructSerializer<value_type>::getInstance()->serializeDefn(db_mgr_);
+    }
+
     std::string dtype;
     if constexpr (std::is_same_v<value_type, bool>) {
         dtype = "bool";
@@ -762,18 +772,6 @@ std::shared_ptr<std::conditional_t<Sparse, SparseIterableCollectionPoint, Contig
     collectables_.push_back(collectable);
     collectables_by_path_[path] = collectable.get();
     return collectable;
-}
-
-inline void CollectionMgr::sweep(uint64_t tick)
-{
-    for (const auto& kvp : clocks_) {
-        const auto& clk = kvp.first;
-        const auto period = kvp.second;
-        const bool take = (tick % period == 0);
-        if (take) {
-            sweep(clk, tick);
-        }
-    }
 }
 
 inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
@@ -802,6 +800,54 @@ inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
 #endif
 
     db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
+}
+
+class QueueMaxSizeWriter : public WorkerTask
+{
+public:
+    QueueMaxSizeWriter(DatabaseManager* db_mgr, uint16_t elem_id, uint16_t max_size)
+        : db_mgr_(db_mgr)
+        , elem_id_(elem_id)
+        , max_size_(max_size)
+    {}
+
+private:
+    void completeTask() override
+    {
+        db_mgr_->INSERT(SQL_TABLE("QueueMaxSizes"),
+                        SQL_COLUMNS("CollectableTreeNodeID", "MaxSize"),
+                        SQL_VALUES(elem_id_, max_size_));
+    }
+
+    DatabaseManager* db_mgr_;
+    uint16_t elem_id_;
+    uint16_t max_size_;
+};
+
+inline void CollectionMgr::postSim()
+{
+    if (!db_mgr_) {
+        return;
+    }
+
+    db_mgr_->safeTransaction([&](){
+        for (auto& collectable : collectables_) {
+            collectable->postSim(db_mgr_);
+        }
+        return true;
+    });
+}
+
+inline void ContigIterableCollectionPoint::postSim(DatabaseManager* db_mgr)
+{
+    auto task = std::make_unique<QueueMaxSizeWriter>(db_mgr, getElemId(), queue_max_size_);
+    db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
+}
+
+inline void SparseIterableCollectionPoint::postSim(DatabaseManager* db_mgr)
+{
+    auto task = std::make_unique<QueueMaxSizeWriter>(db_mgr, getElemId(), queue_max_size_);
+    db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
 }
 
 inline void CollectionMgr::CollectionPointDataWriter::completeTask()

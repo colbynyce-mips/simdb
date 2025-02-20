@@ -216,7 +216,7 @@ public:
 
             // "Sweep" the collection system for the current cycle,
             // sending all active values to the database.
-            db_mgr_->getCollectionMgr()->sweep(tick);
+            db_mgr_->getCollectionMgr()->sweep("root", tick);
         }
 
         db_mgr_->getConnection()->getTaskQueue()->stopThread();

@@ -5,7 +5,7 @@ class WidgetRenderer:
     def __init__(self, frame):
         self.frame = frame
         cursor = frame.db.cursor()
-        cursor.execute('SELECT MIN(TimeVal), MAX(TimeVal) FROM CollectionData')
+        cursor.execute('SELECT MIN(Tick), MAX(Tick) FROM CollectionRecords')
         self._start_tick, self._end_tick = cursor.fetchone()
         self._current_tick = self._start_tick
         self._utiliz_handler = IterableUtiliz(self, frame.simhier)

@@ -9,11 +9,11 @@ class SystemwideTools(wx.TreeCtrl):
         self.AppendItem(self._root, "Queue Utilization")
         self.AppendItem(self._root, "Scheduling Lines")
 
-        cursor = frame.db.cursor()
-        cmd = 'SELECT COUNT(Id) FROM TimeseriesData WHERE ElementPath="IPC"'
-        cursor.execute(cmd)
+        #cursor = frame.db.cursor()
+        #cmd = 'SELECT COUNT(Id) FROM TimeseriesData WHERE ElementPath="IPC"'
+        #cursor.execute(cmd)
 
-        if cursor.fetchone()[0] > 0:
-            self.AppendItem(self._root, "IPC")
+        #if cursor.fetchone()[0] > 0:
+        #    self.AppendItem(self._root, "IPC")
 
         self.ExpandAll()

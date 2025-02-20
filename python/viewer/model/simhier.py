@@ -14,11 +14,21 @@ class SimHierarchy:
                 parent_ids_by_child_id[child_id] = parent_id
 
         elem_names_by_id = {}
-        self._widget_types_by_elem_id = {}
-        cursor.execute("SELECT Id,Name,WidgetType FROM ElementTreeNodes")
-        for id,name,widget_type in cursor.fetchall():
+        cursor.execute('SELECT Id,Name FROM ElementTreeNodes')
+        for id, name in cursor.fetchall():
             elem_names_by_id[id] = name
-            self._widget_types_by_elem_id[id] = widget_type
+
+        dtype_by_elem_id = {}
+        self._widget_types_by_elem_id = {}
+        cursor.execute('SELECT ElementTreeNodeID,DataType FROM CollectableTreeNodes')
+        for id, dtype in cursor.fetchall():
+            dtype_by_elem_id[id] = dtype
+            if '_contig_capacity' in dtype or '_sparse_capacity' in dtype:
+                self._widget_types_by_elem_id[id] = 'QueueTable'
+            elif dtype in ('char', 'int8_t', 'int16_t', 'int32_t', 'int64_t', 'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'float', 'double', 'bool'):
+                self._widget_types_by_elem_id[id] = 'Timeseries'
+            else:
+                self._widget_types_by_elem_id[id] = 'ScalarStruct'
 
         def GetLineage(elem_id, parent_ids_by_child_id):
             lineage = []
@@ -36,7 +46,33 @@ class SimHierarchy:
 
         elem_paths_by_id = {}
         for elem_id in elem_names_by_id.keys():
-            elem_paths_by_id[elem_id] = GetPath(elem_id, parent_ids_by_child_id, elem_names_by_id)
+            path = GetPath(elem_id, parent_ids_by_child_id, elem_names_by_id)
+            if path:
+                elem_paths_by_id[elem_id] = path
+
+        self._scalar_stats_elem_paths = []
+        self._scalar_structs_elem_paths = []
+        self._container_elem_paths = []
+
+        for id, dtype in dtype_by_elem_id.items():
+            if dtype in ('int8_t', 'int16_t', 'int32_t', 'int64_t', 'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'float', 'double', 'bool'):
+                self._scalar_stats_elem_paths.append(elem_paths_by_id[id])
+            elif '_contig_capacity' in dtype or '_sparse_capacity' in dtype:
+                self._container_elem_paths.append(elem_paths_by_id[id])
+            else:
+                self._scalar_structs_elem_paths.append(elem_paths_by_id[id])
+
+        self._capacities_by_collectable_id = {}
+        self._sparse_collectable_ids = set()
+        self._contig_collectable_ids = set()
+        for id, dtype in dtype_by_elem_id.items():
+            if '_contig_capacity' in dtype:
+                self._contig_collectable_ids.add(id)
+            elif '_sparse_capacity' in dtype:
+                self._sparse_collectable_ids.add(id)
+
+            if '_contig_capacity' in dtype or '_sparse_capacity' in dtype:
+                self._capacities_by_collectable_id[id] = int(dtype.split('_capacity')[1])
 
         self._child_ids_by_parent_id = child_ids_by_parent_id
         self._parent_ids_by_child_id = parent_ids_by_child_id
@@ -44,44 +80,13 @@ class SimHierarchy:
         self._elem_paths_by_id = elem_paths_by_id
         self._elem_ids_by_path = {v: k for k, v in elem_paths_by_id.items()}
 
-        cmd = 'SELECT Id,CollectionID FROM ElementTreeNodes WHERE Id IN ({}) AND CollectionID != -1'.format(','.join(map(str, elem_paths_by_id.keys())))
-        cursor.execute(cmd)
+        collectable_ids_by_elem_path = {}
+        for id, path in elem_paths_by_id.items():
+            if id in self._widget_types_by_elem_id:
+                collectable_ids_by_elem_path[path] = id
 
-        collection_ids_by_elem_path = {}
-        for node_id, collection_id in cursor.fetchall():
-            elem_path = elem_paths_by_id[node_id]
-            collection_ids_by_elem_path[elem_path] = collection_id
-
-        elem_paths_by_collection_id = {}
-        for elem_path, collection_id in collection_ids_by_elem_path.items():
-            elem_paths = elem_paths_by_collection_id.get(collection_id, [])
-            elem_paths.append(elem_path)
-            elem_paths_by_collection_id[collection_id] = elem_paths
-
-        cmd = 'SELECT Id,DataType,IsContainer,Capacity FROM Collections'
-        cursor.execute(cmd)
-
-        self._scalar_stats_elem_paths = []
-        self._scalar_structs_elem_paths = []
-        self._container_elem_paths = []
-
-        self._collection_id_by_elem_path = collection_ids_by_elem_path
-        self._data_type_by_collection_id = {}
-        self._is_container_by_collection_id = {}
-        self._capacities_by_collection_id = {}
-
-        for collection_id, data_type, is_container, capacity in cursor.fetchall():
-            self._data_type_by_collection_id[collection_id] = data_type
-            self._is_container_by_collection_id[collection_id] = is_container
-            self._capacities_by_collection_id[collection_id] = capacity
-
-            for elem_path in elem_paths_by_collection_id[collection_id]:
-                if data_type in ('int8_t', 'int16_t', 'int32_t', 'int64_t', 'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'float', 'double', 'bool'):
-                    self._scalar_stats_elem_paths.append(elem_path)
-                elif is_container:
-                    self._container_elem_paths.append(elem_path)
-                else:
-                    self._scalar_structs_elem_paths.append(elem_path)
+        elem_paths_by_collectable_id = {v:k for k,v in collectable_ids_by_elem_path.items()}
+        self._collectable_id_by_elem_path = collectable_ids_by_elem_path
 
         # Sanity checks to ensure that no element path contains 'root.'
         for _,elem_path in self._elem_paths_by_id.items():
@@ -90,10 +95,10 @@ class SimHierarchy:
         for elem_path,_ in self._elem_ids_by_path.items():
             assert elem_path.find('root.') == -1
 
-        for elem_path,collection_id in collection_ids_by_elem_path.items():
+        for elem_path,_ in collectable_ids_by_elem_path.items():
             assert elem_path.find('root.') == -1
 
-        for collection_id,elem_paths in elem_paths_by_collection_id.items():
+        for _,elem_paths in elem_paths_by_collectable_id.items():
             for elem_path in elem_paths:
                 assert elem_path.find('root.') == -1
 
@@ -106,13 +111,9 @@ class SimHierarchy:
         for elem_path in self._container_elem_paths:
             assert elem_path.find('root.') == -1
 
-        for elem_path,_ in self._collection_id_by_elem_path.items():
+        for elem_path,_ in self._collectable_id_by_elem_path.items():
             assert elem_path.find('root.') == -1
 
-    def GetLeafDataType(self, elem_path):
-        collection_id = self._collection_id_by_elem_path[elem_path]
-        return self._data_type_by_collection_id[collection_id]
-    
     def GetRootID(self):
         return self._root_id
 
@@ -129,16 +130,25 @@ class SimHierarchy:
         return self._elem_ids_by_path.get(elem_path)
     
     def GetCollectionID(self, elem_path):
-        return self._collection_id_by_elem_path.get(elem_path)
-    
-    def GetCapacityByCollectionID(self, collection_id):
-        return self._capacities_by_collection_id.get(collection_id)
+        return self._collectable_id_by_elem_path.get(elem_path)
+
+    def GetContainerIDs(self):
+        return self._contig_collectable_ids | self._sparse_collectable_ids
+
+    def GetCapacityByCollectionID(self, collectable_id):
+        return self._capacities_by_collectable_id.get(collectable_id)
     
     def GetCapacityByElemPath(self, elem_path):
-        collection_id = self.GetCollectionID(elem_path)
-        capacity = self.GetCapacityByCollectionID(collection_id)
-        return capacity
+        collectable_id = self.GetCollectionID(elem_path)
+        return self.GetCapacityByCollectionID(collectable_id)
     
+    def GetSparseFlagByCollectionID(self, collectable_id):
+        return collectable_id in self._sparse_collectable_ids
+
+    def GetSparseFlagByElemPath(self, elem_path):
+        collectable_id = self.GetCollectionID(elem_path)
+        return self.GetSparseFlagByCollectionID(collectable_id)
+
     def GetName(self, elem_id):
         return self._elem_names_by_id[elem_id]
     
@@ -160,7 +170,7 @@ class SimHierarchy:
         return elem_paths
     
     def GetWidgetType(self, elem_id):
-        return self._widget_types_by_elem_id[elem_id]
+        return self._widget_types_by_elem_id.get(elem_id, '')
 
     def GetElemPathsMatchingRegex(self, elem_path_regex):
         return [elem_path for elem_path in self.GetElemPaths() if re.match(elem_path_regex)]
