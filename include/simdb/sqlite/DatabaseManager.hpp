@@ -74,8 +74,6 @@ private:
     /// All registered clocks (name->period).
     std::unordered_map<std::string, uint32_t> clocks_;
 
-    /// 
-
     /// All collectables.
     std::vector<std::shared_ptr<CollectionPointBase>> collectables_;
 
@@ -104,7 +102,9 @@ private:
             , data_(data)
             , tick_(tick)
             , compressed_(compressed)
+            , unserialized_map_(StringMap::instance()->getUnserializedMap())
         {
+            StringMap::instance()->clearUnserializedMap();
         }
     
     private:
@@ -114,6 +114,7 @@ private:
         std::vector<char> data_;
         int64_t tick_;
         bool compressed_;
+        StringMap::unserialized_string_map_t unserialized_map_;
     };
 };
 
@@ -860,6 +861,12 @@ inline void CollectionMgr::CollectionPointDataWriter::completeTask()
     db_mgr_->INSERT(SQL_TABLE("CollectionRecords"),
                     SQL_COLUMNS("Tick", "Data", "IsCompressed"),
                     SQL_VALUES(tick_, data_, (int)compressed_));
+
+    for (const auto& kvp : unserialized_map_) {
+        db_mgr_->INSERT(SQL_TABLE("StringMap"),
+                        SQL_COLUMNS("IntVal", "String"),
+                        SQL_VALUES(kvp.first, kvp.second));
+    }
 }
 
 inline TreeNode* CollectionMgr::updateTree_(const std::string& path, const std::string& clk)
