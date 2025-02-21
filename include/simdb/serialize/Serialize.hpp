@@ -100,6 +100,8 @@ inline StructFields getFieldDTypeEnum()
         return StructFields::double_t;
     } else if constexpr (std::is_same_v<FieldT, std::string>) {
         return StructFields::string_t;
+    } else if constexpr (std::is_same_v<FieldT, bool>) {
+        return StructFields::int32_t;
     } else if constexpr (std::is_enum<FieldT>::value) {
         using enum_int_t = typename std::underlying_type<FieldT>::type;
         return getFieldDTypeEnum<enum_int_t>();
