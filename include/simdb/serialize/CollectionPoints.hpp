@@ -225,17 +225,22 @@ public:
 
     template <typename T>
     typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type
-    activate(const T container)
+    activate(const T container, bool once = false)
     {
-        activate(*container);
+        activate(*container, once);
     }
 
     template <typename T>
     typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type
-    activate(const T& container)
+    activate(const T& container, bool once = false)
     {
         readContainer_(container);
-        argos_record_.status = ArgosRecord::Status::READ;
+        argos_record_.status = once ? ArgosRecord::Status::READ_ONCE : ArgosRecord::Status::READ;
+    }
+
+    void deactivate()
+    {
+        argos_record_.status = ArgosRecord::Status::DONT_READ;
     }
 
 private:
@@ -461,17 +466,22 @@ public:
 
     template <typename T>
     typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type
-    activate(const T container)
+    activate(const T container, bool once = false)
     {
-        activate(*container);
+        activate(*container, once);
     }
 
     template <typename T>
     typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type
-    activate(const T& container)
+    activate(const T& container, bool once = false)
     {
         readContainer_(container);
-        argos_record_.status = ArgosRecord::Status::READ;
+        argos_record_.status = once ? ArgosRecord::Status::READ_ONCE : ArgosRecord::Status::READ;
+    }
+
+    void deactivate()
+    {
+        argos_record_.status = ArgosRecord::Status::DONT_READ;
     }
 
 private:
