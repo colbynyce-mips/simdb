@@ -305,7 +305,19 @@ class DataRetriever:
         time_vals = []
         data_vals = []
 
-        # TODO cnyce
+        ticks = list(self._replayers_by_elem_path[requested_elem_path].values_by_tick.keys())
+        ticks.sort()
+
+        deserializer = self.GetDeserializer(requested_elem_path)
+        for tick in ticks:
+            if time_range is None or (tick >= time_range[0] and tick <= time_range[1]):
+                time_vals.append(tick)
+
+                data_vals.append([])
+                data_blobs = self._replayers_by_elem_path[requested_elem_path].values_by_tick[tick]
+                for data_blob in data_blobs:
+                    data_vals[-1].append(deserializer.Deserialize(data_blob))
+
         return {'TimeVals': time_vals, 'DataVals': data_vals}
 
     def GetAllTimeVals(self):
@@ -461,6 +473,7 @@ class StringReplayer:
 class StringDeserializer:
     def __init__(self, strings_by_int):
         self.strings_by_int = strings_by_int
+        self.format_code = 'I'
 
     def Deserialize(self, data_blob):
         string_id = struct.unpack('I', data_blob[:4])[0]
@@ -510,11 +523,11 @@ class EnumReplayer:
 class EnumDeserializer:
     def __init__(self, enum_handler):
         self.enum_handler = enum_handler
+        self.format_code = self.enum_handler.GetFormatCode()
 
     def Deserialize(self, data_blob):
-        format_code = self.enum_handler.GetFormatCode()
         num_bytes = self.enum_handler.GetNumBytes()
-        enum_int = struct.unpack(format_code, data_blob[:num_bytes])[0]
+        enum_int = struct.unpack(self.format_code, data_blob[:num_bytes])[0]
         return self.enum_handler.Convert(enum_int)
 
 class StructDeserializer:
@@ -567,13 +580,14 @@ class StructDeserializer:
         visible_field_names = self.data_retriever.GetCurrentViewSettings().get(self.struct_name, {}).get('displayed_columns', [])
         return copy.deepcopy(visible_field_names)
 
-    def Unpack(self, data_blob):
+    def Deserialize(self, data_blob):
         visible_field_names = self.data_retriever.GetCurrentViewSettings().get(self.struct_name, {}).get('displayed_columns', [])
         assert len(visible_field_names) > 0
 
         res = {}
         tiny_start = 0
-        for i,code in enumerate(self.format):
+        for i, deserializer in enumerate(self.field_deserializers):
+            code = deserializer.format_code
             nbytes = self.NUM_BYTES_MAP[code]
             tiny_blob = data_blob[tiny_start:tiny_start+nbytes]
             tiny_start += nbytes
@@ -585,7 +599,6 @@ class StructDeserializer:
             field_deserializer = self.field_deserializers[i]
             res[field_name] = field_deserializer.Deserialize(tiny_blob)
 
-        assert len(data_blob) == 0
         return res
 
 class ScalarStructReplayer:

@@ -78,6 +78,7 @@ class ViewSettings:
         if view_file:
             self.Load(view_file)
 
+        self.__ResetDefaultViewSettings()
         self.__ApplyUserSettings()
         self.SetDirty(False)
     

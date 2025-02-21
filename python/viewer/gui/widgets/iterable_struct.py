@@ -65,7 +65,7 @@ class IterableStruct(wx.Panel):
 
         self.__ClearGrid()
 
-        if isinstance(queue_data['DataVals'][0], Iterable):
+        if len(queue_data['DataVals']) and isinstance(queue_data['DataVals'][0], Iterable):
             for idx, row_data in enumerate(queue_data['DataVals'][0]):
                 if row_data is None:
                     continue
