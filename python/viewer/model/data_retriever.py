@@ -86,8 +86,10 @@ class DataRetriever:
 
         cursor.execute('SELECT ElementTreeNodeID,DataType FROM CollectableTreeNodes')
         self._replayers_by_elem_path = {}
+        self._dtypes_by_elem_path = {}
         for id, dtype in cursor.fetchall():
             elem_path = simhier.GetElemPath(id)
+            self._dtypes_by_elem_path[elem_path] = dtype
 
             if dtype in ('char', 'int8_t', 'int16_t', 'int32_t', 'int64_t', 'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'float_t', 'double_t', 'bool'):
                 self._replayers_by_elem_path[elem_path] = PODReplayer(dtype)
@@ -228,7 +230,7 @@ class DataRetriever:
                 raise ValueError('Invalid data type: ' + dtype)
 
         return self._deserializers_by_dtype[dtype]
-    
+
     def GetIterableSizesByCollectionID(self, time_val):
         if self._cached_utiliz_time_val is not None and time_val == self._cached_utiliz_time_val:
             return self._cached_utiliz_sizes
@@ -236,7 +238,7 @@ class DataRetriever:
         return {id:0 for id in self.simhier.GetContainerIDs()}
 
     def Unpack(self, elem_path, time_range=None):
-        cmd = 'SELECT Data,IsCompressed FROM CollectionRecords '
+        cmd = 'SELECT Tick,Data,IsCompressed FROM CollectionRecords '
         if time_range is not None:
             cmd += 'WHERE '
             if type(time_range) in (int, float):
@@ -280,8 +282,7 @@ class DataRetriever:
             replayer.Reset()
 
         requested_elem_path = elem_path
-        dtype = self._dtypes_by_elem_path[elem_path]
-        for data_blob, is_compressed in self.cursor.fetchall():
+        for tick, data_blob, is_compressed in self.cursor.fetchall():
             if is_compressed:
                 data_blob = zlib.decompress(data_blob)
 
@@ -290,17 +291,13 @@ class DataRetriever:
                 # followed by the raw bytes of that collectable, then
                 # another collectable ID, and so on.
                 cid = struct.unpack('H', data_blob[:2])[0]
-                #print ('Analyzing collectable ID: %d' % cid)
                 data_blob = data_blob[2:]
 
-                #print ('... Replaying data blob...')
                 replayer = self._replayers_by_elem_path[self.simhier.GetElemPath(cid)]
-                num_bytes_read = replayer.Replay(data_blob)
+                num_bytes_read = replayer.Replay(tick, data_blob)
                 if num_bytes_read == 0:
-                    #print ('...... no bytes read')
                     break
 
-                #print ('...... %d bytes read' % num_bytes_read)
                 data_blob = data_blob[num_bytes_read:]
                 if len(data_blob) == 0:
                     break
@@ -355,26 +352,32 @@ class PODReplayer:
         self.Reset()
 
     def Reset(self):
-        self.value = None
+        self.values_by_tick = {}
 
-    def Replay(self, data_blob):
+    def Replay(self, tick, data_blob):
         # For collectables that are <16 bytes, we always write them directly
         # without the Action enum.
         if self.num_bytes < 16:
-            self.value = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
-            #print ('...... num_bytes < 16, self.value = {}'.format(self.value))
+            self.values_by_tick[tick] = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
             return self.num_bytes
 
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
-        #print ('...... action = %s' % action)
 
         if action == self.Actions.WRITE:
-            self.value = struct.unpack(self.format_code, data_blob[1:1+self.num_bytes])[0]
-            #print ('...... self.value = {}'.format(self.value))
+            self.values_by_tick[tick] = struct.unpack(self.format_code, data_blob[1:1+self.num_bytes])[0]
             return 1 + self.num_bytes
         else:
+            self.values_by_tick[tick] = self.values_by_tick[self.__GetLastTick(tick)]
             return 1
+
+    def __GetLastTick(self, tick):
+        prev_ticks = set(self.values_by_tick.keys())
+        for prev_tick in range(tick-1, -1, -1):
+            if prev_tick in prev_ticks:
+                return prev_tick
+
+        return None
 
 class PODDeserializer:
     NUM_BYTES_MAP = {
@@ -426,27 +429,34 @@ class StringReplayer:
         self.Reset()
 
     def Reset(self):
-        self.value = None
+        self.values_by_tick = {}
 
-    def Replay(self, data_blob):
+    def Replay(self, tick, data_blob):
         # For collectables that are <16 bytes, we always write them directly
         # without the Action enum.
         if self.num_bytes < 16:
-            self.value = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
-            #print ('...... num_bytes < 16, self.value = {}'.format(self.value))
+            string_id = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
+            self.values_by_tick[tick] = self.strings_by_int[string_id]
             return self.num_bytes
 
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
-        #print ('...... action = %s' % action)
 
         if action == self.Actions.WRITE:
             string_id = struct.unpack(self.format_code, data_blob[1:1+self.num_bytes])[0]
-            self.value = self.strings_by_int[string_id]
-            #print ('...... self.value = {}'.format(self.value))
+            self.values_by_tick[tick] = self.strings_by_int[string_id]
             return 1 + self.num_bytes
         else:
+            self.values_by_tick[tick] = self.values_by_tick[self.__GetLastTick(tick)]
             return 1
+
+    def __GetLastTick(self, tick):
+        prev_ticks = set(self.values_by_tick.keys())
+        for prev_tick in range(tick-1, -1, -1):
+            if prev_tick in prev_ticks:
+                return prev_tick
+
+        return None
 
 class StringDeserializer:
     def __init__(self, strings_by_int):
@@ -468,27 +478,34 @@ class EnumReplayer:
         self.Reset()
 
     def Reset(self):
-        self.value = None
+        self.values_by_tick = {}
 
-    def Replay(self, data_blob):
+    def Replay(self, tick, data_blob):
         # For collectables that are <16 bytes, we always write them directly
         # without the Action enum.
         if self.num_bytes < 16:
-            self.value = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
-            #print ('...... num_bytes < 16, self.value = {}'.format(self.value))
+            enum_int = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
+            self.values_by_tick[tick] = self.enum_handler.Convert(enum_int)
             return self.num_bytes
 
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
-        #print ('...... action = %s' % action)
 
         if action == self.Actions.WRITE:
             enum_int = struct.unpack(self.format_code, data_blob[1:1+self.num_bytes])[0]
-            self.value = self.enum_handler.Convert(enum_int)
-            #print ('...... self.value = {}'.format(self.value))
+            self.values_by_tick[tick] = self.enum_handler.Convert(enum_int)
             return 1 + self.num_bytes
         else:
+            self.values_by_tick[tick] = self.values_by_tick[self.__GetLastTick(tick)]
             return 1
+
+    def __GetLastTick(self, tick):
+        prev_ticks = set(self.values_by_tick.keys())
+        for prev_tick in range(tick-1, -1, -1):
+            if prev_tick in prev_ticks:
+                return prev_tick
+
+        return None
 
 class EnumDeserializer:
     def __init__(self, enum_handler):
@@ -581,26 +598,32 @@ class ScalarStructReplayer:
         self.Reset()
 
     def Reset(self):
-        self.value = None
+        self.values_by_tick = {}
 
-    def Replay(self, data_blob):
+    def Replay(self, tick, data_blob):
         # For collectables that are <16 bytes, we always write them directly
         # without the Action enum.
         if self.struct_num_bytes < 16:
-            self.value = data_blob[:self.struct_num_bytes]
-            #print ('...... num_bytes < 16, self.value = {}'.format(self.value))
+            self.values_by_tick[tick] = data_blob[:self.struct_num_bytes]
             return self.struct_num_bytes
 
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
-        #print ('...... action = %s' % action)
 
         if action == self.Actions.WRITE:
-            self.value = data_blob[1:1+self.struct_num_bytes]
-            #print ('...... self.value = {}'.format(self.value))
+            self.values_by_tick[tick] = data_blob[1:1+self.struct_num_bytes]
             return 1 + self.struct_num_bytes
         else:
+            self.values_by_tick[tick] = self.values_by_tick[self.__GetLastTick(tick)]
             return 1
+
+    def __GetLastTick(self, tick):
+        prev_ticks = set(self.values_by_tick.keys())
+        for prev_tick in range(tick-1, -1, -1):
+            if prev_tick in prev_ticks:
+                return prev_tick
+
+        return None
 
 class ContigIterableReplayer:
     class Actions(IntEnum):
@@ -626,45 +649,46 @@ class ContigIterableReplayer:
 
     def Reset(self):
         self.values = None
+        self.values_by_tick = {}
 
-    def Replay(self, data_blob):
+    def Replay(self, tick, data_blob):
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
-        #print ('...... action = %s' % action)
 
         if action == self.Actions.FULL:
             # The number of structs is given here as a uint16_t
             size = struct.unpack('H', data_blob[1:3])[0]
-            #print ('...... size = %d' % size)
             self.values = []
             for i in range(size):
                 struct_blob = data_blob[3+i*self.struct_num_bytes:3+(i+1)*self.struct_num_bytes]
                 self.values.append(struct_blob)
 
+            self.values_by_tick[tick] = copy.deepcopy(self.values)
             return 3 + size*self.struct_num_bytes
 
         if self.values is None:
-            #print ('...... self.values has not been initialized')
             return self.num_bytes_to_advance[action]
 
         if action == self.Actions.ARRIVE:
             # Exactly one struct arrived and gets appended to the list (back).
             struct_blob = data_blob[1:1+self.struct_num_bytes]
             self.values.append(struct_blob)
+            self.values_by_tick[tick] = copy.deepcopy(self.values)
             return self.num_bytes_to_advance[action]
 
         elif action == self.Actions.DEPART:
             # Exactly one struct left and gets removed from the list (front).
             self.values.pop(0)
+            self.values_by_tick[tick] = copy.deepcopy(self.values)
             return self.num_bytes_to_advance[action]
 
         elif action == self.Actions.CHANGE:
             # The changed bin index is written to the blob as a uint16_t, followed
             # by the changed struct's bytes.
             bin_idx = struct.unpack('H', data_blob[1:3])[0]
-            #print ('...... changed bin_idx = %d' % bin_idx)
             struct_blob = data_blob[3:3+self.struct_num_bytes]
             self.values[bin_idx] = struct_blob
+            self.values_by_tick[tick] = copy.deepcopy(self.values)
             return self.num_bytes_to_advance[action]
 
         elif action == self.Actions.BOOKENDS:
@@ -673,12 +697,23 @@ class ContigIterableReplayer:
             struct_blob = data_blob[1:1+self.struct_num_bytes]
             self.values.append(struct_blob)
             self.values.pop(0)
+            self.values_by_tick[tick] = copy.deepcopy(self.values)
             return self.num_bytes_to_advance[action]
 
         elif action == self.Actions.CARRY:
+            last_tick = self.__GetLastTick(tick)
+            self.values_by_tick[tick] = copy.deepcopy(self.values_by_tick[last_tick])
             return self.num_bytes_to_advance[action]
 
         assert False, 'Unreachable'
+
+    def __GetLastTick(self, tick):
+        prev_ticks = set(self.values_by_tick.keys())
+        for prev_tick in range(tick-1, -1, -1):
+            if prev_tick in prev_ticks:
+                return prev_tick
+
+        return None
 
 class SparseIterableReplayer:
     def __init__(self, struct_num_bytes, capacity):
@@ -688,9 +723,17 @@ class SparseIterableReplayer:
 
     def Reset(self):
         self.values = [None]*self.capacity
+        self.values_by_tick = {}
 
-    def Replay(self, data_blob):
+    def Replay(self, tick, data_blob):
         # The top of the blob always has the number of structs as a uint16_t.
+        #
+        # TODO cnyce: Optimize this further by either:
+        #    1. Write: [WRITE, u16:size, u16:bin_idx, struct_blob, u16:bin_idx, struct_blob, ...]
+        #       Carry: [CARRY]
+        #
+        #    2. Write: [u16:size, u16:bin_idx, struct_blob, u16:bin_idx, struct_blob, ...]
+        #       Carry: [UINT16_MAX]
         size = struct.unpack('H', data_blob[:2])[0]
 
         for i in range(size):
@@ -701,6 +744,7 @@ class SparseIterableReplayer:
             assert bin_idx >= 0 and bin_idx < self.capacity and bin_idx < len(self.values)
             self.values[bin_idx] = struct_blob if len(struct_blob) else None
 
+        self.values_by_tick[tick] = copy.deepcopy(self.values)
         return 2 + size*2 + size*self.struct_num_bytes
 
 class EnumDef:
