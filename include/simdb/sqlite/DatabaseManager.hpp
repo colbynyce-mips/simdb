@@ -92,6 +92,21 @@ private:
     /// Mapping of clock names to clock IDs.
     std::unordered_map<std::string, int> clock_db_ids_by_name_;
 
+    /// Compression level. This starts out as the default compromise between speed and compression,
+    /// and will gradually move towards fastest compression if the worker thread is falling behind.
+    /// Note that the levels are 0-9, where 0 is no compression, 1 is fastest, and 9 is best compression.
+    /// We currently do not go all the way to zero compression or the database will be too large.
+    int compression_level_ = 6;
+
+    /// Keep track of the "highwater mark" representing the number of tasks in the queue at
+    /// the time of each collection. Start with a highwater mark of 5 so we do not inadvertently
+    /// lower the compression level too soon. We want to give the worker thread a chance to catch up.
+    size_t num_tasks_highwater_mark_ = 5;
+
+    /// Keep track of how many times the highwater mark is exceeded. When it reaches 3, we will
+    /// decrement the compression level to make it go faster and reset this count back to 0.
+    size_t num_times_highwater_mark_exceeded_ = 0;
+
     friend class DatabaseManager;
 
     class CollectionPointDataWriter : public WorkerTask
@@ -795,17 +810,42 @@ inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
         return;
     }
 
-#if 0
-    compressDataVec(swept_data_, compressed_swept_data_);
+    size_t task_count = 0;
+    if (compression_level_ > 0) {
+        compressDataVec(swept_data_, compressed_swept_data_, compression_level_);
 
-    std::unique_ptr<WorkerTask> task(new CollectionPointDataWriter(
-        db_mgr_, compressed_swept_data_, tick, true));
-#else
-    std::unique_ptr<WorkerTask> task(new CollectionPointDataWriter(
-        db_mgr_, swept_data_, tick, false));
-#endif
+        std::unique_ptr<WorkerTask> task(new CollectionPointDataWriter(
+            db_mgr_, compressed_swept_data_, tick, true));
 
-    db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
+        task_count = db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
+    } else {
+        std::unique_ptr<WorkerTask> task(new CollectionPointDataWriter(
+            db_mgr_, swept_data_, tick, false));
+    
+        task_count = db_mgr_->getConnection()->getTaskQueue()->addTask(std::move(task));
+    }
+
+    if (task_count > num_tasks_highwater_mark_ && compression_level_ > 0) {
+        ++num_times_highwater_mark_exceeded_;
+        num_tasks_highwater_mark_ = 0;
+        if (num_times_highwater_mark_exceeded_ >= 3) {
+            if (compression_level_ > 1) {
+                std::cout << "SimDB collections worker thread is falling behind. Lowering compression level to "
+                          << compression_level_ - 1 << std::endl;
+            } else {
+                std::cout << "SimDB collections worker thread is falling behind. Disabling compression." << std::endl;
+            }
+            --compression_level_;
+            num_times_highwater_mark_exceeded_ = 0;
+        }
+    } else if (task_count > num_tasks_highwater_mark_) {
+        auto task_queue = db_mgr_->getConnection()->getTaskQueue();
+        if (task_queue->enableAutoFlush(100 * 1024 * 1024)) {
+            std::cout << "SimDB collections is already at the fastest compression level, but the "
+                      << "worker thread is still not able to keep up. The worker queue will be flushed "
+                      << "whenever the backlog consumes more than 100MB." << std::endl;
+        }
+    }
 }
 
 class QueueMaxSizeWriter : public WorkerTask
