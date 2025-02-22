@@ -135,12 +135,14 @@ namespace simdb
     template <>
     void defineEnumMap<Colors>(std::string& enum_name, std::map<std::string, int>& map)
     {
+        using etype = std::underlying_type<Colors>::type;
+
         enum_name = "Colors";
-        map["RED"] = static_cast<int>(Colors::RED);
-        map["GREEN"] = static_cast<int>(Colors::GREEN);
-        map["BLUE"] = static_cast<int>(Colors::BLUE);
-        map["WHITE"] = static_cast<int>(Colors::WHITE);
-        map["TRANSPARENT"] = static_cast<int>(Colors::TRANSPARENT);
+        map["RED"]         = static_cast<etype>(Colors::RED);
+        map["GREEN"]       = static_cast<etype>(Colors::GREEN);
+        map["BLUE"]        = static_cast<etype>(Colors::BLUE);
+        map["WHITE"]       = static_cast<etype>(Colors::WHITE);
+        map["TRANSPARENT"] = static_cast<etype>(Colors::TRANSPARENT);
     }
 
     template <>
