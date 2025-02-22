@@ -30,6 +30,7 @@ struct DummyPacket
     uint64_t    uint64;
     float       flt;
     double      dbl;
+    bool        b;
     std::string str;
 };
 
@@ -57,6 +58,11 @@ T generateRandomFloat()
 char generateRandomChar()
 {
     return 'A' + rand() % 26;
+}
+
+bool generateRandomBool()
+{
+    return rand() % 2 == 0;
 }
 
 std::string generateRandomString(size_t minchars = 2, size_t maxchars = 8)
@@ -97,6 +103,7 @@ DummyPacketPtr generateRandomDummyPacket()
     s->uint64 = generateRandomInt<uint64_t>();
     s->flt = generateRandomFloat<float>();
     s->dbl = generateRandomFloat<double>();
+    s->b = generateRandomBool();
     s->str = generateRandomString();
 
     return s;
@@ -107,7 +114,7 @@ namespace simdb
     template <>
     void defineStructSchema<DummyPacket>(StructSchema<DummyPacket>& schema)
     {
-        schema.addField<Colors>("color");
+        schema.addEnum<Colors>("color");
         schema.addField<char>("ch");
         schema.addField<int8_t>("int8");
         schema.addField<int16_t>("int16");
@@ -119,9 +126,10 @@ namespace simdb
         schema.addField<uint64_t>("uint64");
         schema.addField<float>("flt");
         schema.addField<double>("dbl");
-        schema.addField<std::string>("str");
-        schema.addHexField<uint32_t>("uint32h");
-        schema.addHexField<uint64_t>("uint64h");
+        schema.addBool("bool");
+        schema.addString("str");
+        schema.addHex<uint32_t>("uint32h");
+        schema.addHex<uint64_t>("uint64h");
     }
 
     template <>
@@ -150,6 +158,7 @@ namespace simdb
         serializer->writeField(all->uint64);
         serializer->writeField(all->flt);
         serializer->writeField(all->dbl);
+        serializer->writeField(all->b);
         serializer->writeField(all->str);
         serializer->writeField(all->uint32);
         serializer->writeField(all->uint64);

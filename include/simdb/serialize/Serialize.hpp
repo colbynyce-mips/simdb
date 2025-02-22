@@ -460,36 +460,41 @@ public:
     }
 
     template <typename FieldT>
-    typename std::enable_if<!std::is_enum<FieldT>::value && !std::is_same<FieldT, std::string>::value, void>::type
-    addField(const char* name)
+    void addField(const char* name)
     {
+        static_assert(!std::is_enum<FieldT>::value &&
+                      !std::is_same<FieldT, std::string>::value &&
+                      !std::is_same<FieldT, bool>::value,
+                      "Use addEnum(), addString(), or addBool() instead");
+
         fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<FieldT>()));
     }
 
     template <typename FieldT>
-    typename std::enable_if<std::is_enum<FieldT>::value, void>::type
-    addField(const char* name)
+    void addHex(const char* name)
     {
-        fields_.emplace_back(new EnumField<FieldT>(name));
+        static_assert(std::is_same<FieldT, uint64_t>::value ||
+                      std::is_same<FieldT, uint32_t>::value,
+                      "Hex modifier only supported for uint32_t and uint64_t");
+        fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<FieldT>(), Format::hex));
     }
 
-    template <typename FieldT>
-    typename std::enable_if<std::is_same<FieldT, std::string>::value, void>::type
-    addField(const char* name)
+    void addBool(const char* name)
+    {
+        fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<int32_t>(), Format::boolalpha));
+    }
+
+    void addString(const char* name)
     {
         fields_.emplace_back(new StringField(name));
     }
 
     template <typename FieldT>
-    typename std::enable_if<std::is_same<FieldT, uint32_t>::value || std::is_same<FieldT, uint64_t>::value, void>::type
-    addHexField(const char* name)
+    void addEnum(const char* name)
     {
-        fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<FieldT>(), Format::hex));
-    }
-
-    void addBoolField(const char* name)
-    {
-        fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<int32_t>(), Format::boolalpha));
+        static_assert(std::is_enum<FieldT>::value,
+                      "Use addField() for non-enum types");
+        fields_.emplace_back(new EnumField<FieldT>(name));
     }
 
     void setAutoColorizeColumn(const char* name)
