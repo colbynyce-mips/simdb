@@ -468,6 +468,9 @@ public:
                       "Use addEnum(), addString(), or addBool() instead");
 
         fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<FieldT>()));
+        if (fields_.size() == 1) {
+            setAutoColorizeColumn(name);
+        }
     }
 
     template <typename FieldT>
@@ -477,16 +480,25 @@ public:
                       std::is_same<FieldT, uint32_t>::value,
                       "Hex modifier only supported for uint32_t and uint64_t");
         fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<FieldT>(), Format::hex));
+        if (fields_.size() == 1) {
+            setAutoColorizeColumn(name);
+        }
     }
 
     void addBool(const char* name)
     {
         fields_.emplace_back(new FieldBase(name, getFieldDTypeEnum<int32_t>(), Format::boolalpha));
+        if (fields_.size() == 1) {
+            setAutoColorizeColumn(name);
+        }
     }
 
     void addString(const char* name)
     {
         fields_.emplace_back(new StringField(name));
+        if (fields_.size() == 1) {
+            setAutoColorizeColumn(name);
+        }
     }
 
     template <typename FieldT>
@@ -495,6 +507,9 @@ public:
         static_assert(std::is_enum<FieldT>::value,
                       "Use addField() for non-enum types");
         fields_.emplace_back(new EnumField<FieldT>(name));
+        if (fields_.size() == 1) {
+            setAutoColorizeColumn(name);
+        }
     }
 
     void setAutoColorizeColumn(const char* name)
