@@ -6,14 +6,13 @@
 namespace simdb {
 
 PipelineStage::PipelineStage()
-    : is_running_(true)
-    , thread_(std::bind(&PipelineStage::consume_, this))
 {
 }
 
 void PipelineStage::push(PipelineStagePayload&& payload)
 {
     queue_.emplace(std::move(payload));
+    start_();
 }
 
 size_t PipelineStage::count() const
@@ -44,11 +43,20 @@ void PipelineStage::flush_(DatabaseManager*)
     }
 }
 
+void PipelineStage::start_()
+{
+    if (!is_running_) {
+        is_running_ = true;
+        thread_ = std::make_unique<std::thread>(std::bind(&PipelineStage::consume_, this));
+    }
+}
+
 void PipelineStage::stop_()
 {
-    is_running_ = false;
-    if (thread_.joinable()) {
-        thread_.join();
+    if (is_running_) {
+        is_running_ = false;
+        thread_->join();
+        thread_.reset();
     }
 }
 

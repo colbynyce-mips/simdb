@@ -7,7 +7,7 @@
 # simdb_regress enforces that your binary gets built as part of the
 # regression commands.
 macro (simdb_regress target)
-  add_dependencies(regress ${target} )
+  add_dependencies(simdb_regress ${target} )
 endmacro(simdb_regress)
 
 # A function to add a simdb test with various options

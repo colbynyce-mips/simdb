@@ -78,14 +78,16 @@ protected:
     virtual void flush_(DatabaseManager*);
 
 private:
+    void start_();
+
     void stop_();
 
     void consume_();
 
     virtual void processPipelineStage_(PipelineStagePayload& data) = 0;
 
-    bool is_running_;
-    std::thread thread_;
+    bool is_running_ = false;
+    std::unique_ptr<std::thread> thread_;
     ConcurrentQueue<PipelineStagePayload> queue_;
     PipelineStage* next_stage_ = nullptr;
 };
