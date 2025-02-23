@@ -83,12 +83,40 @@ void Pipeline::push(std::vector<char>&& bytes, uint64_t tick)
     payload.tick = tick;
     payload.db_mgr = db_mgr_;
 
+    // Perform load balancing between the two stages. Both stages
+    // can be configured to compress data or not, and only the
+    // second stage writes to the database. This simple algo
+    // chooses the best time/space tradeoff for most use cases.
+
     auto stage1_proc_time = stage1_.getEstimatedRemainingProcTime(db_mgr_);
     auto stage2_proc_time = stage2_.getEstimatedRemainingProcTime(db_mgr_);
 
-    if (stage1_proc_time <= stage2_proc_time) {
+    auto total_proc_time = stage1_proc_time + stage2_proc_time;
+    auto stage1_pct_proc_time = stage1_proc_time / total_proc_time * 100;
+
+    if (stage1_pct_proc_time < 10) {
+        stage1_.setDefaultCompressionLevel(6);
+        stage2_.setDefaultCompressionLevel(0);
         stage1_.push(std::move(payload));
+    } else if (stage1_pct_proc_time < 25) {
+        stage1_.setDefaultCompressionLevel(6);
+        stage2_.setDefaultCompressionLevel(1);
+        stage1_.push(std::move(payload));
+    } else if (stage1_pct_proc_time < 50) {
+        stage1_.setDefaultCompressionLevel(3);
+        stage2_.setDefaultCompressionLevel(1);
+        stage1_.push(std::move(payload));
+    } else if (stage1_pct_proc_time < 75) {
+        stage1_.setDefaultCompressionLevel(1);
+        stage2_.setDefaultCompressionLevel(3);
+        stage2_.push(std::move(payload));
+    } else if (stage1_pct_proc_time < 90) {
+        stage1_.setDefaultCompressionLevel(1);
+        stage2_.setDefaultCompressionLevel(6);
+        stage2_.push(std::move(payload));
     } else {
+        stage1_.setDefaultCompressionLevel(0);
+        stage2_.setDefaultCompressionLevel(6);
         stage2_.push(std::move(payload));
     }
 }
