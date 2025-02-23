@@ -4,6 +4,7 @@
 
 #include "simdb/async/AsyncTaskThread.hpp"
 #include "simdb/sqlite/SQLiteTransaction.hpp"
+#include "simdb/utils/RunningMean.hpp"
 
 #include <iostream>
 #include <memory>
@@ -106,6 +107,13 @@ public:
         return queue_.size();
     }
 
+    /// Check for empty
+    bool empty() const
+    {
+        std::lock_guard<std::mutex> guard(mutex_);
+        return queue_.empty();
+    }
+
 private:
     /// Mutex for thread safety.
     mutable std::mutex mutex_;
@@ -175,8 +183,15 @@ public:
             bool wrote_to_db = false;
             while (concurrent_queue_.try_pop(task)) {
                 try {
+                    auto begin = std::chrono::high_resolution_clock::now();
                     task->completeTask();
                     wrote_to_db = true;
+                    auto end = std::chrono::high_resolution_clock::now();
+
+                    // Get number of seconds and add it to the running mean
+                    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+                    auto seconds = static_cast<double>(duration.count()) / 1e6;
+                    task_processing_time_.add(seconds);
                 } catch (const InterruptException&) {
                     break;
                 }
@@ -217,6 +232,12 @@ public:
     void rerouteNewTasksTo(std::nullptr_t)
     {
         new_task_destination_ = nullptr;
+    }
+
+    /// Get an estimate of the remaining processing time for all tasks (seconds).
+    double getEstimatedRemainingProcTime() const
+    {
+        return task_processing_time_.mean() * concurrent_queue_.size();
     }
 
     /// \brief   Wait for the worker queue to be flushed / consumed,
@@ -319,6 +340,9 @@ private:
 
     /// Approximate size of the queue in bytes.
     size_t queue_size_bytes_ = 0;
+
+    /// Keep track of the running mean time for the completeTask() methods.
+    RunningAverage task_processing_time_;
 
     /// Creating one of these directly is only for SQLiteConnection.
     /// Access via SQLiteConnection::getTaskQueue().

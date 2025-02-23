@@ -23,6 +23,7 @@
 #include <map>
 #include <unordered_map>
 #include <type_traits>
+#include <memory>
 
 #if __cplusplus <= 201103L
 #error "This file requires C++14 or higher"

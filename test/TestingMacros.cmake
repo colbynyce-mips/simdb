@@ -26,4 +26,5 @@ endmacro(simdb_named_test)
 # Just add the executable to the testing using defaults.
 macro (simdb_test target)
   simdb_named_test(${target} ${target} ${ARGN})
+  target_link_libraries(${target} ${SimDB_LIBS})
 endmacro (simdb_test)
