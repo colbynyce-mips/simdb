@@ -31,8 +31,6 @@ struct PipelineStagePayload
 class PipelineStage
 {
 public:
-    PipelineStage();
-
     virtual ~PipelineStage() = default;
 
     void setNextStage(PipelineStage* next_stage)
@@ -44,7 +42,7 @@ public:
 
     size_t count() const;
 
-    void flush();
+    virtual void postSim();
 
     void teardown();
 
@@ -64,6 +62,7 @@ private:
     virtual void processPipelineStage_(PipelineStagePayload&& data) = 0;
 
     bool is_running_ = false;
+    bool can_restart_ = true;
     std::unique_ptr<std::thread> thread_;
     ConcurrentQueue<PipelineStagePayload> queue_;
     PipelineStage* next_stage_ = nullptr;
@@ -93,7 +92,7 @@ public:
 
     void push(std::vector<char>&& bytes, uint64_t tick);
 
-    void postSim(DatabaseManager* db_mgr);
+    void postSim();
 
 private:
     class CompressionStage : public PipelineStage
@@ -137,6 +136,12 @@ private:
 
         double getEstimatedRemainingProcTime() const override;
 
+        void postSim() override
+        {
+            ping_.postSim();
+            PipelineStage::postSim();
+        }
+
     private:
         void processPipelineStage_(PipelineStagePayload& payload) override {
             throw std::runtime_error("Should not be called - I have to take ownership!");
@@ -147,6 +152,7 @@ private:
         std::vector<char> compressed_bytes_;
         int default_compression_level_ = 1;
         RunningAverage compression_time_;
+        RunningAverage write_time_;
         ConcurrentQueue<PipelineStagePayload> ready_queue_;
         Ping ping_;
     };

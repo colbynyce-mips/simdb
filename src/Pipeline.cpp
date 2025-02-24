@@ -5,10 +5,6 @@
 
 namespace simdb {
 
-PipelineStage::PipelineStage()
-{
-}
-
 void PipelineStage::push(PipelineStagePayload&& payload)
 {
     queue_.emplace(std::move(payload));
@@ -20,28 +16,19 @@ size_t PipelineStage::count() const
     return queue_.size();
 }
 
-void PipelineStage::flush()
+void PipelineStage::postSim()
 {
-    while (is_running_ && !queue_.empty()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
-
-    if (next_stage_) {
-        next_stage_->flush();
-    }
+    is_running_ = false;
 }
 
 void PipelineStage::teardown()
 {
     stop_();
-    if (next_stage_) {
-        next_stage_->teardown();
-    }
 }
 
 void PipelineStage::start_()
 {
-    if (!is_running_) {
+    if (!is_running_ && !thread_) {
         is_running_ = true;
         thread_ = std::make_unique<std::thread>(std::bind(&PipelineStage::consume_, this));
     }
@@ -49,10 +36,9 @@ void PipelineStage::start_()
 
 void PipelineStage::stop_()
 {
-    if (is_running_) {
-        is_running_ = false;
+    is_running_ = false;
+    if (thread_) {
         thread_->join();
-        thread_.reset();
     }
 }
 
@@ -92,37 +78,33 @@ void Pipeline::push(std::vector<char>&& bytes, uint64_t tick)
     auto total_proc_time = stage1_proc_time + stage2_proc_time;
     auto stage1_pct_proc_time = stage1_proc_time / total_proc_time * 100;
 
-    if (stage1_pct_proc_time < 10) {
-        stage1_.setDefaultCompressionLevel(6);
-        stage2_.setDefaultCompressionLevel(0);
-        stage1_.push(std::move(payload));
-    } else if (stage1_pct_proc_time < 25) {
+    if (stage1_pct_proc_time < 25) {
         stage1_.setDefaultCompressionLevel(6);
         stage2_.setDefaultCompressionLevel(1);
-        stage1_.push(std::move(payload));
     } else if (stage1_pct_proc_time < 50) {
         stage1_.setDefaultCompressionLevel(3);
         stage2_.setDefaultCompressionLevel(1);
-        stage1_.push(std::move(payload));
     } else if (stage1_pct_proc_time < 75) {
         stage1_.setDefaultCompressionLevel(1);
         stage2_.setDefaultCompressionLevel(3);
-        stage2_.push(std::move(payload));
-    } else if (stage1_pct_proc_time < 90) {
+    } else {
         stage1_.setDefaultCompressionLevel(1);
         stage2_.setDefaultCompressionLevel(6);
-        stage2_.push(std::move(payload));
+    }
+
+    if (stage1_pct_proc_time < 50) {
+        stage1_.push(std::move(payload));
     } else {
-        stage1_.setDefaultCompressionLevel(0);
-        stage2_.setDefaultCompressionLevel(6);
         stage2_.push(std::move(payload));
     }
 }
 
-void Pipeline::postSim(DatabaseManager* db_mgr)
+void Pipeline::postSim()
 {
-    stage1_.flush();
+    stage1_.postSim();
+    stage2_.postSim();
     stage1_.teardown();
+    stage2_.teardown();
 }
 
 void Pipeline::CompressionStage::processPipelineStage_(PipelineStagePayload& payload)
@@ -147,9 +129,9 @@ double Pipeline::CompressionWithDatabaseWriteStage::getEstimatedRemainingProcTim
     if (default_compression_level_) {
         est_time += count() * compression_time_.mean();
     }
+    est_time += count() * write_time_.mean();
     return est_time;
 }
-
 
 void Pipeline::CompressionWithDatabaseWriteStage::processPipelineStage_(PipelineStagePayload&& payload)
 {
@@ -177,13 +159,23 @@ void Pipeline::CompressionWithDatabaseWriteStage::processPipelineStage_(Pipeline
                 const auto tick = payload.tick;
                 const auto compressed = payload.compressed;
 
+                auto begin = std::chrono::high_resolution_clock::now();
+
                 db_mgr->INSERT(SQL_TABLE("CollectionRecords"),
                                SQL_COLUMNS("Tick", "Data", "IsCompressed"),
                                SQL_VALUES(tick, data, (int)compressed));
+
+                auto end = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+                auto seconds = static_cast<double>(duration.count()) / 1e6;
+                write_time_.add(seconds);
             }
 
             StringMap::instance()->clearUnserializedMap();
 
+            // Note that we don't add this to the write_time_ running mean calculation
+            // since this map is going to shrink to nothing over time (basically it is
+            // amortized for real use cases).
             for (const auto& kvp : StringMap::instance()->getUnserializedMap()) {
                 db_mgr->INSERT(SQL_TABLE("StringMap"),
                                SQL_COLUMNS("IntVal", "String"),

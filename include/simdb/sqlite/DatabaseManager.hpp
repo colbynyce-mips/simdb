@@ -390,16 +390,14 @@ public:
     /// Close the sqlite3 connection.
     void closeDatabase()
     {
+        std::cout << "closeDatabase() called\n";
         db_conn_.reset();
     }
 
     // One-time call to write post-simulation metadata to SimDB.
     void postSim()
     {
-        safeTransaction([&](){
-            collection_mgr_->postSim();
-            return true;
-        });
+        collection_mgr_->postSim();
     }
 
 private:
@@ -721,11 +719,14 @@ inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
 
 inline void CollectionMgr::postSim()
 {
-    pipeline_.postSim(db_mgr_);
+    db_mgr_->safeTransaction([&](){
+        for (auto& collectable : collectables_) {
+            collectable->postSim(db_mgr_);
+        }
+        return true;
+    });
 
-    for (auto& collectable : collectables_) {
-        collectable->postSim(db_mgr_);
-    }
+    pipeline_.postSim();
 }
 
 inline void ContigIterableCollectionPoint::postSim(DatabaseManager* db_mgr)
