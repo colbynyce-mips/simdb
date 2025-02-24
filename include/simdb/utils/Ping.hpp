@@ -4,19 +4,24 @@
 #include <functional>
 #include <thread>
 
-namespace simdb {
+namespace simdb
+{
 
-class Ping {
+class Ping
+{
 public:
     Ping(double timeout_seconds = 1.0)
-        : timeout_ms_(timeout_seconds * 1000) {
+        : timeout_ms_(timeout_seconds * 1000)
+    {
     }
 
-    ~Ping() {
+    ~Ping()
+    {
         postSim();
     }
 
-    operator bool() {
+    operator bool()
+    {
         if (!continue_)
             return true;
         auto ready = ready_;
@@ -24,16 +29,20 @@ public:
         return ready;
     }
 
-    void postSim() {
+    void postSim()
+    {
         continue_ = false;
-        if (ping_thread_.joinable()) {
+        if (ping_thread_.joinable())
+        {
             ping_thread_.join();
         }
     }
 
 private:
-    void makeReady_() {
-        while (continue_) {
+    void makeReady_()
+    {
+        while (continue_)
+        {
             ready_ = true;
             std::this_thread::sleep_for(std::chrono::milliseconds(timeout_ms_));
         }

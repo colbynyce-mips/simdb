@@ -8,14 +8,21 @@
 #include "simdb/sqlite/Constraints.hpp"
 #include "simdb/sqlite/SQLiteIterator.hpp"
 
-namespace simdb {
+namespace simdb
+{
 
 /// Used in query->orderBy("ColA", ASC|DESC)
-enum class QueryOrder { ASC, DESC };
+enum class QueryOrder
+{
+    ASC,
+    DESC
+};
 
 /// Stringify QueryOrder enums for SELECT commands
-inline std::ostream& operator<<(std::ostream& os, const QueryOrder order) {
-    switch (order) {
+inline std::ostream& operator<<(std::ostream& os, const QueryOrder order)
+{
+    switch (order)
+    {
         case QueryOrder::ASC: os << "ASC"; break;
         case QueryOrder::DESC: os << "DESC"; break;
     }
@@ -30,20 +37,24 @@ inline std::ostream& operator<<(std::ostream& os, const QueryOrder order) {
  *        in order to iterate over the result set and automatically write
  *        record values into users' local variables.
  */
-class SqlQuery {
+class SqlQuery
+{
 public:
     SqlQuery(const char* table_name, sqlite3* db_conn)
         : table_name_(table_name)
-        , db_conn_(db_conn) {
+        , db_conn_(db_conn)
+    {
     }
 
     /// Query for at most N matching records.
-    void setLimit(uint32_t limit) {
+    void setLimit(uint32_t limit)
+    {
         limit_ = limit;
     }
 
     /// Remove the LIMIT clause.
-    void resetLimit() {
+    void resetLimit()
+    {
         limit_ = 0;
     }
 
@@ -60,19 +71,21 @@ public:
     ///
     ///     // SELECT ... ORDER BY bar ASC
     ///     query->orderBy("bar", QueryOrder::ASC);
-    void orderBy(const char* col_name, const QueryOrder order) {
+    void orderBy(const char* col_name, const QueryOrder order)
+    {
         order_clauses_.emplace_back(col_name, order);
     }
 
     /// Remove the ORDER BY clauses.
-    void resetOrderBy() {
+    void resetOrderBy()
+    {
         order_clauses_.clear();
     }
 
     /// Add a constraint to this query specific to integer types and
     /// scalar target values.
-    template <typename T>
-    void addConstraintForInt(const char* col_name, const Constraints constraint, const T target) {
+    template <typename T> void addConstraintForInt(const char* col_name, const Constraints constraint, const T target)
+    {
         static_assert(std::is_integral<T>::value && std::is_scalar<T>::value, "Wrong addConstraint*() API");
 
         std::ostringstream oss;
@@ -86,17 +99,21 @@ public:
     /// Pass in fuzzy=TRUE to tell SQLite to look for matches that are
     /// within EPS of the target value.
     template <typename T>
-    void addConstraintForDouble(const char* col_name, const Constraints constraint, const T target, const bool fuzzy = false) {
+    void addConstraintForDouble(const char* col_name, const Constraints constraint, const T target, const bool fuzzy = false)
+    {
         static_assert((std::is_floating_point<T>::value || std::is_integral<T>::value) && std::is_scalar<T>::value,
                       "Wrong addConstraint*() API");
 
         std::ostringstream oss;
-        if (fuzzy) {
+        if (fuzzy)
+        {
             oss << "fuzzyMatch(" << col_name << ",";
             oss << std::setprecision(std::numeric_limits<T>::max_digits10);
             oss << target << ",";
             oss << static_cast<int>(constraint) << ")";
-        } else {
+        }
+        else
+        {
             oss << col_name << stringify(constraint);
             oss << std::setprecision(std::numeric_limits<T>::max_digits10) << target;
         }
@@ -106,13 +123,15 @@ public:
 
     /// Add a constraint to this query specific to string types and
     /// scalar target values.
-    void addConstraintForString(const char* col_name, const Constraints constraint, const std::string& target) {
+    void addConstraintForString(const char* col_name, const Constraints constraint, const std::string& target)
+    {
         addConstraintForString(col_name, constraint, target.c_str());
     }
 
     /// Add a constraint to this query specific to string types and
     /// scalar target values.
-    void addConstraintForString(const char* col_name, const Constraints constraint, const char* target) {
+    void addConstraintForString(const char* col_name, const Constraints constraint, const char* target)
+    {
         std::ostringstream oss;
         oss << col_name << stringify(constraint) << "'" << target << "'";
         constraint_clauses_.emplace_back(oss.str());
@@ -121,22 +140,25 @@ public:
     /// Add a constraint to this query specific to integer types and
     /// multiple target values.
     template <typename T>
-    void addConstraintForInt(const char* col_name, const SetConstraints constraint, const std::initializer_list<T>& targets) {
+    void addConstraintForInt(const char* col_name, const SetConstraints constraint, const std::initializer_list<T>& targets)
+    {
         addConstraintForInt(col_name, constraint, std::vector<T>{targets.begin(), targets.end()});
     }
 
     /// Add a constraint to this query specific to integer types and
     /// multiple target values.
-    template <typename T>
-    void addConstraintForInt(const char* col_name, const SetConstraints constraint, const std::vector<T>& targets) {
+    template <typename T> void addConstraintForInt(const char* col_name, const SetConstraints constraint, const std::vector<T>& targets)
+    {
         static_assert(std::is_integral<T>::value && std::is_scalar<T>::value, "Wrong addConstraint*() API");
 
         std::ostringstream oss;
         oss << col_name << stringify(constraint) << "(";
 
-        for (size_t idx = 0; idx < targets.size(); ++idx) {
+        for (size_t idx = 0; idx < targets.size(); ++idx)
+        {
             oss << targets[idx];
-            if (idx != targets.size() - 1) {
+            if (idx != targets.size() - 1)
+            {
                 oss << ",";
             }
         }
@@ -154,7 +176,8 @@ public:
     void addConstraintForDouble(const char* col_name,
                                 const SetConstraints constraint,
                                 const std::initializer_list<T>& targets,
-                                const bool fuzzy = false) {
+                                const bool fuzzy = false)
+    {
         addConstraintForDouble(col_name, constraint, std::vector<T>{targets.begin(), targets.end()}, fuzzy);
     }
 
@@ -165,43 +188,57 @@ public:
     /// within EPS of the target values.
     template <typename T>
     void
-    addConstraintForDouble(const char* col_name, const SetConstraints constraint, const std::vector<T>& targets, const bool fuzzy = false) {
+    addConstraintForDouble(const char* col_name, const SetConstraints constraint, const std::vector<T>& targets, const bool fuzzy = false)
+    {
         static_assert(std::is_floating_point<T>::value && std::is_scalar<T>::value, "Wrong addConstraint*() API");
 
         std::ostringstream oss;
-        if (fuzzy) {
+        if (fuzzy)
+        {
             oss << "(";
 
-            for (size_t idx = 0; idx < targets.size(); ++idx) {
+            for (size_t idx = 0; idx < targets.size(); ++idx)
+            {
                 std::ostringstream target_oss;
                 target_oss << "fuzzyMatch(" << col_name << ",";
                 target_oss << std::setprecision(std::numeric_limits<T>::max_digits10);
                 target_oss << targets[idx] << ",";
 
-                if (constraint == SetConstraints::IN_SET) {
+                if (constraint == SetConstraints::IN_SET)
+                {
                     target_oss << static_cast<int>(Constraints::EQUAL);
-                } else {
+                }
+                else
+                {
                     target_oss << static_cast<int>(Constraints::NOT_EQUAL);
                 }
 
                 target_oss << ")";
                 oss << target_oss.str();
 
-                if (idx != targets.size() - 1) {
-                    if (constraint == SetConstraints::IN_SET) {
+                if (idx != targets.size() - 1)
+                {
+                    if (constraint == SetConstraints::IN_SET)
+                    {
                         oss << " OR ";
-                    } else {
+                    }
+                    else
+                    {
                         oss << " AND ";
                     }
                 }
             }
 
             oss << ")";
-        } else {
+        }
+        else
+        {
             oss << col_name << stringify(constraint) << " (";
-            for (size_t idx = 0; idx < targets.size(); ++idx) {
+            for (size_t idx = 0; idx < targets.size(); ++idx)
+            {
                 oss << std::setprecision(std::numeric_limits<T>::max_digits10) << targets[idx];
-                if (idx != targets.size() - 1) {
+                if (idx != targets.size() - 1)
+                {
                     oss << ",";
                 }
             }
@@ -213,19 +250,23 @@ public:
 
     /// Add a constraint to this query specific to string types and
     /// multiple target values.
-    void addConstraintForString(const char* col_name, const SetConstraints constraint, const std::initializer_list<const char*>& targets) {
+    void addConstraintForString(const char* col_name, const SetConstraints constraint, const std::initializer_list<const char*>& targets)
+    {
         addConstraintForString(col_name, constraint, std::vector<std::string>{targets.begin(), targets.end()});
     }
 
     /// Add a constraint to this query specific to string types and
     /// multiple target values.
-    void addConstraintForString(const char* col_name, const SetConstraints constraint, const std::vector<std::string>& targets) {
+    void addConstraintForString(const char* col_name, const SetConstraints constraint, const std::vector<std::string>& targets)
+    {
         std::ostringstream oss;
         oss << col_name << stringify(constraint) << "(";
 
-        for (size_t idx = 0; idx < targets.size(); ++idx) {
+        for (size_t idx = 0; idx < targets.size(); ++idx)
+        {
             oss << "'" << targets[idx] << "'";
-            if (idx != targets.size() - 1) {
+            if (idx != targets.size() - 1)
+            {
                 oss << ",";
             }
         }
@@ -248,25 +289,33 @@ public:
     ///     query->addCompoundConstraint(clause1, QueryOperator::OR, clause2);
     void addCompoundConstraint(const std::vector<std::string>& clause1,
                                const QueryOperator compound_constraint,
-                               const std::vector<std::string>& clause2) {
+                               const std::vector<std::string>& clause2)
+    {
         std::ostringstream oss;
         oss << "(";
-        for (size_t idx = 0; idx < clause1.size(); ++idx) {
+        for (size_t idx = 0; idx < clause1.size(); ++idx)
+        {
             oss << clause1[idx];
-            if (idx != clause1.size() - 1) {
+            if (idx != clause1.size() - 1)
+            {
                 oss << " AND ";
             }
         }
 
-        if (compound_constraint == QueryOperator::AND) {
+        if (compound_constraint == QueryOperator::AND)
+        {
             oss << ") AND (";
-        } else {
+        }
+        else
+        {
             oss << ") OR (";
         }
 
-        for (size_t idx = 0; idx < clause2.size(); ++idx) {
+        for (size_t idx = 0; idx < clause2.size(); ++idx)
+        {
             oss << clause2[idx];
-            if (idx != clause2.size() - 1) {
+            if (idx != clause2.size() - 1)
+            {
                 oss << " AND ";
             }
         }
@@ -276,12 +325,14 @@ public:
     }
 
     /// Release the current constraint clauses.
-    std::vector<std::string> releaseConstraintClauses() {
+    std::vector<std::string> releaseConstraintClauses()
+    {
         return std::move(constraint_clauses_);
     }
 
     /// Reset the query constraints.
-    void resetConstraints() {
+    void resetConstraints()
+    {
         constraint_clauses_.clear();
     }
 
@@ -289,7 +340,8 @@ public:
     ///
     ///     int32_t val;
     ///     query->select("ColA", val);
-    void select(const char* col_name, int32_t& user_var) {
+    void select(const char* col_name, int32_t& user_var)
+    {
         result_writers_.emplace_back(new ResultWriterInt32(col_name, &user_var));
     }
 
@@ -297,7 +349,8 @@ public:
     ///
     ///     int64_t val;
     ///     query->select("ColB", val);
-    void select(const char* col_name, int64_t& user_var) {
+    void select(const char* col_name, int64_t& user_var)
+    {
         result_writers_.emplace_back(new ResultWriterInt64(col_name, &user_var));
     }
 
@@ -305,7 +358,8 @@ public:
     ///
     ///     double val;
     ///     query->select("ColE", val);
-    void select(const char* col_name, double& user_var) {
+    void select(const char* col_name, double& user_var)
+    {
         result_writers_.emplace_back(new ResultWriterDouble(col_name, &user_var));
     }
 
@@ -313,7 +367,8 @@ public:
     ///
     ///     std::string val;
     ///     query->select("ColF", val);
-    void select(const char* col_name, std::string& user_var) {
+    void select(const char* col_name, std::string& user_var)
+    {
         result_writers_.emplace_back(new ResultWriterString(col_name, &user_var));
     }
 
@@ -321,19 +376,21 @@ public:
     ///
     ///     std::vector<int> val;
     ///     query->select("ColG", val);
-    template <typename T>
-    void select(const char* col_name, std::vector<T>& user_var) {
+    template <typename T> void select(const char* col_name, std::vector<T>& user_var)
+    {
         result_writers_.emplace_back(new ResultWriterBlob<T>(col_name, &user_var));
     }
 
     /// Deselect all record property values.
-    void resetSelections() {
+    void resetSelections()
+    {
         result_writers_.clear();
     }
 
     /// Count the number of records matching this query's constraints (WHERE)
     /// and limit (LIMIT).
-    uint64_t count() {
+    uint64_t count()
+    {
         std::ostringstream oss;
         oss << "SELECT COUNT(Id) FROM " << table_name_ << " ";
         appendConstraintClauses_(oss);
@@ -343,11 +400,13 @@ public:
         auto stmt = SQLitePreparedStatement(db_conn_, cmd);
         auto rc = SQLiteReturnCode(sqlite3_step(stmt));
 
-        if (rc == SQLITE_ROW) {
+        if (rc == SQLITE_ROW)
+        {
             return sqlite3_column_int64(stmt, 0);
         }
 
-        if (rc == SQLITE_DONE) {
+        if (rc == SQLITE_DONE)
+        {
             return 0;
         }
 
@@ -355,12 +414,15 @@ public:
     }
 
     /// Execute the query.
-    SqlResultIterator getResultSet() {
+    SqlResultIterator getResultSet()
+    {
         std::ostringstream oss;
         oss << "SELECT ";
-        for (size_t idx = 0; idx < result_writers_.size(); ++idx) {
+        for (size_t idx = 0; idx < result_writers_.size(); ++idx)
+        {
             oss << result_writers_[idx]->getColName();
-            if (idx != result_writers_.size() - 1) {
+            if (idx != result_writers_.size() - 1)
+            {
                 oss << ",";
             }
         }
@@ -375,7 +437,8 @@ public:
         auto stmt = SQLitePreparedStatement(db_conn_, cmd);
 
         std::vector<std::shared_ptr<ResultWriterBase>> result_writers;
-        for (const auto& writer : result_writers_) {
+        for (const auto& writer : result_writers_)
+        {
             result_writers.emplace_back(writer->clone());
         }
 
@@ -384,12 +447,16 @@ public:
 
 private:
     /// Append WHERE clause(s).
-    void appendConstraintClauses_(std::ostringstream& oss) const {
-        if (!constraint_clauses_.empty()) {
+    void appendConstraintClauses_(std::ostringstream& oss) const
+    {
+        if (!constraint_clauses_.empty())
+        {
             oss << " WHERE ";
-            for (size_t idx = 0; idx < constraint_clauses_.size(); ++idx) {
+            for (size_t idx = 0; idx < constraint_clauses_.size(); ++idx)
+            {
                 oss << constraint_clauses_[idx] << " ";
-                if (idx != constraint_clauses_.size() - 1) {
+                if (idx != constraint_clauses_.size() - 1)
+                {
                     oss << " AND ";
                 }
             }
@@ -398,12 +465,16 @@ private:
     }
 
     /// Append ORDER BY clause(s).
-    void appendOrderByClauses_(std::ostringstream& oss) const {
-        if (!order_clauses_.empty()) {
+    void appendOrderByClauses_(std::ostringstream& oss) const
+    {
+        if (!order_clauses_.empty())
+        {
             oss << " ORDER BY ";
-            for (size_t idx = 0; idx < order_clauses_.size(); ++idx) {
+            for (size_t idx = 0; idx < order_clauses_.size(); ++idx)
+            {
                 oss << order_clauses_[idx].col_name << " " << order_clauses_[idx].order;
-                if (idx != order_clauses_.size() - 1) {
+                if (idx != order_clauses_.size() - 1)
+                {
                     oss << ",";
                 }
             }
@@ -412,21 +483,25 @@ private:
     }
 
     /// Append LIMIT clause.
-    void appendLimitClause_(std::ostringstream& oss) const {
-        if (limit_) {
+    void appendLimitClause_(std::ostringstream& oss) const
+    {
+        if (limit_)
+        {
             oss << " LIMIT " << limit_;
         }
     }
 
     /// \struct QueryOrderClause
     /// \brief  Used to build clauses like "ORDER BY ColA ASC, ColB DESC"
-    struct QueryOrderClause {
+    struct QueryOrderClause
+    {
         std::string col_name;
         QueryOrder order;
 
         QueryOrderClause(const char* col_name, const QueryOrder order)
             : col_name(col_name)
-            , order(order) {
+            , order(order)
+        {
         }
     };
 

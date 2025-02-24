@@ -28,64 +28,83 @@
 #    error "This file requires C++14 or higher"
 #endif
 
-namespace simdb {
-namespace meta_utils {
+namespace simdb
+{
+namespace meta_utils
+{
 /**
     * \brief This templated struct lets us know about
     *  whether the datatype is actually an ordinary object or
     *  pointer to that object. This is specialized for
     *  a couple different signatures.
     */
-template <typename>
-struct is_any_pointer : public std::false_type {};
+template <typename> struct is_any_pointer : public std::false_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<T*> : public std::true_type {};
+template <typename T> struct is_any_pointer<T*> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<T* const> : public std::true_type {};
+template <typename T> struct is_any_pointer<T* const> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<const T*> : public std::true_type {};
+template <typename T> struct is_any_pointer<const T*> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<const T* const> : public std::true_type {};
+template <typename T> struct is_any_pointer<const T* const> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<std::shared_ptr<T>> : public std::true_type {};
+template <typename T> struct is_any_pointer<std::shared_ptr<T>> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<std::shared_ptr<T> const> : public std::true_type {};
+template <typename T> struct is_any_pointer<std::shared_ptr<T> const> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<std::shared_ptr<T>&> : public std::true_type {};
+template <typename T> struct is_any_pointer<std::shared_ptr<T>&> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<std::shared_ptr<T> const&> : public std::true_type {};
+template <typename T> struct is_any_pointer<std::shared_ptr<T> const&> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<std::unique_ptr<T>> : public std::true_type {};
+template <typename T> struct is_any_pointer<std::unique_ptr<T>> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<std::unique_ptr<T> const> : public std::true_type {};
+template <typename T> struct is_any_pointer<std::unique_ptr<T> const> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<std::unique_ptr<T>&> : public std::true_type {};
+template <typename T> struct is_any_pointer<std::unique_ptr<T>&> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<std::unique_ptr<T> const&> : public std::true_type {};
+template <typename T> struct is_any_pointer<std::unique_ptr<T> const&> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<std::weak_ptr<T>> : public std::true_type {};
+template <typename T> struct is_any_pointer<std::weak_ptr<T>> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<std::weak_ptr<T> const> : public std::true_type {};
+template <typename T> struct is_any_pointer<std::weak_ptr<T> const> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<std::weak_ptr<T>&> : public std::true_type {};
+template <typename T> struct is_any_pointer<std::weak_ptr<T>&> : public std::true_type
+{
+};
 
-template <typename T>
-struct is_any_pointer<std::weak_ptr<T> const&> : public std::true_type {};
+template <typename T> struct is_any_pointer<std::weak_ptr<T> const&> : public std::true_type
+{
+};
 
 /*!
     * \brief Template type helper that removes any pointer.
@@ -99,95 +118,94 @@ struct is_any_pointer<std::weak_ptr<T> const&> : public std::true_type {};
     * removing a pointer from something which is not a pointer
     * results in itself.
     */
-template <typename T>
-struct remove_any_pointer {
+template <typename T> struct remove_any_pointer
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<T*> {
+template <typename T> struct remove_any_pointer<T*>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<T* const> {
+template <typename T> struct remove_any_pointer<T* const>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<const T*> {
+template <typename T> struct remove_any_pointer<const T*>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<const T* const> {
+template <typename T> struct remove_any_pointer<const T* const>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<std::shared_ptr<T>> {
+template <typename T> struct remove_any_pointer<std::shared_ptr<T>>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<std::shared_ptr<T> const> {
+template <typename T> struct remove_any_pointer<std::shared_ptr<T> const>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<std::shared_ptr<T>&> {
+template <typename T> struct remove_any_pointer<std::shared_ptr<T>&>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<std::shared_ptr<T> const&> {
+template <typename T> struct remove_any_pointer<std::shared_ptr<T> const&>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<std::unique_ptr<T>> {
+template <typename T> struct remove_any_pointer<std::unique_ptr<T>>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<std::unique_ptr<T> const> {
+template <typename T> struct remove_any_pointer<std::unique_ptr<T> const>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<std::unique_ptr<T>&> {
+template <typename T> struct remove_any_pointer<std::unique_ptr<T>&>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<std::unique_ptr<T> const&> {
+template <typename T> struct remove_any_pointer<std::unique_ptr<T> const&>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<std::weak_ptr<T>> {
+template <typename T> struct remove_any_pointer<std::weak_ptr<T>>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<std::weak_ptr<T> const> {
+template <typename T> struct remove_any_pointer<std::weak_ptr<T> const>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<std::weak_ptr<T>&> {
+template <typename T> struct remove_any_pointer<std::weak_ptr<T>&>
+{
     using type = T;
 };
 
-template <typename T>
-struct remove_any_pointer<std::weak_ptr<T> const&> {
+template <typename T> struct remove_any_pointer<std::weak_ptr<T> const&>
+{
     using type = T;
 };
 
 /** \brief Alias Template for remove_pointer.
     */
-template <typename T>
-using remove_any_pointer_t = typename remove_any_pointer<T>::type;
+template <typename T> using remove_any_pointer_t = typename remove_any_pointer<T>::type;
 
 } // namespace meta_utils
 } // namespace simdb

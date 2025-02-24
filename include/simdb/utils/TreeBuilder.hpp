@@ -8,9 +8,11 @@
 #include <string>
 #include <vector>
 
-namespace simdb {
+namespace simdb
+{
 
-struct TreeNode {
+struct TreeNode
+{
     std::string name;
     std::vector<std::unique_ptr<TreeNode>> children;
     const TreeNode* parent = nullptr;
@@ -20,22 +22,27 @@ struct TreeNode {
 
     TreeNode(const std::string& name, const TreeNode* parent = nullptr)
         : name(name)
-        , parent(parent) {
+        , parent(parent)
+    {
     }
 
-    std::string getLocation() const {
+    std::string getLocation() const
+    {
         std::vector<std::string> node_names;
         auto node = this;
-        while (node && node->parent) {
+        while (node && node->parent)
+        {
             node_names.push_back(node->name);
             node = node->parent;
         }
 
         std::reverse(node_names.begin(), node_names.end());
         std::ostringstream oss;
-        for (size_t idx = 0; idx < node_names.size(); ++idx) {
+        for (size_t idx = 0; idx < node_names.size(); ++idx)
+        {
             oss << node_names[idx];
-            if (idx != node_names.size() - 1) {
+            if (idx != node_names.size() - 1)
+            {
                 oss << ".";
             }
         }
@@ -45,11 +52,13 @@ struct TreeNode {
 };
 
 // Function to split_string a string by a delimiter
-inline std::vector<std::string> split_string(const std::string& s, char delimiter) {
+inline std::vector<std::string> split_string(const std::string& s, char delimiter)
+{
     std::vector<std::string> tokens;
     std::stringstream ss(s);
     std::string item;
-    while (std::getline(ss, item, delimiter)) {
+    while (std::getline(ss, item, delimiter))
+    {
         tokens.push_back(item);
     }
     return tokens;
@@ -66,35 +75,43 @@ inline std::vector<std::string> split_string(const std::string& s, char delimite
  *
  * \return A unique pointer to the root node of the tree.
  */
-inline std::unique_ptr<TreeNode> buildTree(std::vector<std::string> tree_paths) {
+inline std::unique_ptr<TreeNode> buildTree(std::vector<std::string> tree_paths)
+{
     // Remove any path that is just named "root" as it will be created automatically.
     tree_paths.erase(std::remove_if(tree_paths.begin(), tree_paths.end(), [](const std::string& path) { return path == "root"; }),
                      tree_paths.end());
 
     // If all paths start with "root.", remove it so we do not end up with
     // tree node paths that start with "root.root".
-    if (std::all_of(tree_paths.begin(), tree_paths.end(), [](const std::string& path) { return path.find("root.") == 0; })) {
-        for (auto& path : tree_paths) {
+    if (std::all_of(tree_paths.begin(), tree_paths.end(), [](const std::string& path) { return path.find("root.") == 0; }))
+    {
+        for (auto& path : tree_paths)
+        {
             path = path.substr(5);
         }
     }
 
     std::unique_ptr<TreeNode> root(new TreeNode("root"));
 
-    for (const auto& tree_location : tree_paths) {
+    for (const auto& tree_location : tree_paths)
+    {
         auto path = split_string(tree_location, '.');
         auto node = root.get();
 
-        for (size_t idx = 0; idx < path.size(); ++idx) {
-            auto found = std::find_if(node->children.begin(), node->children.end(), [&path, idx](const std::unique_ptr<TreeNode>& child) {
-                return child->name == path[idx];
-            });
+        for (size_t idx = 0; idx < path.size(); ++idx)
+        {
+            auto found = std::find_if(node->children.begin(),
+                                      node->children.end(),
+                                      [&path, idx](const std::unique_ptr<TreeNode>& child) { return child->name == path[idx]; });
 
-            if (found == node->children.end()) {
+            if (found == node->children.end())
+            {
                 std::unique_ptr<TreeNode> new_node(new TreeNode(path[idx], node));
                 node->children.push_back(std::move(new_node));
                 node = node->children.back().get();
-            } else {
+            }
+            else
+            {
                 node = found->get();
             }
         }

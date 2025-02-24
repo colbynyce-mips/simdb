@@ -740,13 +740,6 @@ class SparseIterableReplayer:
 
     def Replay(self, tick, data_blob):
         # The top of the blob always has the number of structs as a uint16_t.
-        #
-        # TODO cnyce: Optimize this further by either:
-        #    1. Write: [WRITE, u16:size, u16:bin_idx, struct_blob, u16:bin_idx, struct_blob, ...]
-        #       Carry: [CARRY]
-        #
-        #    2. Write: [u16:size, u16:bin_idx, struct_blob, u16:bin_idx, struct_blob, ...]
-        #       Carry: [UINT16_MAX]
         size = struct.unpack('H', data_blob[:2])[0]
 
         for i in range(size):

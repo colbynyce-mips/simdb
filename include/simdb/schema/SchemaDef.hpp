@@ -12,33 +12,47 @@
 #include <unordered_map>
 #include <vector>
 
-namespace simdb {
+namespace simdb
+{
 
 /// Data types supported by SimDB schemas
-enum class SqlDataType { int32_t, int64_t, double_t, string_t, blob_t };
+enum class SqlDataType
+{
+    int32_t,
+    int64_t,
+    double_t,
+    string_t,
+    blob_t
+};
 
 /// Stream operator used when creating various SQL commands.
-inline std::ostream& operator<<(std::ostream& os, const SqlDataType dtype) {
+inline std::ostream& operator<<(std::ostream& os, const SqlDataType dtype)
+{
     using dt = SqlDataType;
 
-    switch (dtype) {
+    switch (dtype)
+    {
         case dt::int32_t:
-        case dt::int64_t: {
+        case dt::int64_t:
+        {
             os << "INT";
             break;
         }
 
-        case dt::string_t: {
+        case dt::string_t:
+        {
             os << "TEXT";
             break;
         }
 
-        case dt::double_t: {
+        case dt::double_t:
+        {
             os << "REAL";
             break;
         }
 
-        case dt::blob_t: {
+        case dt::blob_t:
+        {
             os << "BLOB";
             break;
         }
@@ -52,54 +66,64 @@ inline std::ostream& operator<<(std::ostream& os, const SqlDataType dtype) {
  *
  * \brief This class is used for creating SimDB tables.
  */
-class Column {
+class Column
+{
 public:
     /// Construct with the column name and data type.
     Column(const std::string& column_name, const SqlDataType dt)
         : name_(column_name)
-        , dt_(dt) {
+        , dt_(dt)
+    {
     }
 
     /// Equivalence is defined as having the same name and data type.
-    bool operator==(const Column& rhs) const {
+    bool operator==(const Column& rhs) const
+    {
         return name_ == rhs.name_ && dt_ == rhs.dt_;
     }
 
     /// Equivalence is defined as having the same name and data type.
-    bool operator!=(const Column& rhs) const {
+    bool operator!=(const Column& rhs) const
+    {
         return !(*this == rhs);
     }
 
     /// Get the name of this column.
-    const std::string& getName() const {
+    const std::string& getName() const
+    {
         return name_;
     }
 
     /// Get the data type of this column.
-    SqlDataType getDataType() const {
+    SqlDataType getDataType() const
+    {
         return dt_;
     }
 
     /// Optionally specify a default value for this Column.
     /// Defaults for SqlBlob data types are not allowed and will
     /// throw if you attempt to set a SqlBlob default value.
-    template <typename T>
-    void setDefaultValue(const T val) {
-        if (dt_ == SqlDataType::blob_t) {
+    template <typename T> void setDefaultValue(const T val)
+    {
+        if (dt_ == SqlDataType::blob_t)
+        {
             throw DBException("Cannot set default value for a database "
                               "column with blob data type");
         }
 
-        switch (dt_) {
+        switch (dt_)
+        {
             case SqlDataType::int32_t:
-            case SqlDataType::int64_t: {
+            case SqlDataType::int64_t:
+            {
                 auto flag = std::integral_constant<bool, std::is_integral<T>::value>();
                 auto err = "Default value type mismatch (expected integer type)";
                 verifyDefaultValueIsCorrectType_(flag, err);
                 break;
             }
 
-            case SqlDataType::double_t: {
+            case SqlDataType::double_t:
+            {
                 auto flag = std::integral_constant<bool, std::is_floating_point<T>::value>();
                 auto err = "Default value type mismatch (expected floating point type)";
                 verifyDefaultValueIsCorrectType_(flag, err);
@@ -113,14 +137,17 @@ public:
         writeDefaultValue_(ss, val);
         default_val_string_ = ss.str();
 
-        if (default_val_string_.empty()) {
+        if (default_val_string_.empty())
+        {
             throw DBException("Unable to convert default value ") << val << " into a std::string";
         }
     }
 
     /// Called in order to set default values for TEXT columns.
-    void setDefaultValue(const std::string& val) {
-        if (dt_ != SqlDataType::string_t) {
+    void setDefaultValue(const std::string& val)
+    {
+        if (dt_ != SqlDataType::string_t)
+        {
             throw DBException("Unable to set default value string (data type mismatch)");
         }
 
@@ -128,37 +155,42 @@ public:
     }
 
     /// Check if this column has a default value set or not.
-    bool hasDefaultValue() const {
+    bool hasDefaultValue() const
+    {
         return !default_val_string_.empty();
     }
 
     /// Get this Column's default value. These are returned as
     /// strings since the schema creation command is one string,
     /// e.g. "CREATE TABLE ..."
-    const std::string& getDefaultValueAsString() const {
+    const std::string& getDefaultValueAsString() const
+    {
         return default_val_string_;
     }
 
 private:
     /// Default values are stringified. For doubles, we need maximum precision.
-    void writeDefaultValue_(std::ostringstream& oss, const double val) const {
+    void writeDefaultValue_(std::ostringstream& oss, const double val) const
+    {
         oss << std::numeric_limits<long double>::digits10 + 1 << val;
     }
 
     /// Default values are stringified. For non-doubles, e.g. INT and TEXT types,
     /// we use default precision.
-    template <typename T>
-    void writeDefaultValue_(std::ostringstream& oss, const T& val) const {
+    template <typename T> void writeDefaultValue_(std::ostringstream& oss, const T& val) const
+    {
         static_assert(std::is_integral<T>::value || std::is_same<T, std::string>::value, "Data type mismatch!");
         oss << val;
     }
 
     /// This method is called when the correct data type <T> was used in setDefaultValue()
-    void verifyDefaultValueIsCorrectType_(std::true_type, const std::string&) {
+    void verifyDefaultValueIsCorrectType_(std::true_type, const std::string&)
+    {
     }
 
     /// This method is called when the wrong data type <T> was used in setDefaultValue()
-    void verifyDefaultValueIsCorrectType_(std::false_type, const std::string& err) {
+    void verifyDefaultValueIsCorrectType_(std::false_type, const std::string& err)
+    {
         throw DBException(err);
     }
 
@@ -177,30 +209,35 @@ private:
  *
  * \brief Table class used for creating SimDB schemas
  */
-class Table {
+class Table
+{
 public:
     /// Construct with a name.
     Table(const std::string& table_name)
-        : name_(table_name) {
+        : name_(table_name)
+    {
     }
 
     /// Get the name of this table.
-    const std::string& getName() const {
+    const std::string& getName() const
+    {
         return name_;
     }
 
     /// Add a column to this table's schema with a name and data type.
-    Table& addColumn(const std::string& name, const SqlDataType dt) {
+    Table& addColumn(const std::string& name, const SqlDataType dt)
+    {
         columns_.emplace_back(new Column(name, dt));
         columns_by_name_[name] = columns_.back();
         return *this;
     }
 
     /// Assign a default value for the given column.
-    template <typename T>
-    Table& setColumnDefaultValue(const std::string& col_name, const T default_val) {
+    template <typename T> Table& setColumnDefaultValue(const std::string& col_name, const T default_val)
+    {
         auto iter = columns_by_name_.find(col_name);
-        if (iter == columns_by_name_.end()) {
+        if (iter == columns_by_name_.end())
+        {
             throw DBException("No column named ") << col_name << " in table " << name_;
         }
 
@@ -209,9 +246,11 @@ public:
     }
 
     /// Assign a default value for the given column.
-    Table& setColumnDefaultValue(const std::string& col_name, const std::string& default_val) {
+    Table& setColumnDefaultValue(const std::string& col_name, const std::string& default_val)
+    {
         auto iter = columns_by_name_.find(col_name);
-        if (iter == columns_by_name_.end()) {
+        if (iter == columns_by_name_.end())
+        {
             throw DBException("No column named ") << col_name << " in table " << name_;
         }
 
@@ -221,16 +260,20 @@ public:
 
     /// Index this table's records on the given column.
     /// CREATE INDEX IndexName ON TableName(ColumnName)
-    Table& createIndexOn(const std::string& col_name) {
+    Table& createIndexOn(const std::string& col_name)
+    {
         return createCompoundIndexOn(SQL_COLUMNS(col_name.c_str()));
     }
 
     /// Index this table's records on the given columns.
     /// CREATE INDEX IndexName ON TableName(ColA,ColB,ColC)
-    Table& createCompoundIndexOn(const SqlColumns& cols) {
+    Table& createCompoundIndexOn(const SqlColumns& cols)
+    {
         const auto& col_names = cols.getColNames();
-        for (const auto& col_name : col_names) {
-            if (columns_by_name_.find(col_name) == columns_by_name_.end()) {
+        for (const auto& col_name : col_names)
+        {
+            if (columns_by_name_.find(col_name) == columns_by_name_.end())
+            {
                 throw DBException("Column ") << col_name << " does not exist in table " << name_;
             }
         }
@@ -240,9 +283,11 @@ public:
 
         size_t idx = 0;
         auto iter = col_names.begin();
-        while (iter != col_names.end()) {
+        while (iter != col_names.end())
+        {
             oss << *iter;
-            if (idx != col_names.size() - 1) {
+            if (idx != col_names.size() - 1)
+            {
                 oss << ",";
             }
             ++iter;
@@ -255,7 +300,8 @@ public:
     }
 
     /// Read-only access to this table's columns.
-    const std::vector<std::shared_ptr<Column>>& getColumns() const {
+    const std::vector<std::shared_ptr<Column>>& getColumns() const
+    {
         return columns_;
     }
 
@@ -285,14 +331,18 @@ private:
  *
  * \brief This class is used to define SimDB schemas.
  */
-class Schema {
+class Schema
+{
 public:
     /// \brief  Create a new Table in this Schema with the given name
     ///
     /// \return Reference to the added table
-    Table& addTable(const std::string& table_name) {
-        for (auto& lhs : tables_) {
-            if (lhs.getName() == table_name) {
+    Table& addTable(const std::string& table_name)
+    {
+        for (auto& lhs : tables_)
+        {
+            if (lhs.getName() == table_name)
+            {
                 throw DBException("Cannot add table '" + table_name + "' to schema. A table with that name already exists.");
             }
         }
@@ -302,14 +352,17 @@ public:
     }
 
     /// Combine this schema with the tables from another schema.
-    void appendSchema(const Schema& schema) {
-        for (const auto& table : schema.getTables()) {
+    void appendSchema(const Schema& schema)
+    {
+        for (const auto& table : schema.getTables())
+        {
             tables_.push_back(table);
         }
     }
 
     /// Read-only access to this schema's tables.
-    const std::deque<Table>& getTables() const {
+    const std::deque<Table>& getTables() const
+    {
         return tables_;
     }
 

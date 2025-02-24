@@ -9,7 +9,8 @@
 #include <memory>
 #include <vector>
 
-namespace simdb {
+namespace simdb
+{
 
 /*!
  * \class ValueContainerBase
@@ -17,19 +18,23 @@ namespace simdb {
  * \brief This class is used for flexible varargs to SQL_VALUES(v1,v2,v3)
  *        where the types of v1/v2/v3 can all be different (int/double/blob...)
  */
-class ValueContainerBase {
+class ValueContainerBase
+{
 public:
     virtual ~ValueContainerBase() = default;
     virtual int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const = 0;
 };
 
-class Integral32ValueContainer : public ValueContainerBase {
+class Integral32ValueContainer : public ValueContainerBase
+{
 public:
     Integral32ValueContainer(int32_t val)
-        : val_(val) {
+        : val_(val)
+    {
     }
 
-    int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override {
+    int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override
+    {
         return sqlite3_bind_int(stmt, col_idx, val_);
     }
 
@@ -37,13 +42,16 @@ private:
     int32_t val_;
 };
 
-class Integral64ValueContainer : public ValueContainerBase {
+class Integral64ValueContainer : public ValueContainerBase
+{
 public:
     Integral64ValueContainer(int64_t val)
-        : val_(val) {
+        : val_(val)
+    {
     }
 
-    int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override {
+    int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override
+    {
         return sqlite3_bind_int64(stmt, col_idx, val_);
     }
 
@@ -51,13 +59,16 @@ private:
     int64_t val_;
 };
 
-class FloatingPointValueContainer : public ValueContainerBase {
+class FloatingPointValueContainer : public ValueContainerBase
+{
 public:
     FloatingPointValueContainer(double val)
-        : val_(val) {
+        : val_(val)
+    {
     }
 
-    int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override {
+    int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override
+    {
         return sqlite3_bind_double(stmt, col_idx, val_);
     }
 
@@ -65,13 +76,16 @@ private:
     double val_;
 };
 
-class StringValueContainer : public ValueContainerBase {
+class StringValueContainer : public ValueContainerBase
+{
 public:
     StringValueContainer(const std::string& val)
-        : val_(val) {
+        : val_(val)
+    {
     }
 
-    int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override {
+    int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override
+    {
         return sqlite3_bind_text(stmt, col_idx, val_.c_str(), -1, 0);
     }
 
@@ -79,13 +93,16 @@ private:
     std::string val_;
 };
 
-class BlobValueContainer : public ValueContainerBase {
+class BlobValueContainer : public ValueContainerBase
+{
 public:
     BlobValueContainer(const SqlBlob& val)
-        : val_(val) {
+        : val_(val)
+    {
     }
 
-    int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override {
+    int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override
+    {
         return sqlite3_bind_blob(stmt, col_idx, val_.data_ptr, (int)val_.num_bytes, 0);
     }
 
@@ -93,14 +110,16 @@ private:
     SqlBlob val_;
 };
 
-template <typename T>
-class VectorValueContainer : public ValueContainerBase {
+template <typename T> class VectorValueContainer : public ValueContainerBase
+{
 public:
     VectorValueContainer(const std::vector<T>& val)
-        : val_(val) {
+        : val_(val)
+    {
     }
 
-    int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override {
+    int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const override
+    {
         return sqlite3_bind_blob(stmt, col_idx, val_.data(), (int)val_.size() * sizeof(T), 0);
     }
 
@@ -110,7 +129,11 @@ private:
 
 using ValueContainerBasePtr = std::shared_ptr<ValueContainerBase>;
 
-enum class ValueReaderTypes { BACKPOINTER, FUNCPOINTER };
+enum class ValueReaderTypes
+{
+    BACKPOINTER,
+    FUNCPOINTER
+};
 
 /*!
  * \class ScalarValueReader
@@ -119,17 +142,19 @@ enum class ValueReaderTypes { BACKPOINTER, FUNCPOINTER };
  *        in the same vector / data structure. Used for reading values
  *        from objects' member variables or getter functions.
  */
-template <typename T>
-class ScalarValueReader {
+template <typename T> class ScalarValueReader
+{
 public:
-    typedef struct {
+    typedef struct
+    {
         ValueReaderTypes getter_type;
         const T* backpointer;
         std::function<T()> funcpointer;
     } ValueReader;
 
     /// Construct with a backpointer to the data value.
-    ScalarValueReader(const T* data_ptr) {
+    ScalarValueReader(const T* data_ptr)
+    {
         reader_.backpointer = data_ptr;
         reader_.getter_type = ValueReaderTypes::BACKPOINTER;
 
@@ -138,7 +163,8 @@ public:
     }
 
     /// Construct with a function pointer to get the data.
-    ScalarValueReader(std::function<T()> func_ptr) {
+    ScalarValueReader(std::function<T()> func_ptr)
+    {
         reader_.funcpointer = func_ptr;
         reader_.getter_type = ValueReaderTypes::FUNCPOINTER;
 
@@ -147,10 +173,14 @@ public:
     }
 
     /// Read the data value.
-    T getValue() const {
-        if (reader_.getter_type == ValueReaderTypes::BACKPOINTER) {
+    T getValue() const
+    {
+        if (reader_.getter_type == ValueReaderTypes::BACKPOINTER)
+        {
             return *reader_.backpointer;
-        } else {
+        }
+        else
+        {
             return reader_.funcpointer();
         }
     }

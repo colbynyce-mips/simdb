@@ -29,18 +29,13 @@ int main()
 
     simdb::Schema schema;
 
-    schema.addTable("IntegerTypes")
-        .addColumn("SomeInt32", dt::int32_t)
-        .addColumn("SomeInt64", dt::int64_t);
+    schema.addTable("IntegerTypes").addColumn("SomeInt32", dt::int32_t).addColumn("SomeInt64", dt::int64_t);
 
-    schema.addTable("FloatingPointTypes")
-        .addColumn("SomeDouble", dt::double_t);
+    schema.addTable("FloatingPointTypes").addColumn("SomeDouble", dt::double_t);
 
-    schema.addTable("StringTypes")
-        .addColumn("SomeString", dt::string_t);
+    schema.addTable("StringTypes").addColumn("SomeString", dt::string_t);
 
-    schema.addTable("BlobTypes")
-        .addColumn("SomeBlob", dt::blob_t);
+    schema.addTable("BlobTypes").addColumn("SomeBlob", dt::blob_t);
 
     schema.addTable("MixAndMatch")
         .addColumn("SomeInt32", dt::int32_t)
@@ -86,9 +81,7 @@ int main()
     EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
 
     // Verify set/get APIs for integer types
-    auto record1 = db_mgr.INSERT(SQL_TABLE("IntegerTypes"),
-                                 SQL_COLUMNS("SomeInt32", "SomeInt64"),
-                                 SQL_VALUES(TEST_INT32, TEST_INT64));
+    auto record1 = db_mgr.INSERT(SQL_TABLE("IntegerTypes"), SQL_COLUMNS("SomeInt32", "SomeInt64"), SQL_VALUES(TEST_INT32, TEST_INT64));
 
     EXPECT_EQUAL(record1->getPropertyInt32("SomeInt32"), TEST_INT32);
     EXPECT_EQUAL(record1->getPropertyInt64("SomeInt64"), TEST_INT64);
@@ -100,9 +93,7 @@ int main()
     EXPECT_EQUAL(record1->getPropertyInt64("SomeInt64"), TEST_INT64 / 2);
 
     // Verify set/get APIs for floating-point types
-    auto record2 = db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"),
-                                 SQL_COLUMNS("SomeDouble"),
-                                 SQL_VALUES(TEST_DOUBLE));
+    auto record2 = db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(TEST_DOUBLE));
 
     EXPECT_EQUAL(record2->getPropertyDouble("SomeDouble"), TEST_DOUBLE);
 
@@ -110,9 +101,7 @@ int main()
     EXPECT_EQUAL(record2->getPropertyDouble("SomeDouble"), TEST_DOUBLE / 2);
 
     // Verify set/get APIs for string types
-    auto record3 = db_mgr.INSERT(SQL_TABLE("StringTypes"),
-                                 SQL_COLUMNS("SomeString"),
-                                 SQL_VALUES(TEST_STRING));
+    auto record3 = db_mgr.INSERT(SQL_TABLE("StringTypes"), SQL_COLUMNS("SomeString"), SQL_VALUES(TEST_STRING));
 
     EXPECT_EQUAL(record3->getPropertyString("SomeString"), TEST_STRING);
 
@@ -120,18 +109,14 @@ int main()
     EXPECT_EQUAL(record3->getPropertyString("SomeString"), TEST_STRING + "2");
 
     // Verify set/get APIs for blob types
-    auto record4 = db_mgr.INSERT(SQL_TABLE("BlobTypes"),
-                                 SQL_COLUMNS("SomeBlob"),
-                                 SQL_VALUES(TEST_VECTOR));
+    auto record4 = db_mgr.INSERT(SQL_TABLE("BlobTypes"), SQL_COLUMNS("SomeBlob"), SQL_VALUES(TEST_VECTOR));
 
     EXPECT_EQUAL(record4->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR);
 
     record4->setPropertyBlob("SomeBlob", TEST_VECTOR2);
     EXPECT_EQUAL(record4->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR2);
 
-    auto record5 = db_mgr.INSERT(SQL_TABLE("BlobTypes"),
-                                 SQL_COLUMNS("SomeBlob"),
-                                 SQL_VALUES(TEST_BLOB));
+    auto record5 = db_mgr.INSERT(SQL_TABLE("BlobTypes"), SQL_COLUMNS("SomeBlob"), SQL_VALUES(TEST_BLOB));
 
     EXPECT_EQUAL(record5->getPropertyBlob<int>("SomeBlob"), TEST_VECTOR);
 
@@ -141,13 +126,9 @@ int main()
     // Verify that bug is fixed: SQL_VALUES(..., <blob column>, ...)
     // would not compile when a blob (or vector) value was used in the
     // middle the SQL_VALUES (or anywhere but the last supplied value).
-    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
-                  SQL_COLUMNS("SomeBlob", "SomeString"),
-                  SQL_VALUES(TEST_VECTOR, "foo"));
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"), SQL_COLUMNS("SomeBlob", "SomeString"), SQL_VALUES(TEST_VECTOR, "foo"));
 
-    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
-                  SQL_COLUMNS("SomeInt32", "SomeBlob", "SomeString"),
-                  SQL_VALUES(10, TEST_BLOB, "foo"));
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"), SQL_COLUMNS("SomeInt32", "SomeBlob", "SomeString"), SQL_VALUES(10, TEST_BLOB, "foo"));
 
     // Verify setDefaultValue()
     auto record6 = db_mgr.INSERT(SQL_TABLE("DefaultValues"));
@@ -212,7 +193,8 @@ int main()
     // 1.0
     // 0.3
     // 0.3
-    for (auto val : {TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT}) {
+    for (auto val : {TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT})
+    {
         db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(val));
         db_mgr.INSERT(SQL_TABLE("FloatingPointTypes"), SQL_COLUMNS("SomeDouble"), SQL_VALUES(val));
     }
@@ -236,21 +218,13 @@ int main()
     // 10           bar           TEST_VECTOR
     // 20           foo           TEST_VECTOR2
     // 20           bar           TEST_VECTOR2
-    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
-                  SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
-                  SQL_VALUES(10, "foo", TEST_VECTOR));
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"), SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"), SQL_VALUES(10, "foo", TEST_VECTOR));
 
-    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
-                  SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
-                  SQL_VALUES(10, "bar", TEST_VECTOR));
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"), SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"), SQL_VALUES(10, "bar", TEST_VECTOR));
 
-    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
-                  SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
-                  SQL_VALUES(20, "foo", TEST_VECTOR2));
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"), SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"), SQL_VALUES(20, "foo", TEST_VECTOR2));
 
-    db_mgr.INSERT(SQL_TABLE("MixAndMatch"),
-                  SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"),
-                  SQL_VALUES(20, "bar", TEST_VECTOR2));
+    db_mgr.INSERT(SQL_TABLE("MixAndMatch"), SQL_COLUMNS("SomeInt32", "SomeString", "SomeBlob"), SQL_VALUES(20, "bar", TEST_VECTOR2));
 
     // DefaultDoubles
     // ------------------------------------------------------------------------------------------------------
@@ -265,44 +239,47 @@ int main()
                   SQL_COLUMNS("DefaultEPS", "DefaultMIN", "DefaultMAX", "DefaultPI", "DefaultEXACT", "DefaultINEXACT"),
                   SQL_VALUES(TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT));
 
-    db_mgr.safeTransaction([&]() {
-        // IndexedColumns
-        // ------------------------------------------------------------------------------------------------------
-        // SomeInt32    SomeDouble    SomeString
-        // 1            1.1           "1.1"
-        // 2            2.1           "2.1"
-        // ...          ...           ...
-        // 100000       100000.1      "100000.1"
-        for (int idx = 1; idx <= 100000; ++idx) {
-            auto val_int = idx;
-            auto val_dbl = idx + 0.1;
-            auto val_str = std::to_string(val_int);
+    db_mgr.safeTransaction(
+        [&]()
+        {
+            // IndexedColumns
+            // ------------------------------------------------------------------------------------------------------
+            // SomeInt32    SomeDouble    SomeString
+            // 1            1.1           "1.1"
+            // 2            2.1           "2.1"
+            // ...          ...           ...
+            // 100000       100000.1      "100000.1"
+            for (int idx = 1; idx <= 100000; ++idx)
+            {
+                auto val_int = idx;
+                auto val_dbl = idx + 0.1;
+                auto val_str = std::to_string(val_int);
 
-            db_mgr.INSERT(
-                SQL_TABLE("IndexedColumns"),
-                SQL_COLUMNS("SomeInt32", "SomeDouble", "SomeString"),
-                SQL_VALUES(val_int, val_dbl, val_str));
-        }
+                db_mgr.INSERT(SQL_TABLE("IndexedColumns"),
+                              SQL_COLUMNS("SomeInt32", "SomeDouble", "SomeString"),
+                              SQL_VALUES(val_int, val_dbl, val_str));
+            }
 
-        // NonIndexedColumns
-        // ------------------------------------------------------------------------------------------------------
-        // SomeInt32    SomeDouble    SomeString
-        // 1            1.1           "1.1"
-        // 2            2.1           "2.1"
-        // ...          ...           ...
-        // 100000       100000.1      "100000.1"
-        for (int idx = 1; idx <= 100000; ++idx) {
-            auto val_int = idx;
-            auto val_dbl = idx + 0.1;
-            auto val_str = std::to_string(val_int);
+            // NonIndexedColumns
+            // ------------------------------------------------------------------------------------------------------
+            // SomeInt32    SomeDouble    SomeString
+            // 1            1.1           "1.1"
+            // 2            2.1           "2.1"
+            // ...          ...           ...
+            // 100000       100000.1      "100000.1"
+            for (int idx = 1; idx <= 100000; ++idx)
+            {
+                auto val_int = idx;
+                auto val_dbl = idx + 0.1;
+                auto val_str = std::to_string(val_int);
 
-            db_mgr.INSERT(SQL_TABLE("NonIndexedColumns"),
-                          SQL_COLUMNS("SomeInt32", "SomeDouble", "SomeString"),
-                          SQL_VALUES(val_int, val_dbl, val_str));
-        }
+                db_mgr.INSERT(SQL_TABLE("NonIndexedColumns"),
+                              SQL_COLUMNS("SomeInt32", "SomeDouble", "SomeString"),
+                              SQL_VALUES(val_int, val_dbl, val_str));
+            }
 
-        return true;
-    });
+            return true;
+        });
 
     // Test SQL queries for integer types.
     int32_t i32;
@@ -538,7 +515,8 @@ int main()
     }
 
     // Check WHERE clauses for doubles.
-    for (auto target : {TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT}) {
+    for (auto target : {TEST_EPSILON, TEST_DOUBLE_MIN, TEST_DOUBLE_MAX, TEST_DOUBLE_PI, TEST_DOUBLE_EXACT, TEST_DOUBLE_INEXACT})
+    {
         // Not using fuzzyMatch() - test for equality.
         query2->resetConstraints();
         query2->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, target, false);
@@ -581,7 +559,8 @@ int main()
     }
 
     // Check WHERE clause for comparisons using <, <=, >, >=
-    for (auto fuzzy : {false, true}) {
+    for (auto fuzzy : {false, true})
+    {
         query2->resetConstraints();
         query2->addConstraintForDouble("SomeDouble", simdb::Constraints::LESS, TEST_DOUBLE_PI, fuzzy);
         EXPECT_EQUAL(query2->count(), 8);
@@ -774,8 +753,7 @@ int main()
     // Ensure that we can append tables to an existing database schema.
     simdb::Schema schema3;
 
-    schema3.addTable("AppendedTable")
-        .addColumn("SomeInt32", dt::int32_t);
+    schema3.addTable("AppendedTable").addColumn("SomeInt32", dt::int32_t);
 
     db_mgr.appendSchema(schema3);
 

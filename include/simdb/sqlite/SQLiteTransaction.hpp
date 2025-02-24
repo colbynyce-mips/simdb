@@ -11,7 +11,8 @@
 #include <mutex>
 #include <thread>
 
-namespace simdb {
+namespace simdb
+{
 
 /// To support SimDB self-profiling, return TRUE only if the transaction
 /// involved touching the database (setProperty*(), INSERT, SELECT, etc.)
@@ -22,28 +23,35 @@ using TransactionFunc = std::function<bool()>;
  * \brief This class wraps a return code and throws a SafeTransactionSilentException
  *        when it encounters a "SQL locked" return code.
  */
-class SQLiteReturnCode {
+class SQLiteReturnCode
+{
 public:
     explicit SQLiteReturnCode(const int rc)
-        : rc_(rc) {
-        if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED) {
+        : rc_(rc)
+    {
+        if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED)
+        {
             throw SafeTransactionSilentException();
         }
     }
 
-    operator int() const {
+    operator int() const
+    {
         return rc_;
     }
 
-    operator bool() const {
+    operator bool() const
+    {
         return rc_ != SQLITE_OK;
     }
 
-    bool operator==(const int rc) {
+    bool operator==(const int rc)
+    {
         return rc_ == rc;
     }
 
-    bool operator!=(const int rc) {
+    bool operator!=(const int rc)
+    {
         return rc_ != rc;
     }
 
@@ -51,11 +59,13 @@ private:
     const int rc_;
 };
 
-inline bool operator==(const int rc, const SQLiteReturnCode& obj) {
+inline bool operator==(const int rc, const SQLiteReturnCode& obj)
+{
     return static_cast<int>(obj) == rc;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const SQLiteReturnCode& rc) {
+inline std::ostream& operator<<(std::ostream& os, const SQLiteReturnCode& rc)
+{
     os << (int)rc;
     return os;
 }
@@ -65,12 +75,15 @@ inline std::ostream& operator<<(std::ostream& os, const SQLiteReturnCode& rc) {
  * \brief This class wraps a sqlite3_stmt* and uses RAII to ensure that
  *        sqlite3_finalize() is called so we don't leak resources.
  */
-class SQLitePreparedStatement {
+class SQLitePreparedStatement
+{
 public:
-    SQLitePreparedStatement(sqlite3* db_conn, const std::string& cmd) {
+    SQLitePreparedStatement(sqlite3* db_conn, const std::string& cmd)
+    {
         sqlite3_stmt* stmt = nullptr;
         auto rc = sqlite3_prepare_v2(db_conn, cmd.c_str(), -1, &stmt, 0);
-        if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED) {
+        if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED)
+        {
             sqlite3_finalize(stmt);
             throw SafeTransactionSilentException();
         }
@@ -79,20 +92,25 @@ public:
     }
 
     SQLitePreparedStatement(sqlite3_stmt* stmt)
-        : stmt_(stmt) {
+        : stmt_(stmt)
+    {
     }
 
-    ~SQLitePreparedStatement() {
-        if (stmt_) {
+    ~SQLitePreparedStatement()
+    {
+        if (stmt_)
+        {
             sqlite3_finalize(stmt_);
         }
     }
 
-    operator sqlite3_stmt*() const {
+    operator sqlite3_stmt*() const
+    {
         return stmt_;
     }
 
-    sqlite3_stmt* release() {
+    sqlite3_stmt* release()
+    {
         auto stmt = stmt_;
         stmt_ = nullptr;
         return stmt;
@@ -109,31 +127,42 @@ private:
  *        to make it easier for SimDB to be a header-only library
  *        that avoids cyclic header includes.
  */
-class SQLiteTransaction {
+class SQLiteTransaction
+{
 public:
     /// Destructor
     virtual ~SQLiteTransaction() = default;
 
     /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
-    void safeTransaction(const TransactionFunc& transaction) {
-        while (true) {
-            try {
+    void safeTransaction(const TransactionFunc& transaction)
+    {
+        while (true)
+        {
+            try
+            {
                 std::lock_guard<std::recursive_mutex> lock(mutex_);
 
                 // Check to see if we are already in a transaction, in which
                 // case we simply call the transaction function. We cannot
                 // call "BEGIN TRANSACTION" recursively.
-                if (in_transaction_flag_) {
+                if (in_transaction_flag_)
+                {
                     transaction();
-                } else {
+                }
+                else
+                {
                     ScopedTransaction scoped_transaction(db_conn_, transaction, in_transaction_flag_);
-                    scoped_transaction.touchedDatabase(); //TODO cnyce: rename this method
+                    (void)scoped_transaction;
                 }
 
                 // We got this far without an exception, which means
                 // that the transaction is committed.
                 break;
-            } catch (const SafeTransactionSilentException&) { std::this_thread::sleep_for(std::chrono::milliseconds(25)); }
+            }
+            catch (const SafeTransactionSilentException&)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
         }
     }
 
@@ -178,36 +207,35 @@ private:
 
     /// RAII used for BEGIN/COMMIT TRANSACTION calls. Ensures that
     /// these calls always occur in pairs.
-    struct ScopedTransaction {
+    struct ScopedTransaction
+    {
         /// Issues BEGIN TRANSACTION
         ScopedTransaction(sqlite3* db_conn, const TransactionFunc& transaction, bool& in_transaction_flag)
             : db_conn_(db_conn)
             , in_transaction_flag_(in_transaction_flag)
-            , transaction_(transaction) {
+            , transaction_(transaction)
+        {
             in_transaction_flag_ = true;
             executeCommand_("BEGIN TRANSACTION");
+            transaction_();
         }
 
         /// Issues COMMIT TRANSACTION
-        ~ScopedTransaction() {
+        ~ScopedTransaction()
+        {
             executeCommand_("COMMIT TRANSACTION");
             in_transaction_flag_ = false;
-        }
-
-        /// Invoke the transaction code. Let the SQLiteTransaction know
-        /// whether we touched the DB.
-        bool touchedDatabase() {
-            touched_db_ = transaction_();
-            return touched_db_;
         }
 
     private:
         /// Execute the provided statement against the database
         /// connection. This will validate the command, and throw
         /// if this command is disallowed.
-        void executeCommand_(const char* cmd) {
+        void executeCommand_(const char* cmd)
+        {
             auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_, cmd, nullptr, nullptr, nullptr));
-            if (rc) {
+            if (rc)
+            {
                 throw DBException(sqlite3_errmsg(db_conn_));
             }
         }
@@ -217,9 +245,6 @@ private:
 
         /// Reference to SQLiteTransaction::in_transaction_flag_
         bool& in_transaction_flag_;
-
-        /// Let the SQLiteTransaction know whether we touched the DB.
-        bool touched_db_ = false;
 
         /// Wraps the user's code in a std::function
         const TransactionFunc& transaction_;

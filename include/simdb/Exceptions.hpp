@@ -7,32 +7,38 @@
 #include <sstream>
 #include <string>
 
-namespace simdb {
+namespace simdb
+{
 
 /// Used to construct and throw a standard C++ exception
-class DBException : public std::exception {
+class DBException : public std::exception
+{
 public:
     DBException() = default;
 
     /// Construct a DBException object
-    DBException(const std::string& reason) {
+    DBException(const std::string& reason)
+    {
         reason_ << reason;
     }
 
     /// Copy construct a DBException object
-    DBException(const DBException& rhs) {
+    DBException(const DBException& rhs)
+    {
         reason_ << rhs.reason_.str();
     }
 
     /// Destroy!
-    virtual ~DBException() noexcept override {
+    virtual ~DBException() noexcept override
+    {
     }
 
     /**
      * \brief Overload from std::exception
      * \return Const char * of the exception reason
      */
-    virtual const char* what() const noexcept override {
+    virtual const char* what() const noexcept override
+    {
         reason_str_ = reason_.str();
         return reason_str_.c_str();
     }
@@ -40,8 +46,8 @@ public:
     /**
      * \brief Append additional information to the message.
      */
-    template <typename T>
-    DBException& operator<<(const T& msg) {
+    template <typename T> DBException& operator<<(const T& msg)
+    {
         reason_ << msg;
         return *this;
     }
@@ -59,9 +65,11 @@ private:
 /// must be retried. Since SimDB is multi-threaded, we expect the database
 /// to encounter locked tables etc. which should not be thrown out of
 /// calls to safeTransaction().
-class SafeTransactionSilentException : public std::exception {
+class SafeTransactionSilentException : public std::exception
+{
 public:
-    const char* what() const noexcept override {
+    const char* what() const noexcept override
+    {
         return "The database is locked";
     }
 };
@@ -72,9 +80,11 @@ public:
  * \brief This exception is used in order to break out of
  *        the worker thread's infinite consumer loop.
  */
-class InterruptException : public std::exception {
+class InterruptException : public std::exception
+{
 public:
-    const char* what() const noexcept override {
+    const char* what() const noexcept override
+    {
         return "Infinite consumer loop has been interrupted";
     }
 

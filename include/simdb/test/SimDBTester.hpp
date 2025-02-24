@@ -22,15 +22,18 @@
 #include <string>
 #include <vector>
 
-namespace simdb {
+namespace simdb
+{
 /// ostream operator so we can do EXPECT_EQUAL(vec1, vec2)
-template <typename T>
-inline std::ostream& operator<<(std::ostream& os, const std::vector<T>& data) {
-    if (data.empty()) {
+template <typename T> inline std::ostream& operator<<(std::ostream& os, const std::vector<T>& data)
+{
+    if (data.empty())
+    {
         return os;
     }
 
-    if (data.size() == 1) {
+    if (data.size() == 1)
+    {
         os << "[" << data[0] << "]";
         return os;
     }
@@ -45,12 +48,14 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<T>& data) {
     std::ostringstream oss;
     oss << "[";
 
-    for (size_t idx = 0; idx < num_data_to_print - 1; ++idx) {
+    for (size_t idx = 0; idx < num_data_to_print - 1; ++idx)
+    {
         oss << data[idx] << ",";
     }
     oss << data[num_data_to_print - 1];
 
-    if (data.size() > num_data_to_print) {
+    if (data.size() > num_data_to_print)
+    {
         oss << ",...";
     }
     oss << "]";
@@ -87,15 +92,19 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<T>& data) {
      *       }
      *   \endcode
      */
-class SimDBTester {
+class SimDBTester
+{
 public:
     SimDBTester()
-        : SimDBTester(0, std::cerr) {
+        : SimDBTester(0, std::cerr)
+    {
     }
 
-    bool expectAllReached(const uint32_t expected_reached, const uint32_t line, const char* file) {
+    bool expectAllReached(const uint32_t expected_reached, const uint32_t line, const char* file)
+    {
         bool ret = true;
-        if (methods_reached_.size() != expected_reached) {
+        if (methods_reached_.size() != expected_reached)
+        {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test failed to execute the " << expected_reached
                   << " expected methods at least once."
                   << "\n"
@@ -105,7 +114,8 @@ public:
             //List the methods that were in fact reached.
             cerr_ << "The test only reached the following: " << std::endl;
             cerr_ << SIMDB_CURRENT_COLOR_GREEN;
-            for (const auto& s : methods_reached_) {
+            for (const auto& s : methods_reached_)
+            {
                 cerr_ << "-> " << s << "\n";
             }
 
@@ -119,9 +129,11 @@ public:
         return ret;
     }
 
-    bool expect(const bool val, const char* test_type, const uint32_t line, const char* file) {
+    bool expect(const bool val, const char* test_type, const uint32_t line, const char* file)
+    {
         bool ret = true;
-        if (!val) {
+        if (!val)
+        {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
                   << SIMDB_CURRENT_COLOR_NORMAL << std::endl;
             ++num_errors_;
@@ -131,16 +143,20 @@ public:
     }
 
     // Try and compare bytes and display values on failure instead of characters
-    bool
-    expectEqual(const uint8_t v1, const uint8_t v2, const bool expected, const char* test_type, const uint32_t line, const char* file) {
+    bool expectEqual(const uint8_t v1, const uint8_t v2, const bool expected, const char* test_type, const uint32_t line, const char* file)
+    {
         bool ret = true;
-        if ((v1 == v2) != expected) {
+        if ((v1 == v2) != expected)
+        {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
                   << ". Value: '" << static_cast<uint32_t>(v1);
 
-            if (expected) {
+            if (expected)
+            {
                 cerr_ << "' should equal '";
-            } else {
+            }
+            else
+            {
                 cerr_ << "' should NOT equal '";
             }
 
@@ -154,15 +170,20 @@ public:
 
     // Try and compare different types
     template <typename T>
-    bool expectEqual(const T& v1, const T& v2, const bool expected, const char* test_type, const uint32_t line, const char* file) {
+    bool expectEqual(const T& v1, const T& v2, const bool expected, const char* test_type, const uint32_t line, const char* file)
+    {
         bool ret = true;
-        if ((v1 == v2) != expected) {
+        if ((v1 == v2) != expected)
+        {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
                   << ". Value: '" << v1;
 
-            if (expected) {
+            if (expected)
+            {
                 cerr_ << "' should equal '";
-            } else {
+            }
+            else
+            {
                 cerr_ << "' should NOT equal '";
             }
 
@@ -175,15 +196,20 @@ public:
 
     // Try and compare different types
     template <typename T, typename U = T>
-    bool expectEqual(const T& v1, const U& v2, const bool expected, const char* test_type, const uint32_t line, const char* file) {
+    bool expectEqual(const T& v1, const U& v2, const bool expected, const char* test_type, const uint32_t line, const char* file)
+    {
         bool ret = true;
-        if (compare<T, U>(v1, v2) != expected) {
+        if (compare<T, U>(v1, v2) != expected)
+        {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
                   << ". Value: '" << v1;
 
-            if (expected) {
+            if (expected)
+            {
                 cerr_ << "' should equal '";
-            } else {
+            }
+            else
+            {
                 cerr_ << "' should NOT equal '";
             }
 
@@ -199,7 +225,8 @@ public:
     typename std::enable_if<std::is_integral<T>::value && std::is_integral<U>::value &&
                                 (std::is_signed<T>::value != std::is_signed<U>::value),
                             bool>::type
-    compare(const T& t, const U& u) {
+    compare(const T& t, const U& u)
+    {
         return (t == static_cast<T>(u));
     }
 
@@ -208,21 +235,27 @@ public:
     typename std::enable_if<!(std::is_integral<T>::value && std::is_integral<U>::value &&
                               (std::is_signed<T>::value != std::is_signed<U>::value)),
                             bool>::type
-    compare(const T& t, const U& u) {
+    compare(const T& t, const U& u)
+    {
         return (t == u);
     }
 
     // Overload for comparison with nullptr
     template <typename T>
-    bool expectEqual(const T& v1, const std::nullptr_t, const bool expected, const char* test_type, const uint32_t line, const char* file) {
+    bool expectEqual(const T& v1, const std::nullptr_t, const bool expected, const char* test_type, const uint32_t line, const char* file)
+    {
         bool ret = true;
-        if ((v1 == nullptr) != expected) {
+        if ((v1 == nullptr) != expected)
+        {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
                   << ". Value: '" << v1;
 
-            if (expected) {
+            if (expected)
+            {
                 cerr_ << "' should equal '";
-            } else {
+            }
+            else
+            {
                 cerr_ << "' should NOT equal '";
             }
 
@@ -236,15 +269,20 @@ public:
 
     // Overload for comparison of nullptr with a var
     template <typename T>
-    bool expectEqual(const std::nullptr_t, const T& v1, const bool expected, const char* test_type, const uint32_t line, const char* file) {
+    bool expectEqual(const std::nullptr_t, const T& v1, const bool expected, const char* test_type, const uint32_t line, const char* file)
+    {
         bool ret = true;
-        if ((nullptr == v1) != expected) {
+        if ((nullptr == v1) != expected)
+        {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
                   << ". Value: '" << v1;
 
-            if (expected) {
+            if (expected)
+            {
                 cerr_ << "' should equal '";
-            } else {
+            }
+            else
+            {
                 cerr_ << "' should NOT equal '";
             }
 
@@ -258,16 +296,21 @@ public:
 
     template <typename T>
     typename std::enable_if<std::is_floating_point<T>::value, bool>::type
-    expectEqualWithinTolerance(const T& v1, const T& v2, const T& tol, const char* test_type, const uint32_t line, const char* file) {
+    expectEqualWithinTolerance(const T& v1, const T& v2, const T& tol, const char* test_type, const uint32_t line, const char* file)
+    {
         bool ret = true;
-        if (tol < 0) {
+        if (tol < 0)
+        {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
                   << ". Negative tolerance supplied." << SIMDB_CURRENT_COLOR_NORMAL << std::endl;
             ++num_errors_;
             ret = false;
-        } else {
+        }
+        else
+        {
             ret = simdb::approximatelyEqual(v1, v2, tol);
-            if (!ret) {
+            if (!ret)
+            {
                 cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
                       << ". Value: '" << v1 << "' should be equal to '" << v2 << "' within tolerance '" << tol << "'";
                 ++num_errors_;
@@ -276,11 +319,13 @@ public:
         return ret;
     }
 
-    void throwTestFailed(const char* test_type, const uint32_t line, const char* file, const char* exception_what = "") {
+    void throwTestFailed(const char* test_type, const uint32_t line, const char* file, const char* exception_what = "")
+    {
         cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Throw Test Fail:'" << test_type << "' FAILED on line " << line << " in file " << file
               << std::endl;
 
-        if (exception_what != 0 && strlen(exception_what) != 0) {
+        if (exception_what != 0 && strlen(exception_what) != 0)
+        {
             cerr_ << "  Exception: " << exception_what << std::endl;
         }
         cerr_ << SIMDB_CURRENT_COLOR_NORMAL << std::endl;
@@ -311,62 +356,84 @@ public:
                           const bool expected,
                           const uint32_t line,
                           const char* file,
-                          const bool ignore_commented_lines = true) {
+                          const bool ignore_commented_lines = true)
+    {
         std::ifstream fa, fb;
         std::stringstream err;
-        try {
+        try
+        {
             fa.open(a, std::ios_base::in);
-        } catch (std::exception&) {}
+        }
+        catch (std::exception&)
+        {
+        }
 
-        if (fa.fail()) {
+        if (fa.fail())
+        {
             err.str("");
             err << "Could not open file \"" << a << "\"";
             fileComparisonFailed(a, b, line, file, err.str());
         }
 
-        try {
+        try
+        {
             fb.open(b, std::ios_base::in);
-        } catch (std::exception&) {}
+        }
+        catch (std::exception&)
+        {
+        }
 
-        if (fb.fail()) {
+        if (fb.fail())
+        {
             err.str("");
             err << "Could not open file \"" << b << "\"";
             fileComparisonFailed(a, b, line, file, err.str());
         }
 
-        if (!fa.fail() && !fb.fail()) {
+        if (!fa.fail() && !fb.fail())
+        {
             uint32_t line_num = 0;
             uint32_t last_line_pos = 0;
             uint64_t pos = 0;
             bool was_newline = true;
-            while (true) {
+            while (true)
+            {
                 char cho, chn;
                 cho = fa.get();
                 chn = fb.get();
 
                 // Ignore lines starting with '#'
-                if (was_newline && ignore_commented_lines) {
+                if (was_newline && ignore_commented_lines)
+                {
                     was_newline = false;
-                    if (cho == '#') {
-                        while (true) {
+                    if (cho == '#')
+                    {
+                        while (true)
+                        {
                             // Read until after newline
                             cho = fa.get();
-                            if (cho == '\n') {
+                            if (cho == '\n')
+                            {
                                 cho = fa.get();
-                                if (cho != '#') {
+                                if (cho != '#')
+                                {
                                     break;
                                 }
                             }
                             ++pos; // Increment pos on this file, but not the other
                         }
                     }
-                    if (chn == '#') {
+                    if (chn == '#')
+                    {
                         // Read until after newline
-                        while (true) {
+                        while (true)
+                        {
                             chn = fb.get();
-                            if (chn == '\n') {
+                            if (chn == '\n')
+                            {
                                 chn = fb.get();
-                                if (chn != '#') {
+                                if (chn != '#')
+                                {
                                     break;
                                 }
                             }
@@ -374,13 +441,18 @@ public:
                     }
                 }
 
-                if (!fa.good() || !fb.good()) {
-                    if ((fa.good() != fb.good()) && expected == true) {
+                if (!fa.good() || !fb.good())
+                {
+                    if ((fa.good() != fb.good()) && expected == true)
+                    {
                         std::stringstream msg;
                         msg << "Files were different lengths: ";
-                        if (!fa.good()) {
+                        if (!fa.good())
+                        {
                             msg << a << " was shorted than " << b << " at char '" << chn << "' #" << pos;
-                        } else {
+                        }
+                        else
+                        {
                             msg << b << " was shorted than " << a << " at char '" << cho << "' #" << pos;
                         }
                         fileComparisonFailed(a, b, line, file, msg.str());
@@ -388,31 +460,36 @@ public:
                     break;
                 }
 
-                if (cho != chn) {
+                if (cho != chn)
+                {
                     err.str("");
                     err << "Files differed at pos " << pos << " (line " << line_num << ", col " << pos - last_line_pos << ") with chars: '"
                         << cho << "' != '" << chn << "'";
-                    if (expected == true) {
+                    if (expected == true)
+                    {
                         fileComparisonFailed(a, b, line, file, err.str().c_str());
                     }
                     return;
                 }
 
                 ++pos;
-                if (cho == '\n') { // prev char (pos-1)
+                if (cho == '\n')
+                { // prev char (pos-1)
                     ++line_num;
                     last_line_pos = pos; // Line starts here
                     was_newline = true;
                 }
             }
 
-            if (expected == false) {
+            if (expected == false)
+            {
                 fileComparisonFailed(a, b, line, file, "Files were the same");
             }
         }
     }
 
-    void fileComparisonFailed(const std::string& a, const std::string& b, const uint32_t line, const char* file, const std::string& error) {
+    void fileComparisonFailed(const std::string& a, const std::string& b, const uint32_t line, const char* file, const std::string& error)
+    {
         cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "File comparison test between \"" << a << "\" and \"" << b << "\" FAILED on line "
               << line << " in file " << file << std::endl;
         cerr_ << "  Exception: " << error << std::endl;
@@ -420,20 +497,24 @@ public:
         ++num_errors_;
     }
 
-    void reachedMethod(const std::string& method_title) {
+    void reachedMethod(const std::string& method_title)
+    {
         methods_reached_.insert(method_title);
     }
 
-    static SimDBTester* getInstance() {
+    static SimDBTester* getInstance()
+    {
         static SimDBTester inst;
         return &inst;
     }
 
-    static std::unique_ptr<SimDBTester> makeTesterWithUserCError(std::ostream& cerr) {
+    static std::unique_ptr<SimDBTester> makeTesterWithUserCError(std::ostream& cerr)
+    {
         return std::unique_ptr<SimDBTester>(new SimDBTester(0, cerr));
     }
 
-    static uint32_t getErrorCode(const SimDBTester* tester = getInstance()) {
+    static uint32_t getErrorCode(const SimDBTester* tester = getInstance())
+    {
         return tester->num_errors_;
     }
 
@@ -443,7 +524,8 @@ private:
     SimDBTester(const uint32_t num_errors, std::ostream& cerr)
         : num_errors_(num_errors)
         , methods_reached_()
-        , cerr_(cerr) {
+        , cerr_(cerr)
+    {
     }
 
     uint32_t num_errors_;
@@ -619,10 +701,16 @@ private:
 #define EXPECT_THROW(x)                                                                                                                    \
     {                                                                                                                                      \
         bool did_it_throw = false;                                                                                                         \
-        try {                                                                                                                              \
+        try                                                                                                                                \
+        {                                                                                                                                  \
             x;                                                                                                                             \
-        } catch (...) { did_it_throw = true; }                                                                                             \
-        if (did_it_throw == false) {                                                                                                       \
+        }                                                                                                                                  \
+        catch (...)                                                                                                                        \
+        {                                                                                                                                  \
+            did_it_throw = true;                                                                                                           \
+        }                                                                                                                                  \
+        if (did_it_throw == false)                                                                                                         \
+        {                                                                                                                                  \
             simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__);                                                    \
         }                                                                                                                                  \
     }
@@ -648,17 +736,22 @@ private:
 #define EXPECT_THROW_MSG_SHORT(x, expected_msg)                                                                                            \
     {                                                                                                                                      \
         bool did_it_throw = false;                                                                                                         \
-        try {                                                                                                                              \
+        try                                                                                                                                \
+        {                                                                                                                                  \
             x;                                                                                                                             \
-        } catch (simdb::SimDBException & ex) {                                                                                             \
+        }                                                                                                                                  \
+        catch (simdb::SimDBException & ex)                                                                                                 \
+        {                                                                                                                                  \
             did_it_throw = true;                                                                                                           \
-            if (strcmp(expected_msg, ex.rawReason().c_str()) != 0) {                                                                       \
+            if (strcmp(expected_msg, ex.rawReason().c_str()) != 0)                                                                         \
+            {                                                                                                                              \
                 std::cerr << "Expected msg: " << expected_msg << std::endl;                                                                \
                 std::cerr << "Actual msg:   " << ex.what() << std::endl;                                                                   \
                 simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, ex.what());                                     \
             }                                                                                                                              \
         }                                                                                                                                  \
-        if (did_it_throw == false) {                                                                                                       \
+        if (did_it_throw == false)                                                                                                         \
+        {                                                                                                                                  \
             simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, "did not throw");                                   \
         }                                                                                                                                  \
     }
@@ -684,17 +777,22 @@ private:
 #define EXPECT_THROW_MSG_LONG(x, expected_msg)                                                                                             \
     {                                                                                                                                      \
         bool did_it_throw = false;                                                                                                         \
-        try {                                                                                                                              \
+        try                                                                                                                                \
+        {                                                                                                                                  \
             x;                                                                                                                             \
-        } catch (simdb::SimDBException & ex) {                                                                                             \
+        }                                                                                                                                  \
+        catch (simdb::SimDBException & ex)                                                                                                 \
+        {                                                                                                                                  \
             did_it_throw = true;                                                                                                           \
-            if (strcmp(expected_msg, ex.what()) != 0) {                                                                                    \
+            if (strcmp(expected_msg, ex.what()) != 0)                                                                                      \
+            {                                                                                                                              \
                 std::cerr << "Expected msg: " << expected_msg << std::endl;                                                                \
                 std::cerr << "Actual msg:   " << ex.what() << std::endl;                                                                   \
                 simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, ex.what());                                     \
             }                                                                                                                              \
         }                                                                                                                                  \
-        if (did_it_throw == false) {                                                                                                       \
+        if (did_it_throw == false)                                                                                                         \
+        {                                                                                                                                  \
             simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, "did not throw");                                   \
         }                                                                                                                                  \
     }
@@ -702,17 +800,22 @@ private:
 #define EXPECT_THROW_MSG_CONTAINS(x, expected_msg)                                                                                         \
     {                                                                                                                                      \
         bool did_it_throw = false;                                                                                                         \
-        try {                                                                                                                              \
+        try                                                                                                                                \
+        {                                                                                                                                  \
             x;                                                                                                                             \
-        } catch (simdb::SimDBException & ex) {                                                                                             \
+        }                                                                                                                                  \
+        catch (simdb::SimDBException & ex)                                                                                                 \
+        {                                                                                                                                  \
             did_it_throw = true;                                                                                                           \
-            if (std::string(ex.what()).find(expected_msg) != std::string::npos) {                                                          \
+            if (std::string(ex.what()).find(expected_msg) != std::string::npos)                                                            \
+            {                                                                                                                              \
                 std::cerr << "Expected msg: " << expected_msg << std::endl;                                                                \
                 std::cerr << "Actual msg:   " << ex.what() << std::endl;                                                                   \
                 simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, ex.what());                                     \
             }                                                                                                                              \
         }                                                                                                                                  \
-        if (did_it_throw == false) {                                                                                                       \
+        if (did_it_throw == false)                                                                                                         \
+        {                                                                                                                                  \
             simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, "did not throw");                                   \
         }                                                                                                                                  \
     }
@@ -730,13 +833,21 @@ private:
     {                                                                                                                                      \
         bool did_it_throw = false;                                                                                                         \
         std::string exception_what;                                                                                                        \
-        try {                                                                                                                              \
+        try                                                                                                                                \
+        {                                                                                                                                  \
             x;                                                                                                                             \
-        } catch (std::exception & e) {                                                                                                     \
+        }                                                                                                                                  \
+        catch (std::exception & e)                                                                                                         \
+        {                                                                                                                                  \
             did_it_throw = true;                                                                                                           \
             exception_what = e.what();                                                                                                     \
-        } catch (...) { did_it_throw = true; }                                                                                             \
-        if (did_it_throw == true) {                                                                                                        \
+        }                                                                                                                                  \
+        catch (...)                                                                                                                        \
+        {                                                                                                                                  \
+            did_it_throw = true;                                                                                                           \
+        }                                                                                                                                  \
+        if (did_it_throw == true)                                                                                                          \
+        {                                                                                                                                  \
             simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, exception_what.c_str());                            \
         }                                                                                                                                  \
     }
@@ -752,7 +863,9 @@ private:
  * \endcode
  */
 #define EXPECT_FILES_EQUAL(a, b)                                                                                                           \
-    { simdb::SimDBTester::getInstance()->expectFilesEqual(a, b, true, __LINE__, __FILE__); }
+    {                                                                                                                                      \
+        simdb::SimDBTester::getInstance()->expectFilesEqual(a, b, true, __LINE__, __FILE__);                                               \
+    }
 
 /**
  * \def EXPECT_FILES_NOTEQUAL(a, b)
@@ -765,7 +878,9 @@ private:
  * \endcode
  */
 #define EXPECT_FILES_NOTEQUAL(a, b)                                                                                                        \
-    { simdb::SimDBTester::getInstance()->expectFilesEqual(a, b, false, __LINE__, __FILE__); }
+    {                                                                                                                                      \
+        simdb::SimDBTester::getInstance()->expectFilesEqual(a, b, false, __LINE__, __FILE__);                                              \
+    }
 
 /**
  * \def ERROR_CODE
@@ -795,11 +910,14 @@ private:
   * \endcode
   */
 #define REPORT_ERROR                                                                                                                       \
-    if (ERROR_CODE != 0) {                                                                                                                 \
+    if (ERROR_CODE != 0)                                                                                                                   \
+    {                                                                                                                                      \
         std::cout << std::dec << "\n"                                                                                                      \
                   << SIMDB_UNMANAGED_COLOR_BRIGHT_RED << ERROR_CODE << "ERROR(S) found during test.\n"                                     \
                   << SIMDB_UNMANAGED_COLOR_NORMAL << std::endl;                                                                            \
-    } else {                                                                                                                               \
+    }                                                                                                                                      \
+    else                                                                                                                                   \
+    {                                                                                                                                      \
         std::cout << std::dec << "\n"                                                                                                      \
                   << "TESTS PASSED -- No errors found during test.\n"                                                                      \
                   << std::endl;                                                                                                            \

@@ -5,15 +5,22 @@
 #include <zlib.h>
 #include <vector>
 
-namespace simdb {
+namespace simdb
+{
 
 /// Compression modes of operation.
-enum class CompressionModes { COMPRESSED, UNCOMPRESSED };
+enum class CompressionModes
+{
+    COMPRESSED,
+    UNCOMPRESSED
+};
 
 /// Perform zlib compression on the single data vector of stats values.
 template <typename T>
-inline void compressDataVec(const std::vector<T>& in, std::vector<char>& out, int compression_level = Z_DEFAULT_COMPRESSION) {
-    if (in.empty()) {
+inline void compressDataVec(const std::vector<T>& in, std::vector<char>& out, int compression_level = Z_DEFAULT_COMPRESSION)
+{
+    if (in.empty())
+    {
         out.clear();
         return;
     }
@@ -32,7 +39,8 @@ inline void compressDataVec(const std::vector<T>& in, std::vector<char>& out, in
     // value for the maximum number of bytes after decompression, but we can choose
     // a very safe minimum.
     auto max_bytes_after = num_bytes_before * 2;
-    if (max_bytes_after < 1000) {
+    if (max_bytes_after < 1000)
+    {
         max_bytes_after = 1000;
     }
     out.resize(max_bytes_after);

@@ -73,7 +73,8 @@ static constexpr const char* ALL_COLORS[] = {
     SIMDB_UNMANAGED_COLOR_BG_MAGENTA,     SIMDB_UNMANAGED_COLOR_BG_CYAN};
 
 /// Define enums for accessing the different colors via a ColorScheme.
-enum class Color {
+enum class Color
+{
     Normal,
     Bold,
     Red,
@@ -101,8 +102,10 @@ enum class Color {
 #define SIMDB_CMDLINE_COLOR_WARNING "" // SIMDB_UNMANAGED_COLOR_YELLOW
 #define SIMDB_CMDLINE_COLOR_GOOD "" // SIMDB_UNMANAGED_COLOR_GOOD
 
-namespace simdb {
-namespace color {
+namespace simdb
+{
+namespace color
+{
 
 /**
      * \class ColorScheme
@@ -110,9 +113,11 @@ namespace color {
      * \details The idea behind ColorScheme is to have the ability
      * to disable terminal colors in the module with a simple flag.
      */
-class ColorScheme {
+class ColorScheme
+{
 public:
-    static ColorScheme& getDefaultScheme() {
+    static ColorScheme& getDefaultScheme()
+    {
         static ColorScheme scheme;
         return scheme;
     }
@@ -124,13 +129,16 @@ public:
          * \param enabled Flag denoting whether colors are enabled for
          * error reporting in SimDB.
          */
-    void setIsEnabled(const bool enabled) {
+    void setIsEnabled(const bool enabled)
+    {
         enabled_ = enabled;
     }
 
     /// The accessors that should always be used for colors.
-    const char* color(const Color c) const {
-        if (enabled_) {
+    const char* color(const Color c) const
+    {
+        if (enabled_)
+        {
             using utype = typename std::underlying_type<Color>::type;
             return all_colors_.at(static_cast<utype>(c)).c_str();
         }
@@ -140,9 +148,11 @@ public:
     }
 
 private:
-    ColorScheme() {
+    ColorScheme()
+    {
         // Load all the colors.
-        for (const char* c : ALL_COLORS) {
+        for (const char* c : ALL_COLORS)
+        {
             all_colors_.emplace_back(c);
         }
     }
