@@ -22,15 +22,6 @@ static const std::vector<int> TEST_VECTOR2 = {6, 7, 8, 9, 10};
 static const simdb::SqlBlob TEST_BLOB = TEST_VECTOR;
 static const simdb::SqlBlob TEST_BLOB2 = TEST_VECTOR2;
 
-simdb::PerfTimer timer;
-
-// Helper for negative test of rerouteNewTasksTo().
-class TaskRerouter
-{
-public:
-    void addTask(std::unique_ptr<simdb::WorkerTask>) {}
-};
-
 int main()
 {
     DB_INIT;
@@ -743,39 +734,14 @@ int main()
         EXPECT_FALSE(result_set.getNextRecord());
     }
 
-    // Ensure that indexing works by running the same queries against tables
-    // that are indexed and not (with the same number of records / schema)
-    // and verifying that the indexed queries are faster.
-    //
-    // We'll pick the last record in the table to give the highest chance
-    // of a large discrepancy in the query times (full table walk for the
-    // non-indexed query).
-    auto query6 = db_mgr.createQuery("IndexedColumns");
     auto query7 = db_mgr.createQuery("NonIndexedColumns");
 
     // Make sure the tables have the same number of records first.
     int IndexedColumns_id, NonIndexedColumns_id;
-    query6->select("Id", IndexedColumns_id);
     query7->select("Id", NonIndexedColumns_id);
-    EXPECT_EQUAL(query6->count(), query7->count());
-
-    query6->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 100000);
-    query6->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, 100000.1);
-    query6->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "100000");
-
     query7->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 100000);
     query7->addConstraintForDouble("SomeDouble", simdb::Constraints::EQUAL, 100000.1);
     query7->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "100000");
-
-    timer.restart();
-    EXPECT_EQUAL(query6->count(), 1);
-    const double indexed_query_time = timer.elapsedTime();
-
-    timer.restart();
-    EXPECT_EQUAL(query7->count(), 1);
-    const double non_indexed_query_time = timer.elapsedTime();
-
-    EXPECT_TRUE(non_indexed_query_time > 10 * indexed_query_time);
 
     // Ensure that we can connect a new DatabaseManager to a .db that was
     // created by another DatabaseManager.
@@ -821,99 +787,25 @@ int main()
     query8->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 101);
     EXPECT_EQUAL(query8->count(), 2);
 
-    // Ensure that we can send a bunch of data to the database on the
-    // worker thread. This is a common approach for high-volume data
-    // from simulations.
-    simdb::Schema schema4;
+    // Ensure that we can execute queries with OR clauses. Here we will test:
+    //   SELECT COUNT(Id) FROM MixAndMatch WHERE (SomeInt32 = 10 AND SomeString = 'foo') OR (SomeString = 'foo')
+    auto query9 = db_mgr.createQuery("MixAndMatch");
 
-    schema4.addTable("HighVolumeData")
-        .addColumn("RawData", dt::blob_t);
+    query9->select("SomeInt32", i32);
+    query9->select("SomeString", str);
 
-    db_mgr.appendSchema(schema4);
+    query9->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 10);
+    query9->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    auto clause1 = query9->releaseConstraintClauses();
 
-    class AsyncWriter : public simdb::WorkerTask
-    {
-    public:
-        AsyncWriter(simdb::DatabaseManager* db_mgr, size_t num_vals, int val)
-            : db_mgr_(db_mgr)
-            , data_(num_vals, val)
-        {
-        }
+    query9->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
+    auto clause2 = query9->releaseConstraintClauses();
 
-        void completeTask() override
-        {
-            if (db_mgr_) {
-                db_mgr_->INSERT(SQL_TABLE("HighVolumeData"),
-                                SQL_COLUMNS("RawData"),
-                                SQL_VALUES(data_));
-            }
-        }
-
-    private:
-        simdb::DatabaseManager* db_mgr_;
-        std::vector<int> data_;
-    };
-
-    auto task_queue = db_mgr.getConnection()->getTaskQueue();
-
-    // Open scope for simdb::AllOrNothing
-    {
-        simdb::AllOrNothing all_or_nothing(task_queue);
-        TaskRerouter rerouter;
-
-        for (size_t idx = 10; idx < 1000; ++idx) {
-            const size_t num_vals = idx;
-            const int val = 500 - idx;
-
-            std::unique_ptr<simdb::WorkerTask> task(new AsyncWriter(&db_mgr, num_vals, val));
-            task_queue->addTask(std::move(task));
-
-            // Ensure exception is thrown if we try to call rerouteNewTasksTo() again.
-            EXPECT_THROW(task_queue->rerouteNewTasksTo(rerouter));
-        }
-    }
-
-    // Note that stopping the worker thread implicitly flushes the queue first.
-    task_queue->stopThread();
-
-    auto query9 = db_mgr.createQuery("HighVolumeData");
-
-    std::vector<int> data_vec;
-    query9->select("RawData", data_vec);
+    query9->addCompoundConstraint(clause1, simdb::QueryOperator::OR, clause2);
+    EXPECT_EQUAL(query9->count(), 2);
 
     {
         auto result_set = query9->getResultSet();
-        for (size_t idx = 10; idx < 1000; ++idx) {
-            const size_t num_vals = idx;
-            const int val = 500 - idx;
-            const std::vector<int> expected_data(num_vals, val);
-
-            EXPECT_TRUE(result_set.getNextRecord());
-            EXPECT_EQUAL(data_vec, expected_data);
-        }
-
-        EXPECT_FALSE(result_set.getNextRecord());
-    }
-
-    // Ensure that we can execute queries with OR clauses. Here we will test:
-    //   SELECT COUNT(Id) FROM MixAndMatch WHERE (SomeInt32 = 10 AND SomeString = 'foo') OR (SomeString = 'foo')
-    auto query10 = db_mgr.createQuery("MixAndMatch");
-
-    query10->select("SomeInt32", i32);
-    query10->select("SomeString", str);
-
-    query10->addConstraintForInt("SomeInt32", simdb::Constraints::EQUAL, 10);
-    query10->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
-    auto clause1 = query10->releaseConstraintClauses();
-
-    query10->addConstraintForString("SomeString", simdb::Constraints::EQUAL, "foo");
-    auto clause2 = query10->releaseConstraintClauses();
-
-    query10->addCompoundConstraint(clause1, simdb::QueryOperator::OR, clause2);
-    EXPECT_EQUAL(query10->count(), 2);
-
-    {
-        auto result_set = query10->getResultSet();
         EXPECT_TRUE(result_set.getNextRecord());
         EXPECT_EQUAL(i32, 10);
         EXPECT_EQUAL(str, "foo");
@@ -930,24 +822,6 @@ int main()
 
     db_mgr.closeDatabase();
     db_mgr2.closeDatabase();
-
-    // Verify that we cannot schedule task on the AsyncTaskQueue for multiple
-    // DatabaseManagers at once. We only allow one worker thread.
-    simdb::DatabaseManager db_mgr4("threadA.db");
-    simdb::DatabaseManager db_mgr5("threadB.db");
-    db_mgr4.createDatabaseFromSchema(schema);
-    db_mgr5.createDatabaseFromSchema(schema);
-
-    std::unique_ptr<simdb::WorkerTask> taskA(new AsyncWriter(nullptr, 0, 0));
-    std::unique_ptr<simdb::WorkerTask> taskB(new AsyncWriter(nullptr, 0, 0));
-
-    EXPECT_NOTHROW(db_mgr4.getConnection()->getTaskQueue()->addTask(std::move(taskA)));
-    EXPECT_THROW(db_mgr5.getConnection()->getTaskQueue()->addTask(std::move(taskB)));
-    db_mgr4.closeDatabase();
-
-    taskA.reset(new AsyncWriter(nullptr, 0, 0));
-    EXPECT_NOTHROW(db_mgr5.getConnection()->getTaskQueue()->addTask(std::move(taskA)));
-    db_mgr5.closeDatabase();
 
     // This MUST be put at the end of unit test files' main() function.
     ENSURE_ALL_REACHED(0);

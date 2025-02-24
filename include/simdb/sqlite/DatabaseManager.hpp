@@ -9,7 +9,6 @@
 #include "simdb/serialize/CollectionPoints.hpp"
 #include "simdb/serialize/Serialize.hpp"
 #include "simdb/serialize/Pipeline.hpp"
-#include "simdb/utils/PerfDiagnostics.hpp"
 #include "simdb/utils/TreeBuilder.hpp"
 #include "simdb/utils/Compress.hpp"
 
@@ -136,12 +135,7 @@ public:
     }
 
     /// You must explicitly call closeDatabase() prior to deleting
-    /// the DatabaseManager to close the sqlite3 connection and to
-    /// stop the AsyncTaskQueue thread if it is still running.
-    ///
-    /// Also write performance diagnostics to stdout if profiling was
-    /// enabled, and writeProfileReport() was never explicitly
-    /// called.
+    /// the DatabaseManager to close the sqlite3 connection.
     ~DatabaseManager()
     {
         if (db_conn_) {
@@ -149,45 +143,29 @@ public:
                       << "before it goes out of scope!" << std::endl;
             std::terminate();
         }
-
-        if (perf_diagnostics_ && !perf_diagnostics_->reportWritten()) {
-            perf_diagnostics_->writeReport(std::cout);
-        }
     }
 
     /// \brief  Using a Schema object for your database, construct
     ///         the physical database file and open the connection.
-    ///
-    /// \param profile Pass in TRUE if you want to enable SimDB
-    ///                performance diagnostics. You will be responsible
-    ///                for calling enterSimPhase() at the appropriate times
-    ///                if you want the resulting report to separate DB usage
-    ///                based on setup, simloop, and teardown phases.
     ///
     /// \throws This will throw an exception for DatabaseManager's
     ///         whose connection was initialized with a previously
     ///         existing file.
     ///
     /// \return Returns true if successful, false otherwise.
-    bool createDatabaseFromSchema(const Schema& schema, const bool profile = false)
+    bool createDatabaseFromSchema(const Schema& schema)
     {
         if (!append_schema_allowed_) {
             throw DBException("Cannot alter schema if you created a DatabaseManager with an existing file.");
         }
 
-        db_conn_.reset(new SQLiteConnection(this));
+        db_conn_.reset(new SQLiteConnection);
         schema_ = schema;
 
         assertNoDatabaseConnectionOpen_();
         createDatabaseFile_();
 
         db_conn_->realizeSchema(schema_);
-
-        if (db_conn_->isValid() && profile) {
-            perf_diagnostics_.reset(new PerfDiagnostics);
-            db_conn_->enableProfiling(perf_diagnostics_.get());
-        }
-
         return db_conn_->isValid();
     }
 
@@ -223,13 +201,6 @@ public:
     const std::string& getDatabaseFilePath() const
     {
         return db_filepath_;
-    }
-
-    /// Get the SQLiteTransaction for safeTransaction() as well
-    /// as access to the async task queue (worker thread task manager).
-    SQLiteTransaction* getConnection() const
-    {
-        return db_conn_.get();
     }
 
     /// Initialize the collection manager prior to calling getCollectionMgr().
@@ -416,47 +387,19 @@ public:
         return std::unique_ptr<SqlQuery>(new SqlQuery(table_name, db_conn_->getDatabase()));
     }
 
-    /// Close the sqlite3 connection and stop the AsyncTaskQueue thread
-    /// if it is still running.
+    /// Close the sqlite3 connection.
     void closeDatabase()
     {
-        if (db_conn_) {
-            db_conn_->getTaskQueue()->stopThread();
-            db_conn_.reset();
-        }
-
-        if (perf_diagnostics_) {
-            perf_diagnostics_->onCloseDatabase();
-        }
-    }
-
-    /// \brief Write the current performance diagnostics to file.
-    /// \param filename Name of the report file, or "" to print to stdout.
-    /// \param title Title of the report.
-    bool writeProfileReport(std::ostream& os, const std::string& title = "") const
-    {
-        if (!perf_diagnostics_) {
-            return false;
-        }
-
-        perf_diagnostics_->writeReport(os, title);
-        return true;
-    }
-
-    /// To support accurate SimDB self-profiling, update the simulation
-    /// phase at the appropriate times (SETUP->SIMLOOP->TEARDOWN). This
-    /// is used to write profile data separated by phase. 
-    void enterSimPhase(const SimPhase phase)
-    {
-        if (perf_diagnostics_) {
-            perf_diagnostics_->enterSimPhase(phase);
-        }
+        db_conn_.reset();
     }
 
     // One-time call to write post-simulation metadata to SimDB.
     void postSim()
     {
-        collection_mgr_->postSim();
+        safeTransaction([&](){
+            collection_mgr_->postSim();
+            return true;
+        });
     }
 
 private:
@@ -472,7 +415,7 @@ private:
     bool connectToExistingDatabase_(const std::string& db_fpath)
     {
         assertNoDatabaseConnectionOpen_();
-        db_conn_.reset(new SQLiteConnection(this));
+        db_conn_.reset(new SQLiteConnection);
 
         if (db_conn_->openDbFile_(db_fpath).empty()) {
             db_conn_.reset();
@@ -568,10 +511,6 @@ private:
     /// We do not allow schemas to be altered for DatabaseManager's
     /// that were initialized with a previously existing file.
     bool append_schema_allowed_ = true;
-
-    /// Self-profiler to help users maximize performance of SimDB
-    /// with its intended use.
-    std::unique_ptr<PerfDiagnostics> perf_diagnostics_;
 };
 
 inline void FieldBase::serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const
@@ -780,67 +719,27 @@ inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
     pipeline_.push(std::move(swept_data_), tick);
 }
 
-class QueueMaxSizeWriter : public WorkerTask
-{
-public:
-    QueueMaxSizeWriter(DatabaseManager* db_mgr, uint16_t elem_id, uint16_t max_size)
-        : db_mgr_(db_mgr)
-        , elem_id_(elem_id)
-        , max_size_(max_size)
-    {}
-
-private:
-    void completeTask() override
-    {
-        db_mgr_->INSERT(SQL_TABLE("QueueMaxSizes"),
-                        SQL_COLUMNS("CollectableTreeNodeID", "MaxSize"),
-                        SQL_VALUES(elem_id_, max_size_));
-    }
-
-    DatabaseManager* db_mgr_;
-    uint16_t elem_id_;
-    uint16_t max_size_;
-};
-
 inline void CollectionMgr::postSim()
 {
-    if (!db_mgr_) {
-        return;
-    }
-
     pipeline_.postSim(db_mgr_);
 
-    db_mgr_->safeTransaction([&](){
-        for (auto& collectable : collectables_) {
-            collectable->postSim(db_mgr_);
-        }
-        return true;
-    });
+    for (auto& collectable : collectables_) {
+        collectable->postSim(db_mgr_);
+    }
 }
 
 inline void ContigIterableCollectionPoint::postSim(DatabaseManager* db_mgr)
 {
-    auto task = std::make_unique<QueueMaxSizeWriter>(db_mgr, getElemId(), queue_max_size_);
-    db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
+    db_mgr->INSERT(SQL_TABLE("QueueMaxSizes"),
+                   SQL_COLUMNS("CollectableTreeNodeID", "MaxSize"),
+                   SQL_VALUES(getElemId(), queue_max_size_));
 }
 
 inline void SparseIterableCollectionPoint::postSim(DatabaseManager* db_mgr)
 {
-    auto task = std::make_unique<QueueMaxSizeWriter>(db_mgr, getElemId(), queue_max_size_);
-    db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
-}
-
-inline void CollectionPointDataWriter::completeTask()
-{
-    db_mgr_->INSERT(SQL_TABLE("CollectionRecords"),
-                    SQL_COLUMNS("Tick", "Data", "IsCompressed"),
-                    SQL_VALUES(tick_, data_, (int)compressed_));
-
-    for (const auto& kvp : unserialized_map_) {
-        db_mgr_->INSERT(SQL_TABLE("StringMap"),
-                        SQL_COLUMNS("IntVal", "String"),
-                        SQL_VALUES(kvp.first, kvp.second));
-    }
+    db_mgr->INSERT(SQL_TABLE("QueueMaxSizes"),
+                   SQL_COLUMNS("CollectableTreeNodeID", "MaxSize"),
+                   SQL_VALUES(getElemId(), queue_max_size_));
 }
 
 inline TreeNode* CollectionMgr::updateTree_(const std::string& path, const std::string& clk)

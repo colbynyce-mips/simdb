@@ -20,11 +20,14 @@ size_t PipelineStage::count() const
     return queue_.size();
 }
 
-void PipelineStage::flush(DatabaseManager* db_mgr)
+void PipelineStage::flush()
 {
-    flush_(db_mgr);
+    while (is_running_ && !queue_.empty()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
     if (next_stage_) {
-        next_stage_->flush(db_mgr);
+        next_stage_->flush();
     }
 }
 
@@ -33,13 +36,6 @@ void PipelineStage::teardown()
     stop_();
     if (next_stage_) {
         next_stage_->teardown();
-    }
-}
-
-void PipelineStage::flush_(DatabaseManager*)
-{
-    while (is_running_ && !queue_.empty()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
 
@@ -69,9 +65,11 @@ void PipelineStage::consume_()
             continue;
         }
 
-        processPipelineStage_(payload);
         if (next_stage_) {
+            processPipelineStage_(payload);
             next_stage_->push(std::move(payload));
+        } else {
+            processPipelineStage_(std::move(payload));
         }
     }
 }
@@ -88,8 +86,8 @@ void Pipeline::push(std::vector<char>&& bytes, uint64_t tick)
     // second stage writes to the database. This simple algo
     // chooses the best time/space tradeoff for most use cases.
 
-    auto stage1_proc_time = stage1_.getEstimatedRemainingProcTime(db_mgr_);
-    auto stage2_proc_time = stage2_.getEstimatedRemainingProcTime(db_mgr_);
+    auto stage1_proc_time = stage1_.getEstimatedRemainingProcTime();
+    auto stage2_proc_time = stage2_.getEstimatedRemainingProcTime();
 
     auto total_proc_time = stage1_proc_time + stage2_proc_time;
     auto stage1_pct_proc_time = stage1_proc_time / total_proc_time * 100;
@@ -123,7 +121,7 @@ void Pipeline::push(std::vector<char>&& bytes, uint64_t tick)
 
 void Pipeline::postSim(DatabaseManager* db_mgr)
 {
-    stage1_.flush(db_mgr);
+    stage1_.flush();
     stage1_.teardown();
 }
 
@@ -143,19 +141,17 @@ void Pipeline::CompressionStage::processPipelineStage_(PipelineStagePayload& pay
     }
 }
 
-double Pipeline::CompressionWithDatabaseWriteStage::getEstimatedRemainingProcTime(DatabaseManager* db_mgr) const
+double Pipeline::CompressionWithDatabaseWriteStage::getEstimatedRemainingProcTime() const
 {
     double est_time = 0;
     if (default_compression_level_) {
         est_time += count() * compression_time_.mean();
     }
-
-    est_time += db_mgr->getConnection()->getTaskQueue()->getEstimatedRemainingProcTime();
     return est_time;
 }
 
 
-void Pipeline::CompressionWithDatabaseWriteStage::processPipelineStage_(PipelineStagePayload& payload)
+void Pipeline::CompressionWithDatabaseWriteStage::processPipelineStage_(PipelineStagePayload&& payload)
 {
     if (!payload.compressed && default_compression_level_) {
         auto begin = std::chrono::high_resolution_clock::now();
@@ -170,24 +166,33 @@ void Pipeline::CompressionWithDatabaseWriteStage::processPipelineStage_(Pipeline
         compression_time_.add(seconds);
     }
 
-    sendToDatabase_(payload);
-}
+    ready_queue_.emplace(std::move(payload));
 
-void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(PipelineStagePayload& payload) const
-{
-    auto db_mgr = payload.db_mgr;
-    const auto & data = payload.data;
-    const auto tick = payload.tick;
-    const auto compressed = payload.compressed;
+    if (ping_) {
+        auto db_mgr = payload.db_mgr;
+        db_mgr->safeTransaction([&](){
+            PipelineStagePayload payload;
+            while (ready_queue_.try_pop(payload)) {
+                const auto& data = payload.data;
+                const auto tick = payload.tick;
+                const auto compressed = payload.compressed;
 
-    auto task = std::make_unique<CollectionPointDataWriter>(db_mgr, data, tick, compressed);
-    db_mgr->getConnection()->getTaskQueue()->addTask(std::move(task));
-}
+                db_mgr->INSERT(SQL_TABLE("CollectionRecords"),
+                               SQL_COLUMNS("Tick", "Data", "IsCompressed"),
+                               SQL_VALUES(tick, data, (int)compressed));
+            }
 
-void Pipeline::CompressionWithDatabaseWriteStage::flush_(DatabaseManager* db_mgr)
-{
-    PipelineStage::flush_(db_mgr);
-    db_mgr->getConnection()->getTaskQueue()->flushQueue();
+            StringMap::instance()->clearUnserializedMap();
+
+            for (const auto& kvp : StringMap::instance()->getUnserializedMap()) {
+                db_mgr->INSERT(SQL_TABLE("StringMap"),
+                               SQL_COLUMNS("IntVal", "String"),
+                               SQL_VALUES(kvp.first, kvp.second));
+            }
+
+            return true;
+        });
+    }
 }
 
 } // namespace simdb

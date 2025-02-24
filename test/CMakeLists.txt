@@ -7,4 +7,3 @@ add_custom_command(
 
 add_subdirectory(Collection)
 add_subdirectory(SQLiteConnection)
-add_subdirectory(PerfDiagnostics)

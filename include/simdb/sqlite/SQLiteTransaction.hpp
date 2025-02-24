@@ -3,7 +3,6 @@
 #pragma once
 
 #include "simdb/Exceptions.hpp"
-#include "simdb/utils/PerfDiagnostics.hpp"
 
 #include <chrono>
 #include <functional>
@@ -14,8 +13,6 @@
 
 namespace simdb
 {
-
-class AsyncTaskQueue;
 
 /// To support SimDB self-profiling, return TRUE only if the transaction
 /// involved touching the database (setProperty*(), INSERT, SELECT, etc.)
@@ -147,9 +144,7 @@ public:
                     transaction();
                 } else {
                     ScopedTransaction scoped_transaction(db_conn_, transaction, in_transaction_flag_);
-                    if (scoped_transaction.touchedDatabase() && profiler_) {
-                        profiler_->onCommitTransaction();
-                    }
+                    scoped_transaction.touchedDatabase();//TODO cnyce: rename this method
                 }
 
                 // We got this far without an exception, which means
@@ -159,20 +154,6 @@ public:
                 std::this_thread::sleep_for(std::chrono::milliseconds(25));
             }
         }
-    }
-
-    /// Get this database connection's task queue. This
-    /// object can be used to schedule database work to
-    /// be executed on a background thread.
-    virtual AsyncTaskQueue* getTaskQueue() const
-    {
-        return nullptr;
-    }
-
-    /// Allow us to track performance metrics to diagnose SimDB misuse.
-    void enableProfiling(PerfDiagnostics* profiler)
-    {
-        profiler_ = profiler;
     }
 
 protected:
@@ -266,9 +247,6 @@ private:
         /// Wraps the user's code in a std::function
         const TransactionFunc& transaction_;
     };
-
-    // SimDB self-profiler.
-    PerfDiagnostics* profiler_ = nullptr;
 };
 
 } // namespace simdb

@@ -230,7 +230,8 @@ public:
             db_mgr_->getCollectionMgr()->sweep("root", tick);
         }
 
-        db_mgr_->getConnection()->getTaskQueue()->stopThread();
+        // Post-simulation metadata write
+        db_mgr_->postSim();
     }
 
 private:

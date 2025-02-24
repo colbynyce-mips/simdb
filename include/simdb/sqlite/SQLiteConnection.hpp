@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "simdb/async/AsyncTaskQueue.hpp"
 #include "simdb/sqlite/Constraints.hpp"
 #include "simdb/sqlite/SQLiteTransaction.hpp"
 #include "simdb/utils/FloatCompare.hpp"
@@ -171,19 +170,9 @@ public:
         return db_conn_;
     }
 
-    /// Get this database connection's task queue. This
-    /// object can be used to schedule database work to
-    /// be executed on a background thread. This never
-    /// returns null.
-    AsyncTaskQueue* getTaskQueue() const override
-    {
-        return task_queue_.get();
-    }
-
 private:
     /// Private constructor. Called by friend class DatabaseManager.
-    SQLiteConnection(DatabaseManager* db_mgr)
-        : task_queue_(new AsyncTaskQueue(this))
+    SQLiteConnection()
     {
     }
 
@@ -258,13 +247,6 @@ private:
 
     /// Filename of the database in use
     std::string db_filepath_;
-
-    /// Task queue associated with this database connection.
-    /// It is instantiated from our constructor, but won't
-    /// have any effect unless its addWorkerTask() method
-    /// is called. That method starts a background thread
-    /// to begin consuming work packets.
-    std::shared_ptr<AsyncTaskQueue> task_queue_;
 
     friend class DatabaseManager;
 };

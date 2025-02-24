@@ -6,7 +6,8 @@
 #include "simdb/serialize/Serialize.hpp"
 #include "simdb/utils/RunningMean.hpp"
 #include "simdb/utils/StringMap.hpp"
-#include "simdb/async/AsyncTaskQueue.hpp"
+#include "simdb/utils/ConcurrentQueue.hpp"
+#include "simdb/utils/Ping.hpp"
 
 #include <chrono>
 #include <thread>
@@ -22,29 +23,6 @@ struct PipelineStagePayload
     bool compressed = false;
     uint64_t tick = 0;
     DatabaseManager* db_mgr = nullptr;
-};
-
-class CollectionPointDataWriter : public WorkerTask
-{
-public:
-    CollectionPointDataWriter(DatabaseManager* db_mgr, const std::vector<char>& data, int64_t tick, bool compressed)
-        : db_mgr_(db_mgr)
-        , data_(data)
-        , tick_(tick)
-        , compressed_(compressed)
-        , unserialized_map_(StringMap::instance()->getUnserializedMap())
-    {
-        StringMap::instance()->clearUnserializedMap();
-    }
-
-private:
-    void completeTask() override;
-
-    DatabaseManager* db_mgr_;
-    std::vector<char> data_;
-    int64_t tick_;
-    bool compressed_;
-    StringMap::unserialized_string_map_t unserialized_map_;
 };
 
 /// Every stage in a pipeline has its own thread and its own processing
@@ -66,16 +44,13 @@ public:
 
     size_t count() const;
 
-    void flush(DatabaseManager* db_mgr);
+    void flush();
 
     void teardown();
 
     /// This method is used by the Pipeline to determine the relative
     /// amount of work/compression each stage is performing.
-    virtual double getEstimatedRemainingProcTime(DatabaseManager* db_mgr) const = 0;
-
-protected:
-    virtual void flush_(DatabaseManager*);
+    virtual double getEstimatedRemainingProcTime() const = 0;
 
 private:
     void start_();
@@ -85,6 +60,8 @@ private:
     void consume_();
 
     virtual void processPipelineStage_(PipelineStagePayload& data) = 0;
+
+    virtual void processPipelineStage_(PipelineStagePayload&& data) = 0;
 
     bool is_running_ = false;
     std::unique_ptr<std::thread> thread_;
@@ -128,7 +105,7 @@ private:
             default_compression_level_ = level;
         }
 
-        double getEstimatedRemainingProcTime(DatabaseManager*) const override
+        double getEstimatedRemainingProcTime() const override
         {
             if (!default_compression_level_) {
                 return 0;
@@ -139,6 +116,10 @@ private:
 
     private:
         void processPipelineStage_(PipelineStagePayload& payload) override;
+
+        void processPipelineStage_(PipelineStagePayload&& payload) override {
+            throw std::runtime_error("Should not be called - I can't take ownership!");
+        }
 
         std::vector<char> compressed_bytes_;
         int default_compression_level_ = 6;
@@ -154,18 +135,20 @@ private:
             default_compression_level_ = level;
         }
 
-        double getEstimatedRemainingProcTime(DatabaseManager* db_mgr) const override;
+        double getEstimatedRemainingProcTime() const override;
 
     private:
-        void processPipelineStage_(PipelineStagePayload& payload) override;
+        void processPipelineStage_(PipelineStagePayload& payload) override {
+            throw std::runtime_error("Should not be called - I have to take ownership!");
+        }
 
-        void sendToDatabase_(PipelineStagePayload& payload) const;
-
-        void flush_(DatabaseManager* db_mgr) override;
+        void processPipelineStage_(PipelineStagePayload&& payload) override;
 
         std::vector<char> compressed_bytes_;
         int default_compression_level_ = 1;
         RunningAverage compression_time_;
+        ConcurrentQueue<PipelineStagePayload> ready_queue_;
+        Ping ping_;
     };
 
     DatabaseManager* db_mgr_;
