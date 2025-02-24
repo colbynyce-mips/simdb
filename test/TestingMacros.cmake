@@ -14,7 +14,6 @@ endmacro(simdb_regress)
 function(simdb_fully_named_test name target)
   add_test (NAME ${name} COMMAND $<TARGET_FILE:${target}> ${ARGN})
   simdb_regress(${target})
-  target_link_libraries      (${target} ${SimDB_LIBS})
   target_include_directories (${target} PUBLIC "${SIMDB_BASE}/include")
 endfunction (simdb_fully_named_test)
 

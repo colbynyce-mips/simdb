@@ -830,4 +830,45 @@ inline void CollectionMgr::finalizeCollections_()
     }
 }
 
+inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(PipelineStagePayload&& payload)
+{
+    ready_queue_.emplace(std::move(payload));
+
+    if (ping_) {
+        auto db_mgr = payload.db_mgr;
+        db_mgr->safeTransaction([&](){
+            PipelineStagePayload payload;
+            while (ready_queue_.try_pop(payload)) {
+                const auto& data = payload.data;
+                const auto tick = payload.tick;
+                const auto compressed = payload.compressed;
+
+                auto begin = std::chrono::high_resolution_clock::now();
+
+                db_mgr->INSERT(SQL_TABLE("CollectionRecords"),
+                               SQL_COLUMNS("Tick", "Data", "IsCompressed"),
+                               SQL_VALUES(tick, data, (int)compressed));
+
+                auto end = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+                auto seconds = static_cast<double>(duration.count()) / 1e6;
+                write_time_.add(seconds);
+            }
+
+            StringMap::instance()->clearUnserializedMap();
+
+            // Note that we don't add this to the write_time_ running mean calculation
+            // since this map is going to shrink to nothing over time (basically it is
+            // amortized for real use cases).
+            for (const auto& kvp : StringMap::instance()->getUnserializedMap()) {
+                db_mgr->INSERT(SQL_TABLE("StringMap"),
+                               SQL_COLUMNS("IntVal", "String"),
+                               SQL_VALUES(kvp.first, kvp.second));
+            }
+
+            return true;
+        });
+    }
+}
+
 } // namespace simdb
