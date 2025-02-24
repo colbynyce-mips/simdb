@@ -390,7 +390,6 @@ public:
     /// Close the sqlite3 connection.
     void closeDatabase()
     {
-        std::cout << "closeDatabase() called\n";
         db_conn_.reset();
     }
 
