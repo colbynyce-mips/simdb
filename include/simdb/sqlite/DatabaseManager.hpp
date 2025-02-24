@@ -3,25 +3,23 @@
 #pragma once
 
 #include "simdb/schema/SchemaDef.hpp"
+#include "simdb/serialize/CollectionPoints.hpp"
+#include "simdb/serialize/Pipeline.hpp"
+#include "simdb/serialize/Serialize.hpp"
 #include "simdb/sqlite/SQLiteConnection.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/sqlite/SQLiteTable.hpp"
-#include "simdb/serialize/CollectionPoints.hpp"
-#include "simdb/serialize/Serialize.hpp"
-#include "simdb/serialize/Pipeline.hpp"
-#include "simdb/utils/TreeBuilder.hpp"
 #include "simdb/utils/Compress.hpp"
+#include "simdb/utils/TreeBuilder.hpp"
 
-namespace simdb
-{
+namespace simdb {
 
 /*!
  * \class CollectionMgr
  *
  * \brief This class provides an easy way to handle simulation-wide data collection.
  */
-class CollectionMgr
-{
+class CollectionMgr {
 public:
     /// Construct with the DatabaseManager and SQLiteTransaction.
     CollectionMgr(DatabaseManager* db_mgr, size_t heartbeat);
@@ -34,16 +32,12 @@ public:
 
     /// Create a collection point for a POD or struct-like type.
     template <typename T>
-    std::shared_ptr<CollectionPoint> createCollectable(
-        const std::string& path,
-        const std::string& clock);
+    std::shared_ptr<CollectionPoint> createCollectable(const std::string& path, const std::string& clock);
 
     // Automatically collect iterable data (non-POD types).
     template <typename T, bool Sparse>
-    std::shared_ptr<std::conditional_t<Sparse, SparseIterableCollectionPoint, ContigIterableCollectionPoint>> createIterableCollector(
-        const std::string& path,
-        const std::string& clock,
-        const size_t capacity);
+    std::shared_ptr<std::conditional_t<Sparse, SparseIterableCollectionPoint, ContigIterableCollectionPoint>>
+    createIterableCollector(const std::string& path, const std::string& clock, const size_t capacity);
 
     // Sweep the collection system for all active collectables that exist on
     // the given clock, and send their data to the database.
@@ -105,19 +99,17 @@ private:
  *        including instantiating schemas, creating records, querying
  *        records, and accessing the underlying SQLiteConnection.
  */
-class DatabaseManager
-{
+class DatabaseManager {
 public:
     /// \brief Construct a DatabaseManager with a database directory and a filename.
     /// \param db_file Name of the database file, typically with .db extension
     /// \param force_new_file Force the <db_file> to be overwritten if it exists.
-    ///                       If the file already existed and this flag is false, 
+    ///                       If the file already existed and this flag is false,
     ///                       then you will not be able to call createDatabaseFromSchema()
     ///                       or appendSchema(). The schema is considered read-only for
     ///                       previously existing database files.
     DatabaseManager(const std::string& db_file = "sim.db", const bool force_new_file = false)
-        : db_file_(db_file)
-    {
+        : db_file_(db_file) {
         std::ifstream fin(db_file);
         if (fin.good()) {
             if (force_new_file) {
@@ -136,8 +128,7 @@ public:
 
     /// You must explicitly call closeDatabase() prior to deleting
     /// the DatabaseManager to close the sqlite3 connection.
-    ~DatabaseManager()
-    {
+    ~DatabaseManager() {
         if (db_conn_) {
             std::cout << "You must call DatabaseManager::closeDatabase() "
                       << "before it goes out of scope!" << std::endl;
@@ -153,8 +144,7 @@ public:
     ///         existing file.
     ///
     /// \return Returns true if successful, false otherwise.
-    bool createDatabaseFromSchema(const Schema& schema)
-    {
+    bool createDatabaseFromSchema(const Schema& schema) {
         if (!append_schema_allowed_) {
             throw DBException("Cannot alter schema if you created a DatabaseManager with an existing file.");
         }
@@ -180,8 +170,7 @@ public:
     ///          existing file.
     ///
     /// \return  Returns true if successful, false otherwise.
-    bool appendSchema(const Schema& schema)
-    {
+    bool appendSchema(const Schema& schema) {
         if (!db_conn_) {
             return false;
         } else if (!db_conn_->isValid()) {
@@ -198,14 +187,12 @@ public:
     }
 
     /// Get the full database file path.
-    const std::string& getDatabaseFilePath() const
-    {
+    const std::string& getDatabaseFilePath() const {
         return db_filepath_;
     }
 
     /// Initialize the collection manager prior to calling getCollectionMgr().
-    void enableCollection(size_t heartbeat)
-    {
+    void enableCollection(size_t heartbeat) {
         if (!collection_mgr_) {
             collection_mgr_ = std::make_unique<CollectionMgr>(this, heartbeat);
 
@@ -217,22 +204,17 @@ public:
 
     /// Access the data collection system for e.g. pipeline collection
     /// or stats collection (CSV/JSON).
-    CollectionMgr* getCollectionMgr()
-    {
+    CollectionMgr* getCollectionMgr() {
         return collection_mgr_.get();
     }
 
     /// One-time call to get the collection system ready.
-    void finalizeCollections()
-    {
-        safeTransaction([&](){
-            return finalizeCollections_();
-        });
+    void finalizeCollections() {
+        safeTransaction([&]() { return finalizeCollections_(); });
     }
 
     /// Execute the functor inside BEGIN/COMMIT TRANSACTION.
-    void safeTransaction(const TransactionFunc& func) const
-    {
+    void safeTransaction(const TransactionFunc& func) const {
         db_conn_->safeTransaction(func);
     }
 
@@ -246,11 +228,10 @@ public:
     /// \note   You may also provide ValueContainerBase subclasses in the SQL_VALUES.
     ///
     /// \return SqlRecord which wraps the table and the ID of its record.
-    std::unique_ptr<SqlRecord> INSERT(SqlTable&& table, SqlColumns&& cols, SqlValues&& vals)
-    {
+    std::unique_ptr<SqlRecord> INSERT(SqlTable&& table, SqlColumns&& cols, SqlValues&& vals) {
         std::unique_ptr<SqlRecord> record;
 
-        db_conn_->safeTransaction([&](){
+        db_conn_->safeTransaction([&]() {
             std::ostringstream oss;
             oss << "INSERT INTO " << table.getName();
             cols.writeColsForINSERT(oss);
@@ -275,11 +256,10 @@ public:
 
     /// This INSERT() overload is to be used for tables that were defined with
     /// at least one default value for its column(s).
-    std::unique_ptr<SqlRecord> INSERT(SqlTable&& table)
-    {
+    std::unique_ptr<SqlRecord> INSERT(SqlTable&& table) {
         std::unique_ptr<SqlRecord> record;
 
-        db_conn_->safeTransaction([&](){
+        db_conn_->safeTransaction([&]() {
             const std::string cmd = "INSERT INTO " + table.getName() + " DEFAULT VALUES";
             auto stmt = db_conn_->prepareStatement(cmd);
 
@@ -299,24 +279,21 @@ public:
     /// \brief  Get a SqlRecord from a database ID for the given table.
     ///
     /// \return Returns the record wrapper if found, or nullptr if not.
-    std::unique_ptr<SqlRecord> findRecord(const char* table_name, const int db_id) const
-    {
+    std::unique_ptr<SqlRecord> findRecord(const char* table_name, const int db_id) const {
         return findRecord_(table_name, db_id, false);
     }
 
     /// \brief  Get a SqlRecord from a database ID for the given table.
     ///
     /// \throws Throws an exception if this database ID is not found in the given table.
-    std::unique_ptr<SqlRecord> getRecord(const char* table_name, const int db_id) const
-    {
+    std::unique_ptr<SqlRecord> getRecord(const char* table_name, const int db_id) const {
         return findRecord_(table_name, db_id, true);
     }
 
     /// \brief  Delete one record from the given table with the given ID.
     ///
     /// \return Returns true if successful, false otherwise.
-    bool removeRecordFromTable(const char* table_name, const int db_id)
-    {
+    bool removeRecordFromTable(const char* table_name, const int db_id) {
         db_conn_->safeTransaction([&]() {
             std::ostringstream oss;
             oss << "DELETE FROM " << table_name << " WHERE Id=" << db_id;
@@ -336,8 +313,7 @@ public:
     /// \brief  Delete every record from the given table.
     ///
     /// \return Returns the total number of deleted records.
-    uint32_t removeAllRecordsFromTable(const char* table_name)
-    {
+    uint32_t removeAllRecordsFromTable(const char* table_name) {
         db_conn_->safeTransaction([&]() {
             std::ostringstream oss;
             oss << "DELETE FROM " << table_name;
@@ -357,8 +333,7 @@ public:
     /// \brief  Issue "DELETE FROM TableName" to clear out the given table.
     ///
     /// \return Returns the total number of deleted records across all tables.
-    uint32_t removeAllRecordsFromAllTables()
-    {
+    uint32_t removeAllRecordsFromAllTables() {
         uint32_t count = 0;
 
         db_conn_->safeTransaction([&]() {
@@ -382,20 +357,17 @@ public:
     }
 
     /// Get a query object to issue SELECT statements with constraints.
-    std::unique_ptr<SqlQuery> createQuery(const char* table_name)
-    {
+    std::unique_ptr<SqlQuery> createQuery(const char* table_name) {
         return std::unique_ptr<SqlQuery>(new SqlQuery(table_name, db_conn_->getDatabase()));
     }
 
     /// Close the sqlite3 connection.
-    void closeDatabase()
-    {
+    void closeDatabase() {
         db_conn_.reset();
     }
 
     // One-time call to write post-simulation metadata to SimDB.
-    void postSim()
-    {
+    void postSim() {
         collection_mgr_->postSim();
     }
 
@@ -409,8 +381,7 @@ private:
     ///         from a previous call to getDatabaseFilePath()
     ///
     /// \return Returns true if successful, false otherwise.
-    bool connectToExistingDatabase_(const std::string& db_fpath)
-    {
+    bool connectToExistingDatabase_(const std::string& db_fpath) {
         assertNoDatabaseConnectionOpen_();
         db_conn_.reset(new SQLiteConnection);
 
@@ -426,8 +397,7 @@ private:
     }
 
     /// Open the given database file.
-    bool createDatabaseFile_()
-    {
+    bool createDatabaseFile_() {
         if (!db_conn_) {
             return false;
         }
@@ -444,8 +414,7 @@ private:
 
     /// This class does not currently allow one DatabaseManager
     /// to be simultaneously connected to multiple databases.
-    void assertNoDatabaseConnectionOpen_() const
-    {
+    void assertNoDatabaseConnectionOpen_() const {
         if (!db_conn_) {
             return;
         }
@@ -457,8 +426,7 @@ private:
     }
 
     /// Get a SqlRecord from a database ID for the given table.
-    std::unique_ptr<SqlRecord> findRecord_(const char* table_name, const int db_id, const bool must_exist) const
-    {
+    std::unique_ptr<SqlRecord> findRecord_(const char* table_name, const int db_id, const bool must_exist) const {
         std::ostringstream oss;
         oss << "SELECT * FROM " << table_name << " WHERE Id=" << db_id;
         const auto cmd = oss.str();
@@ -478,8 +446,7 @@ private:
     }
 
     /// Finalize the collection system.
-    bool finalizeCollections_()
-    {
+    bool finalizeCollections_() {
         if (collection_mgr_) {
             collection_mgr_->finalizeCollections_();
             return true;
@@ -510,8 +477,7 @@ private:
     bool append_schema_allowed_ = true;
 };
 
-inline void FieldBase::serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const
-{
+inline void FieldBase::serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const {
     const auto field_dtype_str = getFieldDTypeStr(dtype_);
     const auto fmt = static_cast<int>(format_);
     const auto is_autocolorize_key = (int)isAutocolorizeKey();
@@ -523,8 +489,7 @@ inline void FieldBase::serializeDefn(DatabaseManager* db_mgr, const std::string&
 }
 
 template <typename EnumT>
-inline void EnumMap<EnumT>::serializeDefn(DatabaseManager* db_mgr) const
-{
+inline void EnumMap<EnumT>::serializeDefn(DatabaseManager* db_mgr) const {
     using enum_int_t = typename std::underlying_type<EnumT>::type;
 
     if (!serialized_) {
@@ -549,8 +514,7 @@ inline void EnumMap<EnumT>::serializeDefn(DatabaseManager* db_mgr) const
 }
 
 template <typename EnumT>
-inline void EnumField<EnumT>::serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const
-{
+inline void EnumField<EnumT>::serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const {
     const auto field_name = getName();
     const auto is_autocolorize_key = (int)isAutocolorizeKey();
     const auto is_displayed_by_default = (int)isDisplayedByDefault();
@@ -565,30 +529,21 @@ inline void EnumField<EnumT>::serializeDefn(DatabaseManager* db_mgr, const std::
 inline CollectionMgr::CollectionMgr(DatabaseManager* db_mgr, size_t heartbeat)
     : db_mgr_(db_mgr)
     , heartbeat_(heartbeat)
-    , pipeline_(db_mgr)
-{
+    , pipeline_(db_mgr) {
 }
 
-inline void CollectionMgr::addClock(const std::string& name, const uint32_t period)
-{
+inline void CollectionMgr::addClock(const std::string& name, const uint32_t period) {
     clocks_[name] = period;
 }
 
-inline void CollectionMgr::defineSchema(Schema& schema) const
-{
+inline void CollectionMgr::defineSchema(Schema& schema) const {
     using dt = SqlDataType;
 
-    schema.addTable("CollectionGlobals")
-        .addColumn("Heartbeat", dt::int32_t)
-        .setColumnDefaultValue("Heartbeat", 10);
+    schema.addTable("CollectionGlobals").addColumn("Heartbeat", dt::int32_t).setColumnDefaultValue("Heartbeat", 10);
 
-    schema.addTable("Clocks")
-        .addColumn("Name", dt::string_t)
-        .addColumn("Period", dt::int32_t);
+    schema.addTable("Clocks").addColumn("Name", dt::string_t).addColumn("Period", dt::int32_t);
 
-    schema.addTable("ElementTreeNodes")
-        .addColumn("Name", dt::string_t)
-        .addColumn("ParentID", dt::int32_t);
+    schema.addTable("ElementTreeNodes").addColumn("Name", dt::string_t).addColumn("ParentID", dt::int32_t);
 
     schema.addTable("CollectableTreeNodes")
         .addColumn("ElementTreeNodeID", dt::int32_t)
@@ -611,9 +566,7 @@ inline void CollectionMgr::defineSchema(Schema& schema) const
         .addColumn("EnumValBlob", dt::blob_t)
         .addColumn("IntType", dt::string_t);
 
-    schema.addTable("StringMap")
-        .addColumn("IntVal", dt::int32_t)
-        .addColumn("String", dt::string_t);
+    schema.addTable("StringMap").addColumn("IntVal", dt::int32_t).addColumn("String", dt::string_t);
 
     schema.addTable("CollectionRecords")
         .addColumn("Tick", dt::int64_t)
@@ -621,16 +574,11 @@ inline void CollectionMgr::defineSchema(Schema& schema) const
         .addColumn("IsCompressed", dt::int32_t)
         .createIndexOn("Tick");
 
-    schema.addTable("QueueMaxSizes")
-        .addColumn("CollectableTreeNodeID", dt::int32_t)
-        .addColumn("MaxSize", dt::int32_t);
+    schema.addTable("QueueMaxSizes").addColumn("CollectableTreeNodeID", dt::int32_t).addColumn("MaxSize", dt::int32_t);
 }
 
 template <typename T>
-inline std::shared_ptr<CollectionPoint> CollectionMgr::createCollectable(
-    const std::string& path,
-    const std::string& clock)
-{
+inline std::shared_ptr<CollectionPoint> CollectionMgr::createCollectable(const std::string& path, const std::string& clock) {
     auto treenode = updateTree_(path, clock);
     auto elem_id = treenode->db_id;
     auto clk_id = treenode->clk_id;
@@ -659,11 +607,8 @@ inline std::shared_ptr<CollectionPoint> CollectionMgr::createCollectable(
 }
 
 template <typename T, bool Sparse>
-std::shared_ptr<std::conditional_t<Sparse, SparseIterableCollectionPoint, ContigIterableCollectionPoint>> CollectionMgr::createIterableCollector(
-    const std::string& path,
-    const std::string& clock,
-    const size_t capacity)
-{
+std::shared_ptr<std::conditional_t<Sparse, SparseIterableCollectionPoint, ContigIterableCollectionPoint>>
+CollectionMgr::createIterableCollector(const std::string& path, const std::string& clock, const size_t capacity) {
     auto treenode = updateTree_(path, clock);
     auto elem_id = treenode->db_id;
     auto clk_id = treenode->clk_id;
@@ -698,8 +643,7 @@ std::shared_ptr<std::conditional_t<Sparse, SparseIterableCollectionPoint, Contig
     return collectable;
 }
 
-inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
-{
+inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick) {
     const auto clk_id = clock_db_ids_by_name_.at(clk);
 
     swept_data_.clear();
@@ -716,9 +660,8 @@ inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
     pipeline_.push(std::move(swept_data_), tick);
 }
 
-inline void CollectionMgr::postSim()
-{
-    db_mgr_->safeTransaction([&](){
+inline void CollectionMgr::postSim() {
+    db_mgr_->safeTransaction([&]() {
         for (auto& collectable : collectables_) {
             collectable->postSim(db_mgr_);
         }
@@ -728,28 +671,19 @@ inline void CollectionMgr::postSim()
     pipeline_.postSim();
 }
 
-inline void ContigIterableCollectionPoint::postSim(DatabaseManager* db_mgr)
-{
-    db_mgr->INSERT(SQL_TABLE("QueueMaxSizes"),
-                   SQL_COLUMNS("CollectableTreeNodeID", "MaxSize"),
-                   SQL_VALUES(getElemId(), queue_max_size_));
+inline void ContigIterableCollectionPoint::postSim(DatabaseManager* db_mgr) {
+    db_mgr->INSERT(SQL_TABLE("QueueMaxSizes"), SQL_COLUMNS("CollectableTreeNodeID", "MaxSize"), SQL_VALUES(getElemId(), queue_max_size_));
 }
 
-inline void SparseIterableCollectionPoint::postSim(DatabaseManager* db_mgr)
-{
-    db_mgr->INSERT(SQL_TABLE("QueueMaxSizes"),
-                   SQL_COLUMNS("CollectableTreeNodeID", "MaxSize"),
-                   SQL_VALUES(getElemId(), queue_max_size_));
+inline void SparseIterableCollectionPoint::postSim(DatabaseManager* db_mgr) {
+    db_mgr->INSERT(SQL_TABLE("QueueMaxSizes"), SQL_COLUMNS("CollectableTreeNodeID", "MaxSize"), SQL_VALUES(getElemId(), queue_max_size_));
 }
 
-inline TreeNode* CollectionMgr::updateTree_(const std::string& path, const std::string& clk)
-{
+inline TreeNode* CollectionMgr::updateTree_(const std::string& path, const std::string& clk) {
     if (!root_) {
         root_ = std::make_unique<TreeNode>("root");
 
-        auto record = db_mgr_->INSERT(SQL_TABLE("ElementTreeNodes"),
-                                      SQL_COLUMNS("Name", "ParentID"),
-                                      SQL_VALUES("root", 0));
+        auto record = db_mgr_->INSERT(SQL_TABLE("ElementTreeNodes"), SQL_COLUMNS("Name", "ParentID"), SQL_VALUES("root", 0));
 
         root_->db_id = record->getId();
     }
@@ -757,9 +691,7 @@ inline TreeNode* CollectionMgr::updateTree_(const std::string& path, const std::
     if (clock_db_ids_by_name_.find(clk) == clock_db_ids_by_name_.end()) {
         auto period = clocks_.at(clk);
 
-        auto record = db_mgr_->INSERT(SQL_TABLE("Clocks"),
-                                      SQL_COLUMNS("Name", "Period"),
-                                      SQL_VALUES(clk, period));
+        auto record = db_mgr_->INSERT(SQL_TABLE("Clocks"), SQL_COLUMNS("Name", "Period"), SQL_VALUES(clk, period));
 
         clock_db_ids_by_name_[clk] = record->getId();
     }
@@ -782,9 +714,8 @@ inline TreeNode* CollectionMgr::updateTree_(const std::string& path, const std::
             node->children.push_back(std::move(new_node));
             node = node->children.back().get();
 
-            auto record = db_mgr_->INSERT(SQL_TABLE("ElementTreeNodes"),
-                                          SQL_COLUMNS("Name", "ParentID"),
-                                          SQL_VALUES(part, node->parent->db_id));
+            auto record =
+                db_mgr_->INSERT(SQL_TABLE("ElementTreeNodes"), SQL_COLUMNS("Name", "ParentID"), SQL_VALUES(part, node->parent->db_id));
 
             node->db_id = record->getId();
             if (part_idx == path_parts.size() - 1) {
@@ -796,11 +727,8 @@ inline TreeNode* CollectionMgr::updateTree_(const std::string& path, const std::
     return node;
 }
 
-inline void CollectionMgr::finalizeCollections_()
-{
-    db_mgr_->INSERT(SQL_TABLE("CollectionGlobals"),
-                    SQL_COLUMNS("Heartbeat"),
-                    SQL_VALUES((int)heartbeat_));
+inline void CollectionMgr::finalizeCollections_() {
+    db_mgr_->INSERT(SQL_TABLE("CollectionGlobals"), SQL_COLUMNS("Heartbeat"), SQL_VALUES((int)heartbeat_));
 
     std::vector<TreeNode*> leaf_nodes;
 
@@ -823,19 +751,17 @@ inline void CollectionMgr::finalizeCollections_()
         auto collectable = collectables_by_path_.at(loc);
         auto dtype = collectable->getDataTypeStr();
 
-        db_mgr_->INSERT(SQL_TABLE("CollectableTreeNodes"),
-                        SQL_COLUMNS("ElementTreeNodeID", "ClockID", "DataType"),
-                        SQL_VALUES(elem_id, clk_id, dtype));
+        db_mgr_->INSERT(
+            SQL_TABLE("CollectableTreeNodes"), SQL_COLUMNS("ElementTreeNodeID", "ClockID", "DataType"), SQL_VALUES(elem_id, clk_id, dtype));
     }
 }
 
-inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(PipelineStagePayload&& payload)
-{
+inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(PipelineStagePayload&& payload) {
     ready_queue_.emplace(std::move(payload));
 
     if (ping_) {
         auto db_mgr = payload.db_mgr;
-        db_mgr->safeTransaction([&](){
+        db_mgr->safeTransaction([&]() {
             PipelineStagePayload payload;
             while (ready_queue_.try_pop(payload)) {
                 const auto& data = payload.data;
@@ -844,9 +770,8 @@ inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(Pipelin
 
                 auto begin = std::chrono::high_resolution_clock::now();
 
-                db_mgr->INSERT(SQL_TABLE("CollectionRecords"),
-                               SQL_COLUMNS("Tick", "Data", "IsCompressed"),
-                               SQL_VALUES(tick, data, (int)compressed));
+                db_mgr->INSERT(
+                    SQL_TABLE("CollectionRecords"), SQL_COLUMNS("Tick", "Data", "IsCompressed"), SQL_VALUES(tick, data, (int)compressed));
 
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
@@ -860,9 +785,7 @@ inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(Pipelin
             // since this map is going to shrink to nothing over time (basically it is
             // amortized for real use cases).
             for (const auto& kvp : StringMap::instance()->getUnserializedMap()) {
-                db_mgr->INSERT(SQL_TABLE("StringMap"),
-                               SQL_COLUMNS("IntVal", "String"),
-                               SQL_VALUES(kvp.first, kvp.second));
+                db_mgr->INSERT(SQL_TABLE("StringMap"), SQL_COLUMNS("IntVal", "String"), SQL_VALUES(kvp.first, kvp.second));
             }
 
             return true;

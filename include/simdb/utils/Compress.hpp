@@ -2,23 +2,17 @@
 
 #pragma once
 
-#include <vector>
 #include <zlib.h>
+#include <vector>
 
-namespace simdb
-{
+namespace simdb {
 
 /// Compression modes of operation.
-enum class CompressionModes
-{
-    COMPRESSED,
-    UNCOMPRESSED
-};
+enum class CompressionModes { COMPRESSED, UNCOMPRESSED };
 
 /// Perform zlib compression on the single data vector of stats values.
 template <typename T>
-inline void compressDataVec(const std::vector<T>& in, std::vector<char>& out, int compression_level = Z_DEFAULT_COMPRESSION)
-{
+inline void compressDataVec(const std::vector<T>& in, std::vector<char>& out, int compression_level = Z_DEFAULT_COMPRESSION) {
     if (in.empty()) {
         out.clear();
         return;

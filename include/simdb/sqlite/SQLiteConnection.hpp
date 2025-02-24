@@ -6,18 +6,16 @@
 #include "simdb/sqlite/SQLiteTransaction.hpp"
 #include "simdb/utils/FloatCompare.hpp"
 
+#include <sqlite3.h>
 #include <fstream>
 #include <memory>
-#include <sqlite3.h>
 #include <string>
 
-namespace simdb
-{
+namespace simdb {
 
 /// Callback which gets invoked during SELECT queries that involve
 /// floating point comparisons with a supplied tolerance.
-inline void fuzzyMatch(sqlite3_context* context, int, sqlite3_value** argv)
-{
+inline void fuzzyMatch(sqlite3_context* context, int, sqlite3_value** argv) {
     const double column_value = sqlite3_value_double(argv[0]);
     const double target_value = sqlite3_value_double(argv[1]);
     const int constraint = sqlite3_value_int(argv[2]);
@@ -85,20 +83,17 @@ inline void fuzzyMatch(sqlite3_context* context, int, sqlite3_value** argv)
  *
  * \brief This class instantiates the SQLite schema and issues database commands.
  */
-class SQLiteConnection : public SQLiteTransaction
-{
+class SQLiteConnection : public SQLiteTransaction {
 public:
     /// Close the sqlite3 connection.
-    ~SQLiteConnection()
-    {
+    ~SQLiteConnection() {
         if (db_conn_) {
             sqlite3_close(db_conn_);
         }
     }
 
     /// Instantiate tables, columns, indexes, etc. on the sqlite3 connection.
-    void realizeSchema(const Schema& schema)
-    {
+    void realizeSchema(const Schema& schema) {
         safeTransaction([&]() {
             for (const auto& table : schema.getTables()) {
                 // First create the table and its columns
@@ -130,22 +125,19 @@ public:
     }
 
     /// Get the full database filename being used.
-    const std::string& getDatabaseFilePath() const
-    {
+    const std::string& getDatabaseFilePath() const {
         return db_filepath_;
     }
 
     /// Is this connection alive and well?
-    bool isValid() const
-    {
+    bool isValid() const {
         return (db_conn_ != nullptr);
     }
 
     /// Execute the provided statement against the database
     /// connection. This will validate the command, and throw
     /// if this command is disallowed.
-    void executeCommand(const std::string& command)
-    {
+    void executeCommand(const std::string& command) {
         auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_, command.c_str(), nullptr, nullptr, nullptr));
         if (rc) {
             throw DBException(sqlite3_errmsg(db_conn_));
@@ -153,32 +145,27 @@ public:
     }
 
     /// Turn the given command into an SQL prepared statement.
-    SQLitePreparedStatement prepareStatement(const std::string& command)
-    {
+    SQLitePreparedStatement prepareStatement(const std::string& command) {
         return SQLitePreparedStatement(db_conn_, command);
     }
 
     /// Get the database ID of the last INSERT statement.
-    int getLastInsertRowId() const
-    {
+    int getLastInsertRowId() const {
         return sqlite3_last_insert_rowid(db_conn_);
     }
 
     /// Get direct access to the underlying SQLite database.
-    sqlite3* getDatabase() const
-    {
+    sqlite3* getDatabase() const {
         return db_conn_;
     }
 
 private:
     /// Private constructor. Called by friend class DatabaseManager.
-    SQLiteConnection()
-    {
+    SQLiteConnection() {
     }
 
     /// First-time database file open.
-    std::string openDbFile_(const std::string& db_file)
-    {
+    std::string openDbFile_(const std::string& db_file) {
         db_filepath_ = resolveDbFilename_(db_file);
         if (db_filepath_.empty()) {
             db_filepath_ = db_file;
@@ -209,8 +196,7 @@ private:
 
     /// Return a string that is used as part of the CREATE TABLE command:
     /// First TEXT, Last TEXT, Age INT, Balance REAL DEFAULT 50.00
-    std::string getColumnsSqlCommand_(const Table& table) const
-    {
+    std::string getColumnsSqlCommand_(const Table& table) const {
         std::ostringstream oss;
         const auto& columns = table.getColumns();
 
@@ -231,15 +217,13 @@ private:
     // See if there is an existing file by the name <dir/file>
     // and return it. If not, return just <file> if it exists.
     // Return "" if neither could be found.
-    std::string resolveDbFilename_(const std::string& db_file) const
-    {
+    std::string resolveDbFilename_(const std::string& db_file) const {
         std::ifstream fin(db_file);
         return fin.good() ? db_file : "";
     }
 
     /// Attempt to run an SQL command against our open connection.
-    bool validateConnectionIsSQLite_(sqlite3* db_conn)
-    {
+    bool validateConnectionIsSQLite_(sqlite3* db_conn) {
         const auto command = "SELECT name FROM sqlite_master WHERE type='table'";
         auto rc = SQLiteReturnCode(sqlite3_exec(db_conn, command, nullptr, nullptr, nullptr));
         return rc == SQLITE_OK;

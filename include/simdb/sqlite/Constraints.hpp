@@ -4,8 +4,7 @@
 
 #include <iostream>
 
-namespace simdb
-{
+namespace simdb {
 
 /// This enum holds all the comparators for WHERE clauses in queries (scalar target values).
 enum class Constraints {
@@ -36,43 +35,27 @@ enum class SetConstraints {
 };
 
 /// This enum holds all the comparators for WHERE clauses in queries (string target values).
-enum class QueryOperator {
-    AND,
-    OR,
-    __NUM_CONSTRAINTS__
-};
+enum class QueryOperator { AND, OR, __NUM_CONSTRAINTS__ };
 
 /// Stringifier for the Constraints enum
-inline std::string stringify(const simdb::Constraints constraint)
-{
+inline std::string stringify(const simdb::Constraints constraint) {
     switch (constraint) {
-        case simdb::Constraints::EQUAL:
-            return " =  ";
-        case simdb::Constraints::NOT_EQUAL:
-            return " != ";
-        case simdb::Constraints::LESS:
-            return " <  ";
-        case simdb::Constraints::LESS_EQUAL:
-            return " <= ";
-        case simdb::Constraints::GREATER:
-            return " >  ";
-        case simdb::Constraints::GREATER_EQUAL:
-            return " >= ";
-        default:
-            return "INVALID";
+        case simdb::Constraints::EQUAL: return " =  ";
+        case simdb::Constraints::NOT_EQUAL: return " != ";
+        case simdb::Constraints::LESS: return " <  ";
+        case simdb::Constraints::LESS_EQUAL: return " <= ";
+        case simdb::Constraints::GREATER: return " >  ";
+        case simdb::Constraints::GREATER_EQUAL: return " >= ";
+        default: return "INVALID";
     }
 }
 
 /// Stringifier for the SetConstraints enum
-inline std::string stringify(const simdb::SetConstraints constraint)
-{
+inline std::string stringify(const simdb::SetConstraints constraint) {
     switch (constraint) {
-        case simdb::SetConstraints::IN_SET:
-            return " IN ";
-        case simdb::SetConstraints::NOT_IN_SET:
-            return " NOT IN ";
-        default:
-            return "INVALID";
+        case simdb::SetConstraints::IN_SET: return " IN ";
+        case simdb::SetConstraints::NOT_IN_SET: return " NOT IN ";
+        default: return "INVALID";
     }
 }
 

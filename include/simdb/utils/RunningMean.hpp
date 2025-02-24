@@ -4,11 +4,13 @@
 
 namespace simdb {
 
-class RunningAverage
-{
+class RunningAverage {
 public:
     // Constructor
-    RunningAverage() : mean_(0.0), count_(0) {}
+    RunningAverage()
+        : mean_(0.0)
+        , count_(0) {
+    }
 
     // Update the running average with a new value
     void add(double value) {
@@ -31,5 +33,5 @@ private:
     double mean_ = 0.0;
     uint64_t count_ = 0;
 };
-    
+
 } // namespace simdb

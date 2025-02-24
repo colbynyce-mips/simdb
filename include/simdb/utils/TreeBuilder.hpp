@@ -8,8 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace simdb
-{
+namespace simdb {
 
 struct TreeNode {
     std::string name;
@@ -21,12 +20,10 @@ struct TreeNode {
 
     TreeNode(const std::string& name, const TreeNode* parent = nullptr)
         : name(name)
-        , parent(parent)
-    {
+        , parent(parent) {
     }
 
-    std::string getLocation() const
-    {
+    std::string getLocation() const {
         std::vector<std::string> node_names;
         auto node = this;
         while (node && node->parent) {
@@ -48,8 +45,7 @@ struct TreeNode {
 };
 
 // Function to split_string a string by a delimiter
-inline std::vector<std::string> split_string(const std::string& s, char delimiter)
-{
+inline std::vector<std::string> split_string(const std::string& s, char delimiter) {
     std::vector<std::string> tokens;
     std::stringstream ss(s);
     std::string item;
@@ -70,8 +66,7 @@ inline std::vector<std::string> split_string(const std::string& s, char delimite
  *
  * \return A unique pointer to the root node of the tree.
  */
-inline std::unique_ptr<TreeNode> buildTree(std::vector<std::string> tree_paths)
-{
+inline std::unique_ptr<TreeNode> buildTree(std::vector<std::string> tree_paths) {
     // Remove any path that is just named "root" as it will be created automatically.
     tree_paths.erase(std::remove_if(tree_paths.begin(), tree_paths.end(), [](const std::string& path) { return path == "root"; }),
                      tree_paths.end());

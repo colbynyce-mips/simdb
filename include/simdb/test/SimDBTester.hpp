@@ -10,10 +10,10 @@
 #include "simdb/test/Colors.hpp"
 #include "simdb/utils/FloatCompare.hpp"
 
+#include <inttypes.h>
 #include <algorithm>
 #include <cstring>
 #include <fstream>
-#include <inttypes.h>
 #include <iostream>
 #include <memory>
 #include <set>
@@ -22,12 +22,10 @@
 #include <string>
 #include <vector>
 
-namespace simdb
-{
+namespace simdb {
 /// ostream operator so we can do EXPECT_EQUAL(vec1, vec2)
 template <typename T>
-inline std::ostream& operator<<(std::ostream& os, const std::vector<T>& data)
-{
+inline std::ostream& operator<<(std::ostream& os, const std::vector<T>& data) {
     if (data.empty()) {
         return os;
     }
@@ -89,16 +87,13 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<T>& data)
      *       }
      *   \endcode
      */
-class SimDBTester
-{
+class SimDBTester {
 public:
     SimDBTester()
-        : SimDBTester(0, std::cerr)
-    {
+        : SimDBTester(0, std::cerr) {
     }
 
-    bool expectAllReached(const uint32_t expected_reached, const uint32_t line, const char* file)
-    {
+    bool expectAllReached(const uint32_t expected_reached, const uint32_t line, const char* file) {
         bool ret = true;
         if (methods_reached_.size() != expected_reached) {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test failed to execute the " << expected_reached
@@ -124,8 +119,7 @@ public:
         return ret;
     }
 
-    bool expect(const bool val, const char* test_type, const uint32_t line, const char* file)
-    {
+    bool expect(const bool val, const char* test_type, const uint32_t line, const char* file) {
         bool ret = true;
         if (!val) {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
@@ -137,8 +131,8 @@ public:
     }
 
     // Try and compare bytes and display values on failure instead of characters
-    bool expectEqual(const uint8_t v1, const uint8_t v2, const bool expected, const char* test_type, const uint32_t line, const char* file)
-    {
+    bool
+    expectEqual(const uint8_t v1, const uint8_t v2, const bool expected, const char* test_type, const uint32_t line, const char* file) {
         bool ret = true;
         if ((v1 == v2) != expected) {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
@@ -160,8 +154,7 @@ public:
 
     // Try and compare different types
     template <typename T>
-    bool expectEqual(const T& v1, const T& v2, const bool expected, const char* test_type, const uint32_t line, const char* file)
-    {
+    bool expectEqual(const T& v1, const T& v2, const bool expected, const char* test_type, const uint32_t line, const char* file) {
         bool ret = true;
         if ((v1 == v2) != expected) {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
@@ -182,8 +175,7 @@ public:
 
     // Try and compare different types
     template <typename T, typename U = T>
-    bool expectEqual(const T& v1, const U& v2, const bool expected, const char* test_type, const uint32_t line, const char* file)
-    {
+    bool expectEqual(const T& v1, const U& v2, const bool expected, const char* test_type, const uint32_t line, const char* file) {
         bool ret = true;
         if (compare<T, U>(v1, v2) != expected) {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
@@ -207,8 +199,7 @@ public:
     typename std::enable_if<std::is_integral<T>::value && std::is_integral<U>::value &&
                                 (std::is_signed<T>::value != std::is_signed<U>::value),
                             bool>::type
-    compare(const T& t, const U& u)
-    {
+    compare(const T& t, const U& u) {
         return (t == static_cast<T>(u));
     }
 
@@ -217,15 +208,13 @@ public:
     typename std::enable_if<!(std::is_integral<T>::value && std::is_integral<U>::value &&
                               (std::is_signed<T>::value != std::is_signed<U>::value)),
                             bool>::type
-    compare(const T& t, const U& u)
-    {
+    compare(const T& t, const U& u) {
         return (t == u);
     }
 
     // Overload for comparison with nullptr
     template <typename T>
-    bool expectEqual(const T& v1, const std::nullptr_t, const bool expected, const char* test_type, const uint32_t line, const char* file)
-    {
+    bool expectEqual(const T& v1, const std::nullptr_t, const bool expected, const char* test_type, const uint32_t line, const char* file) {
         bool ret = true;
         if ((v1 == nullptr) != expected) {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
@@ -237,7 +226,8 @@ public:
                 cerr_ << "' should NOT equal '";
             }
 
-            cerr_ << "null" << "'" << SIMDB_CURRENT_COLOR_NORMAL << std::endl;
+            cerr_ << "null"
+                  << "'" << SIMDB_CURRENT_COLOR_NORMAL << std::endl;
             ++num_errors_;
             ret = false;
         }
@@ -246,8 +236,7 @@ public:
 
     // Overload for comparison of nullptr with a var
     template <typename T>
-    bool expectEqual(const std::nullptr_t, const T& v1, const bool expected, const char* test_type, const uint32_t line, const char* file)
-    {
+    bool expectEqual(const std::nullptr_t, const T& v1, const bool expected, const char* test_type, const uint32_t line, const char* file) {
         bool ret = true;
         if ((nullptr == v1) != expected) {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
@@ -259,7 +248,8 @@ public:
                 cerr_ << "' should NOT equal '";
             }
 
-            cerr_ << "null" << "'" << SIMDB_CURRENT_COLOR_NORMAL << std::endl;
+            cerr_ << "null"
+                  << "'" << SIMDB_CURRENT_COLOR_NORMAL << std::endl;
             ++num_errors_;
             ret = false;
         }
@@ -268,8 +258,7 @@ public:
 
     template <typename T>
     typename std::enable_if<std::is_floating_point<T>::value, bool>::type
-    expectEqualWithinTolerance(const T& v1, const T& v2, const T& tol, const char* test_type, const uint32_t line, const char* file)
-    {
+    expectEqualWithinTolerance(const T& v1, const T& v2, const T& tol, const char* test_type, const uint32_t line, const char* file) {
         bool ret = true;
         if (tol < 0) {
             cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Test '" << test_type << "' FAILED on line " << line << " in file " << file
@@ -287,8 +276,7 @@ public:
         return ret;
     }
 
-    void throwTestFailed(const char* test_type, const uint32_t line, const char* file, const char* exception_what = "")
-    {
+    void throwTestFailed(const char* test_type, const uint32_t line, const char* file, const char* exception_what = "") {
         cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "Throw Test Fail:'" << test_type << "' FAILED on line " << line << " in file " << file
               << std::endl;
 
@@ -323,14 +311,12 @@ public:
                           const bool expected,
                           const uint32_t line,
                           const char* file,
-                          const bool ignore_commented_lines = true)
-    {
+                          const bool ignore_commented_lines = true) {
         std::ifstream fa, fb;
         std::stringstream err;
         try {
             fa.open(a, std::ios_base::in);
-        } catch (std::exception&) {
-        }
+        } catch (std::exception&) {}
 
         if (fa.fail()) {
             err.str("");
@@ -340,8 +326,7 @@ public:
 
         try {
             fb.open(b, std::ios_base::in);
-        } catch (std::exception&) {
-        }
+        } catch (std::exception&) {}
 
         if (fb.fail()) {
             err.str("");
@@ -427,8 +412,7 @@ public:
         }
     }
 
-    void fileComparisonFailed(const std::string& a, const std::string& b, const uint32_t line, const char* file, const std::string& error)
-    {
+    void fileComparisonFailed(const std::string& a, const std::string& b, const uint32_t line, const char* file, const std::string& error) {
         cerr_ << SIMDB_CURRENT_COLOR_BRIGHT_RED << "File comparison test between \"" << a << "\" and \"" << b << "\" FAILED on line "
               << line << " in file " << file << std::endl;
         cerr_ << "  Exception: " << error << std::endl;
@@ -436,24 +420,20 @@ public:
         ++num_errors_;
     }
 
-    void reachedMethod(const std::string& method_title)
-    {
+    void reachedMethod(const std::string& method_title) {
         methods_reached_.insert(method_title);
     }
 
-    static SimDBTester* getInstance()
-    {
+    static SimDBTester* getInstance() {
         static SimDBTester inst;
         return &inst;
     }
 
-    static std::unique_ptr<SimDBTester> makeTesterWithUserCError(std::ostream& cerr)
-    {
+    static std::unique_ptr<SimDBTester> makeTesterWithUserCError(std::ostream& cerr) {
         return std::unique_ptr<SimDBTester>(new SimDBTester(0, cerr));
     }
 
-    static uint32_t getErrorCode(const SimDBTester* tester = getInstance())
-    {
+    static uint32_t getErrorCode(const SimDBTester* tester = getInstance()) {
         return tester->num_errors_;
     }
 
@@ -463,8 +443,7 @@ private:
     SimDBTester(const uint32_t num_errors, std::ostream& cerr)
         : num_errors_(num_errors)
         , methods_reached_()
-        , cerr_(cerr)
-    {
+        , cerr_(cerr) {
     }
 
     uint32_t num_errors_;
@@ -490,7 +469,13 @@ private:
  * \brief Clears all *.db files from previous test runs.
  *        For some collections test, also deletes any dump files.
  */
-#define DB_INIT { auto __rc = system("rm -f *.db"); __rc = system("rm -f structs.*"); __rc = system("rm -f stats.*"); (void)__rc; }
+#define DB_INIT                                                                                                                            \
+    {                                                                                                                                      \
+        auto __rc = system("rm -f *.db");                                                                                                  \
+        __rc = system("rm -f structs.*");                                                                                                  \
+        __rc = system("rm -f stats.*");                                                                                                    \
+        (void)__rc;                                                                                                                        \
+    }
 
 /**
  * \def EXPECT_REACHED()
@@ -636,9 +621,7 @@ private:
         bool did_it_throw = false;                                                                                                         \
         try {                                                                                                                              \
             x;                                                                                                                             \
-        } catch (...) {                                                                                                                    \
-            did_it_throw = true;                                                                                                           \
-        }                                                                                                                                  \
+        } catch (...) { did_it_throw = true; }                                                                                             \
         if (did_it_throw == false) {                                                                                                       \
             simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__);                                                    \
         }                                                                                                                                  \
@@ -752,9 +735,7 @@ private:
         } catch (std::exception & e) {                                                                                                     \
             did_it_throw = true;                                                                                                           \
             exception_what = e.what();                                                                                                     \
-        } catch (...) {                                                                                                                    \
-            did_it_throw = true;                                                                                                           \
-        }                                                                                                                                  \
+        } catch (...) { did_it_throw = true; }                                                                                             \
         if (did_it_throw == true) {                                                                                                        \
             simdb::SimDBTester::getInstance()->throwTestFailed(#x, __LINE__, __FILE__, exception_what.c_str());                            \
         }                                                                                                                                  \
@@ -771,9 +752,7 @@ private:
  * \endcode
  */
 #define EXPECT_FILES_EQUAL(a, b)                                                                                                           \
-    {                                                                                                                                      \
-        simdb::SimDBTester::getInstance()->expectFilesEqual(a, b, true, __LINE__, __FILE__);                                               \
-    }
+    { simdb::SimDBTester::getInstance()->expectFilesEqual(a, b, true, __LINE__, __FILE__); }
 
 /**
  * \def EXPECT_FILES_NOTEQUAL(a, b)
@@ -786,9 +765,7 @@ private:
  * \endcode
  */
 #define EXPECT_FILES_NOTEQUAL(a, b)                                                                                                        \
-    {                                                                                                                                      \
-        simdb::SimDBTester::getInstance()->expectFilesEqual(a, b, false, __LINE__, __FILE__);                                              \
-    }
+    { simdb::SimDBTester::getInstance()->expectFilesEqual(a, b, false, __LINE__, __FILE__); }
 
 /**
  * \def ERROR_CODE

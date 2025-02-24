@@ -5,52 +5,57 @@
 #include "simdb/serialize/Serialize.hpp"
 
 #include <stdint.h>
-#include <memory>
-#include <vector>
 #include <cassert>
+#include <memory>
 #include <string>
+#include <vector>
 
-namespace simdb
-{
+namespace simdb {
 
-struct ArgosRecord
-{
+struct ArgosRecord {
     enum class Status { READ, READ_ONCE, DONT_READ };
     Status status = Status::DONT_READ;
 
     const uint16_t elem_id = 0;
     std::vector<char> data;
 
-    ArgosRecord(uint16_t elem_id) : elem_id(elem_id) {}
+    ArgosRecord(uint16_t elem_id)
+        : elem_id(elem_id) {
+    }
 
-    void reset()
-    {
+    void reset() {
         status = Status::DONT_READ;
         data.clear();
     }
 };
 
-class CollectionPointBase
-{
+class CollectionPointBase {
 public:
     CollectionPointBase(uint16_t elem_id, uint16_t clk_id, size_t heartbeat, const std::string& dtype)
         : argos_record_(elem_id)
         , elem_id_(elem_id)
         , clk_id_(clk_id)
         , heartbeat_(heartbeat)
-        , dtype_(dtype)
-    {}
+        , dtype_(dtype) {
+    }
 
-    uint16_t getElemId() const { return elem_id_; }
+    uint16_t getElemId() const {
+        return elem_id_;
+    }
 
-    uint16_t getClockId() const { return clk_id_; }
+    uint16_t getClockId() const {
+        return clk_id_;
+    }
 
-    size_t getHeartbeat() const { return heartbeat_; }
+    size_t getHeartbeat() const {
+        return heartbeat_;
+    }
 
-    const std::string& getDataTypeStr() const { return dtype_; }
+    const std::string& getDataTypeStr() const {
+        return dtype_;
+    }
 
-    void sweep(std::vector<char>& swept_data)
-    {
+    void sweep(std::vector<char>& swept_data) {
         if (argos_record_.status != ArgosRecord::Status::DONT_READ) {
             swept_data.insert(swept_data.end(), argos_record_.data.begin(), argos_record_.data.end());
         }
@@ -60,7 +65,8 @@ public:
         }
     }
 
-    virtual void postSim(DatabaseManager*) {}
+    virtual void postSim(DatabaseManager*) {
+    }
 
 protected:
     ArgosRecord argos_record_;
@@ -81,18 +87,17 @@ struct is_std_vector<std::vector<T>> : std::true_type {};
 template <typename T>
 static constexpr bool is_std_vector_v = is_std_vector<T>::value;
 
-class CollectionPoint : public CollectionPointBase
-{
+class CollectionPoint : public CollectionPointBase {
 public:
     enum class Action : uint8_t { WRITE, CARRY };
 
     template <typename... Args>
-    CollectionPoint(Args&&... args) : CollectionPointBase(std::forward<Args>(args)...) {}
+    CollectionPoint(Args&&... args)
+        : CollectionPointBase(std::forward<Args>(args)...) {
+    }
 
     template <typename T>
-    typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type
-    activate(const T& val, bool once = false)
-    {
+    typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type activate(const T& val, bool once = false) {
         ensureNumBytes_(val);
         if (val) {
             activate(*val, once);
@@ -102,23 +107,19 @@ public:
     }
 
     template <typename T>
-    typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type
-    activate(const T& val, bool once = false)
-    {
+    typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type activate(const T& val, bool once = false) {
         ensureNumBytes_(val);
         activateImpl_(val);
         argos_record_.status = once ? ArgosRecord::Status::READ_ONCE : ArgosRecord::Status::READ;
     }
 
-    void deactivate()
-    {
+    void deactivate() {
         argos_record_.status = ArgosRecord::Status::DONT_READ;
     }
 
 private:
     template <typename T>
-    void activateImpl_(const T& val)
-    {
+    void activateImpl_(const T& val) {
         CollectionBuffer buffer(argos_record_.data);
         buffer << getElemId();
 
@@ -146,9 +147,7 @@ private:
     }
 
     template <typename T>
-    typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type
-    ensureNumBytes_(const T& val)
-    {
+    typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type ensureNumBytes_(const T& val) {
         if (num_bytes_) {
             return;
         }
@@ -163,9 +162,7 @@ private:
     }
 
     template <typename T>
-    typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type
-    ensureNumBytes_(const T& val)
-    {
+    typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type ensureNumBytes_(const T& val) {
         if (num_bytes_) {
             return;
         }
@@ -211,48 +208,39 @@ private:
     size_t num_bytes_ = 0;
 };
 
-class ContigIterableCollectionPoint : public CollectionPointBase
-{
+class ContigIterableCollectionPoint : public CollectionPointBase {
 public:
     enum class Action : uint8_t { ARRIVE, DEPART, BOOKENDS, CHANGE, FULL, CARRY };
 
     ContigIterableCollectionPoint(uint16_t elem_id, uint16_t clk_id, size_t heartbeat, const std::string& dtype, size_t capacity)
         : CollectionPointBase(elem_id, clk_id, heartbeat, dtype)
         , curr_snapshot_(capacity)
-        , prev_snapshot_(capacity)
-    {
+        , prev_snapshot_(capacity) {
     }
 
     template <typename T>
-    typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type
-    activate(const T container, bool once = false)
-    {
+    typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type activate(const T container, bool once = false) {
         activate(*container, once);
     }
 
     template <typename T>
-    typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type
-    activate(const T& container, bool once = false)
-    {
+    typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type activate(const T& container, bool once = false) {
         readContainer_(container);
         argos_record_.status = once ? ArgosRecord::Status::READ_ONCE : ArgosRecord::Status::READ;
     }
 
-    void deactivate()
-    {
+    void deactivate() {
         argos_record_.status = ArgosRecord::Status::DONT_READ;
     }
 
 private:
-    class IterableSnapshot
-    {
+    class IterableSnapshot {
     public:
         IterableSnapshot(size_t expected_capacity)
-            : bytes_by_bin_(expected_capacity)
-        {}
+            : bytes_by_bin_(expected_capacity) {
+        }
 
-        uint16_t size() const
-        {
+        uint16_t size() const {
             uint16_t num_valid = 0;
             for (const auto& bin : bytes_by_bin_) {
                 if (!bin.empty()) {
@@ -262,42 +250,33 @@ private:
             return num_valid;
         }
 
-        uint16_t capacity() const
-        {
+        uint16_t capacity() const {
             return bytes_by_bin_.size();
         }
 
-        std::vector<char>& operator[](size_t idx)
-        {
+        std::vector<char>& operator[](size_t idx) {
             return bytes_by_bin_[idx];
         }
 
-        const std::vector<char>& operator[](size_t idx) const
-        {
+        const std::vector<char>& operator[](size_t idx) const {
             return bytes_by_bin_[idx];
         }
 
-        void clear()
-        {
+        void clear() {
             for (auto& bin : bytes_by_bin_) {
                 bin.clear();
             }
         }
 
-        void compareAndSerialize(IterableSnapshot& prev, CollectionBuffer& buffer)
-        {
+        void compareAndSerialize(IterableSnapshot& prev, CollectionBuffer& buffer) {
             uint16_t changed_idx = 0;
             switch (getAction_(prev, changed_idx)) {
-                case Action::CARRY:
-                    buffer << ContigIterableCollectionPoint::Action::CARRY;
-                    break;
+                case Action::CARRY: buffer << ContigIterableCollectionPoint::Action::CARRY; break;
                 case Action::ARRIVE:
                     buffer << ContigIterableCollectionPoint::Action::ARRIVE;
                     buffer << bytes_by_bin_.back();
                     break;
-                case Action::DEPART:
-                    buffer << ContigIterableCollectionPoint::Action::DEPART;
-                    break;
+                case Action::DEPART: buffer << ContigIterableCollectionPoint::Action::DEPART; break;
                 case Action::CHANGE:
                     buffer << ContigIterableCollectionPoint::Action::CHANGE;
                     buffer << changed_idx;
@@ -318,8 +297,7 @@ private:
         }
 
     private:
-        Action getAction_(IterableSnapshot& prev, uint16_t& changed_idx)
-        {
+        Action getAction_(IterableSnapshot& prev, uint16_t& changed_idx) {
             if (++action_count_ == capacity()) {
                 action_count_ = 0;
                 return Action::FULL;
@@ -394,8 +372,7 @@ private:
     };
 
     template <typename T>
-    void readContainer_(const T& container)
-    {
+    void readContainer_(const T& container) {
         auto size = container.size();
         if (size > prev_snapshot_.capacity()) {
             size = prev_snapshot_.capacity();
@@ -430,8 +407,7 @@ private:
 
     template <typename T>
     typename std::enable_if<meta_utils::is_any_pointer<T>::value, bool>::type
-    writeStruct_(const T& el, IterableSnapshot& snapshot, uint16_t bin_idx)
-    {
+    writeStruct_(const T& el, IterableSnapshot& snapshot, uint16_t bin_idx) {
         if (el) {
             return writeStruct_(*el, snapshot, bin_idx);
         }
@@ -440,8 +416,7 @@ private:
 
     template <typename T>
     typename std::enable_if<!meta_utils::is_any_pointer<T>::value, bool>::type
-    writeStruct_(const T& el, IterableSnapshot& snapshot, uint16_t bin_idx)
-    {
+    writeStruct_(const T& el, IterableSnapshot& snapshot, uint16_t bin_idx) {
         StructSerializer<T>::getInstance()->extract(&el, snapshot[bin_idx]);
         return true;
     }
@@ -453,41 +428,33 @@ private:
     uint16_t queue_max_size_ = 0;
 };
 
-class SparseIterableCollectionPoint : public CollectionPointBase
-{
+class SparseIterableCollectionPoint : public CollectionPointBase {
 public:
     SparseIterableCollectionPoint(uint16_t elem_id, uint16_t clk_id, size_t heartbeat, const std::string& dtype, size_t capacity)
         : CollectionPointBase(elem_id, clk_id, heartbeat, dtype)
-        , expected_capacity_(capacity)
-    {
+        , expected_capacity_(capacity) {
         prev_data_by_bin_.resize(capacity);
         num_carry_overs_by_bin_.resize(capacity, 0);
     }
 
     template <typename T>
-    typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type
-    activate(const T container, bool once = false)
-    {
+    typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type activate(const T container, bool once = false) {
         activate(*container, once);
     }
 
     template <typename T>
-    typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type
-    activate(const T& container, bool once = false)
-    {
+    typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type activate(const T& container, bool once = false) {
         readContainer_(container);
         argos_record_.status = once ? ArgosRecord::Status::READ_ONCE : ArgosRecord::Status::READ;
     }
 
-    void deactivate()
-    {
+    void deactivate() {
         argos_record_.status = ArgosRecord::Status::DONT_READ;
     }
 
 private:
     template <typename T>
-    void readContainer_(const T& container)
-    {
+    void readContainer_(const T& container) {
         uint16_t num_valid = 0;
 
         {
@@ -532,8 +499,7 @@ private:
 
     template <typename T>
     typename std::enable_if<meta_utils::is_any_pointer<T>::value, bool>::type
-    writeStruct_(const T& el, CollectionBuffer& buffer, uint16_t bin_idx)
-    {
+    writeStruct_(const T& el, CollectionBuffer& buffer, uint16_t bin_idx) {
         if (el) {
             return writeStruct_(*el, buffer, bin_idx);
         }
@@ -542,8 +508,7 @@ private:
 
     template <typename T>
     typename std::enable_if<!meta_utils::is_any_pointer<T>::value, bool>::type
-    writeStruct_(const T& el, CollectionBuffer& buffer, uint16_t bin_idx)
-    {
+    writeStruct_(const T& el, CollectionBuffer& buffer, uint16_t bin_idx) {
         buffer << bin_idx;
         StructSerializer<T>::getInstance()->writeStruct(&el, buffer);
         return true;
