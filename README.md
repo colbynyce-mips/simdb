@@ -9,9 +9,8 @@ This is a C++11 SQLite database module which intends to address common use cases
 SimDB features include:
 
 * Ease of use over sqlite3 C API
-* Background worker thread to perform tasks asynchronously
-* Automatic system-wide data collection with a single API call in the sim loop
-* Front-end viewer to analyze collected data
+* Data collection API with high-performance, multi-threaded processing queue
+* Argos: Front-end viewer to analyze collected data
 
 # Code examples
 
@@ -43,7 +42,7 @@ SimDB features include:
     //     int db_id;
     // };
 
-    void writeHierarchy(simdb::DatabaseManager& db_mgr, SimHierNode& node, int parent_db_id = 0)
+    void writeHierarchy(simdb::DatabaseManager& db_mgr, const SimHierNode& node, int parent_db_id = 0)
     {
         auto record = db_mgr.INSERT(SQL_TABLE("SimHierarchy"),
                                     SQL_COLUMNS("ParentNodeID", "NodeName"),
@@ -82,136 +81,28 @@ SimDB features include:
     // UPDATE SimHierarchy NodeName="root" WHERE Id=1
     auto record = db_mgr.getRecord("SimHierarchy", 1);
     record->setPropertyString("NodeName", "root");
-    
-## Async mode
 
-Perform high-volume data writes on the worker thread. This is highly
-encouraged for maximum performance.
+## Collection System / Argos
 
-    // class SimLoopStatsWriter : public simdb::WorkerTask
-    // {
-    // public:
-    //     SimLoopStatsWriter(simdb::DatabaseManager& db_mgr,
-    //                        const uint64_t cycle,
-    //                        const SimHierNode& node,
-    //                        const std::vector<double>& stats)
-    //         : db_mgr_(db_mgr)
-    //         , cycle_(cycle)
-    //         , node_id_(node.db_id)
-    //         , stats_(stats)
-    //     {}
-    // 
-    //     void completeTask() override {
-    //         db_mgr_.INSERT(SQL_TABLE("SnapshotData"),
-    //                        SQL_COLUMNS("Cycle", "SimHierNodeID", "RawData"),
-    //                        SQL_VALUES(cycle_, node_id_, stats_));
-    //     }
-    // 
-    // private:
-    //     simdb::DatabaseManager& db_mgr_;
-    //     const uint64_t cycle_;
-    //     const int node_id_;
-    //     const std::vector<double> stats_;
-    // };
+One of SimDB's most powerful features is its data collection system and the front-end viewer "Argos". Its design is generic enough to support:
 
-    auto task_queue = db_mgr.getConnection()->getTaskQueue();
+* Cycle-driven simulation
+* Event-driven simulation
+* Multiple clock domains on different frequencies
+* Any data type (scalar or in a container)
 
-    while (Scheduler::instance()->step()) {
-        std::unique_ptr<simdb::WorkerTask> task(new SimLoopStatsWriter(...));
-        task_queue->addTask(std::move(task)));
-    }
+Argos reads the collection database and provides various widgets to analyze data and find issues, bottlenecks, etc.
 
-    db_mgr.closeDatabase();
-
-## Automatic collection
-
-One of SimDB's most powerful features is automatic data collection.
-* POD types, enums, strings
-* Structs
-* Containers of structs (by value, pointer, or smart pointer)
-
-A simple example is provided below for brevity. See the detailed examples in the test
-directories (test/Collection/**).
-
-    std::string getHierLocation(const SimHierNode* hier_node)
-    {
-        std::string loc;
-        // Walk up the hierarchy to get a dot-delimited location e.g. "root.core0.lsu.stats.foo"
-        return loc;
-    }
-
-    struct NodeStat {
-        SimHierNode* hier_node;
-        double val;
-    };
-
-    // Setup the collection
-    auto collection_mgr = db_mgr.getCollectionMgr();
-
-    // Use T* backpointers or a std::function<T()> to capture the collection time values.
-    // Both integral (discrete time) and floating-point (continuous time) are supported.
-    // Here we assume we have a uint64_t member variable called "cycle_" holding the current tick.
-    collection_mgr->useTimestampsFrom(&cycle_);
-
-    using StatCollection = simdb::StatCollection<double>;
-    std::unique_ptr<StatCollection> collection(new StatCollection("AllStats"));
-
-    // Assume we have many NodeStat structs all over the simulator.
-    for (const NodeStat& node_stat : all_node_stats) {
-        SimHierNode* hier_node = node_stat.hier_node;
-        std::string loc = getHierLocation(hier_node);
-        collection->addStat(loc, &node_stat.val);
-    }
-
-    collection_mgr->addCollection(std::move(collection));
-    db_mgr.finalizeCollections();
-
-// Later in the sim loop...
-
-    void Scheduler::run()
-    {
-        while (++time_ < 1000) {
-            step();
-            db_mgr_.getCollectionMgr()->collectAll();
-        }
-    }
-
-# Python Deserializer
-
-You can use the simdb_collections.py module to write your own post-processing
-tools, such as stats CSV reports.
-
-    # Create a CSV report of all stats, with this format:
-    #   Time,1,2,3,4,5
-    #   root.core0.lsu.stats.foo,33,22,55,44,22
-    #   root.core0.fpu.stats.bar,33,22,55,44,22
-    #   ...
-
-    from simdb_collections import Collections
-
-    collections = Collections('sim.db')
-    data_json = collections.Unpack()
-    
-    with open('stats.csv', 'w') as fout:
-        time_vals = data_json['TimeVals']
-        stats_json = data_json['DataVals']
-
-        fout.write('Time,')
-        fout.write(','.join([str(t) for t in time_vals]))
-        fout.write('\n')
-
-        for stat_path, stat_vals in stats_json.items():
-            fout.write(stat_path + ',')
-            fout.write(','.join([str(val) for val in stat_vals]))
-            fout.write('\n')
+The primary use case driving Argos design is pipeline collection for CPU/GPU
+performance models e.g. [Olympia](https://github.com/riscv-software-src/riscv-perf-model)
 
 # Argos viewer
 
-SimDB provides a collection viewer called "Argos" which can be launched with this command:
+See simdb/python/viewer/README
 
-    python3 python/argos.py --database <path/to/your/sim.db>
+# Python API
 
-All Argos documentation is found in the 'python' subdirectory README.
+TBD
 
 # Dependencies
 
