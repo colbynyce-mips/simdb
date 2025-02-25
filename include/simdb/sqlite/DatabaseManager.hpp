@@ -1,4 +1,4 @@
-// <DatabaseManager> -*- C++ -*-
+// <DatabaseManager.hpp> -*- C++ -*-
 
 #pragma once
 
@@ -544,6 +544,7 @@ private:
     bool append_schema_allowed_ = true;
 };
 
+/// Note that this method is defined here since we need the INSERT() method.
 inline void FieldBase::serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const
 {
     const auto field_dtype_str = getFieldDTypeStr(dtype_);
@@ -556,6 +557,7 @@ inline void FieldBase::serializeDefn(DatabaseManager* db_mgr, const std::string&
                    SQL_VALUES(struct_name, name_, field_dtype_str, fmt, is_autocolorize_key, is_displayed_by_default));
 }
 
+/// Note that this method is defined here since we need the INSERT() method.
 template <typename EnumT> inline void EnumMap<EnumT>::serializeDefn(DatabaseManager* db_mgr) const
 {
     using enum_int_t = typename std::underlying_type<EnumT>::type;
@@ -583,6 +585,7 @@ template <typename EnumT> inline void EnumMap<EnumT>::serializeDefn(DatabaseMana
     }
 }
 
+/// Note that this method is defined here since we need the INSERT() method.
 template <typename EnumT> inline void EnumField<EnumT>::serializeDefn(DatabaseManager* db_mgr, const std::string& struct_name) const
 {
     const auto field_name = getName();
@@ -733,6 +736,8 @@ CollectionMgr::createIterableCollector(const std::string& path, const std::strin
     return collectable;
 }
 
+/// Sweep the collection system for all active collectables that exist on
+/// the given clock, and send their data to the database.
 inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
 {
     const auto clk_id = clock_db_ids_by_name_.at(clk);
@@ -754,6 +759,7 @@ inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
     pipeline_.push(std::move(swept_data_), tick);
 }
 
+/// One-time call to write post-simulation metadata to SimDB.
 inline void CollectionMgr::postSim()
 {
     db_mgr_->safeTransaction(
@@ -766,36 +772,35 @@ inline void CollectionMgr::postSim()
             return true;
         });
 
-    pipeline_.postSim();
+    pipeline_.teardown();
 }
 
+/// Note that this method is defined here since we need the INSERT() method.
 inline void ContigIterableCollectionPoint::postSim(DatabaseManager* db_mgr)
 {
     db_mgr->INSERT(SQL_TABLE("QueueMaxSizes"), SQL_COLUMNS("CollectableTreeNodeID", "MaxSize"), SQL_VALUES(getElemId(), queue_max_size_));
 }
 
+/// Note that this method is defined here since we need the INSERT() method.
 inline void SparseIterableCollectionPoint::postSim(DatabaseManager* db_mgr)
 {
     db_mgr->INSERT(SQL_TABLE("QueueMaxSizes"), SQL_COLUMNS("CollectableTreeNodeID", "MaxSize"), SQL_VALUES(getElemId(), queue_max_size_));
 }
 
+/// Note that this method is defined here since we need the INSERT() method.
 inline TreeNode* CollectionMgr::updateTree_(const std::string& path, const std::string& clk)
 {
     if (!root_)
     {
         root_ = std::make_unique<TreeNode>("root");
-
         auto record = db_mgr_->INSERT(SQL_TABLE("ElementTreeNodes"), SQL_COLUMNS("Name", "ParentID"), SQL_VALUES("root", 0));
-
         root_->db_id = record->getId();
     }
 
     if (clock_db_ids_by_name_.find(clk) == clock_db_ids_by_name_.end())
     {
         auto period = clocks_.at(clk);
-
         auto record = db_mgr_->INSERT(SQL_TABLE("Clocks"), SQL_COLUMNS("Name", "Period"), SQL_VALUES(clk, period));
-
         clock_db_ids_by_name_[clk] = record->getId();
     }
 
@@ -835,6 +840,7 @@ inline TreeNode* CollectionMgr::updateTree_(const std::string& path, const std::
     return node;
 }
 
+/// Note that this method is defined here since we need the INSERT() method.
 inline void CollectionMgr::finalizeCollections_()
 {
     db_mgr_->INSERT(SQL_TABLE("CollectionGlobals"), SQL_COLUMNS("Heartbeat"), SQL_VALUES((int)heartbeat_));
@@ -871,6 +877,7 @@ inline void CollectionMgr::finalizeCollections_()
     }
 }
 
+/// Note that this method is defined here since we need the INSERT() method.
 inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(PipelineStagePayload&& payload)
 {
     ready_queue_.emplace(std::move(payload));

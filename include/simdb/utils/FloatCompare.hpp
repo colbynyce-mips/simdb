@@ -1,4 +1,4 @@
-// <FloatCompare> -*- C++ -*-
+// <FloatCompare.hpp> -*- C++ -*-
 
 #pragma once
 

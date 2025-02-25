@@ -1,4 +1,4 @@
-// <CollectionBuffer> -*- C++ -*-
+// <CollectionBuffer.hpp> -*- C++ -*-
 
 #pragma once
 
@@ -65,9 +65,9 @@ inline typename std::enable_if<std::is_enum<T>::value, CollectionBuffer&>::type 
     return buffer << static_cast<dtype>(val);
 }
 
-inline CollectionBuffer& operator<<(CollectionBuffer& buffer, const std::vector<char>& bytes)
+template <typename T> inline CollectionBuffer& operator<<(CollectionBuffer& buffer, const std::vector<T>& bytes)
 {
-    buffer.append(bytes.data(), bytes.size());
+    buffer.append(bytes.data(), bytes.size() * sizeof(T));
     return buffer;
 }
 

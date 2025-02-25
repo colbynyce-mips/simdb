@@ -1,3 +1,5 @@
+// <ConcurrentQueue.hpp> -*- C++ -*-
+
 #pragma once
 
 #include <mutex>

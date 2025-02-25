@@ -1,4 +1,4 @@
-// <ValueContainer> -*- C++ -*-
+// <ValueContainer.hpp> -*- C++ -*-
 
 #pragma once
 
@@ -25,6 +25,7 @@ public:
     virtual int32_t bind(sqlite3_stmt* stmt, int32_t col_idx) const = 0;
 };
 
+/// Bind an int32_t to an INSERT prepared statement.
 class Integral32ValueContainer : public ValueContainerBase
 {
 public:
@@ -42,6 +43,7 @@ private:
     int32_t val_;
 };
 
+/// Bind an int64_t to an INSERT prepared statement.
 class Integral64ValueContainer : public ValueContainerBase
 {
 public:
@@ -59,6 +61,7 @@ private:
     int64_t val_;
 };
 
+/// Bind a double to an INSERT prepared statement.
 class FloatingPointValueContainer : public ValueContainerBase
 {
 public:
@@ -76,6 +79,7 @@ private:
     double val_;
 };
 
+/// Bind a string to an INSERT prepared statement.
 class StringValueContainer : public ValueContainerBase
 {
 public:
@@ -93,6 +97,7 @@ private:
     std::string val_;
 };
 
+/// Bind a blob to an INSERT prepared statement.
 class BlobValueContainer : public ValueContainerBase
 {
 public:
@@ -110,6 +115,7 @@ private:
     SqlBlob val_;
 };
 
+/// Bind a std::vector to an INSERT prepared statement.
 template <typename T> class VectorValueContainer : public ValueContainerBase
 {
 public:

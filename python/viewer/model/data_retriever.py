@@ -644,8 +644,8 @@ class ContigIterableReplayer:
         DEPART = 1
         BOOKENDS = 2
         CHANGE = 3
-        FULL = 4
-        CARRY = 5
+        CARRY = 4
+        FULL = 5
 
     def __init__(self, struct_num_bytes, capacity):
         self.struct_num_bytes = struct_num_bytes

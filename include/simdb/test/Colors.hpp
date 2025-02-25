@@ -1,4 +1,4 @@
-// <Colors> -*- C++ -*-
+// <Colors.hpp> -*- C++ -*-
 
 /*!
  * \brief Color codes / utilities for SimDB.

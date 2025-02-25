@@ -406,6 +406,27 @@ template <typename StructT> void writeStructFields(const StructT* s, StructField
     (void)serializer;
 }
 
+/// This helper class is used by the writeStructFields<T>() specializations supplied by the user.
+///
+/// namespace simdb
+/// {
+///     template <> void defineStructSchema<DummyPacket>(StructSchema<DummyPacket>& schema)
+///     {
+///         schema.addField<int32_t>("int32");
+///         schema.addField<double>("dbl");
+///         schema.addBool("bool");
+///         schema.addString("str");
+///     }
+///
+///     template <> void writeStructFields(const DummyPacket* all, StructFieldSerializer<DummyPacket>* serializer)
+///     {
+///         serializer->writeField(all->int32);            <-- here
+///         serializer->writeField(all->dbl);              <-- here
+///         serializer->writeField(all->b);                <-- here
+///         serializer->writeField(all->str);              <-- here
+///     }
+/// } // namespace simdb
+///
 template <typename StructT> class StructFieldSerializer
 {
 public:
@@ -415,11 +436,13 @@ public:
     {
     }
 
+    /// Write an entire struct.
     void writeFields(const StructT* s)
     {
         writeStructFields<StructT>(s, this);
     }
 
+    /// Write a non-string, non-enum field.
     template <typename FieldT>
     typename std::enable_if<!std::is_enum<FieldT>::value && !std::is_same<FieldT, std::string>::value, void>::type
     writeField(const FieldT val)
@@ -436,12 +459,14 @@ public:
         ++current_field_idx_;
     }
 
+    /// Write an enum field.
     template <typename FieldT> typename std::enable_if<std::is_enum<FieldT>::value, void>::type writeField(const FieldT val)
     {
         using dtype = typename std::underlying_type<FieldT>::type;
         writeField<dtype>(static_cast<dtype>(val));
     }
 
+    /// Write a string field.
     void writeField(const std::string& val)
     {
         if (dynamic_cast<const StringField*>(fields_[current_field_idx_].get()))
@@ -455,11 +480,13 @@ public:
         }
     }
 
+    /// Write a string field.
     void writeField(const char* val)
     {
         writeField(std::string(val));
     }
 
+    /// Get the buffer that the serializer is writing to.
     CollectionBuffer& getBuffer()
     {
         return buffer_;
@@ -473,6 +500,20 @@ private:
 
 template <typename StructT> class StructSerializer;
 
+/// This class is used in order to define a struct-like collectable <T>, which
+/// only needs to be defined for non-trivial types.
+///
+/// namespace simdb
+/// {
+///     template <> void defineStructSchema<DummyPacket>(StructSchema<DummyPacket>& schema)
+///     {
+///         schema.addField<int32_t>("int32");        <-- here
+///         schema.addField<double>("dbl");           <-- here
+///         schema.addBool("bool");                   <-- here
+///         schema.addString("str");                  <-- here
+///     }
+/// } // namespace simdb
+///
 template <typename StructT> class StructSchema
 {
 public:
@@ -597,11 +638,28 @@ private:
     friend class StructSerializer<StructT>;
 };
 
+/// This method is used in order to define a struct-like collectable <T>, which
+/// only needs to be defined for non-trivial types.
+///
+/// namespace simdb
+/// {
+///     template <> void defineStructSchema<DummyPacket>(StructSchema<DummyPacket>& schema)
+///     {
+///         schema.addField<int32_t>("int32");        <-- here
+///         schema.addField<double>("dbl");           <-- here
+///         schema.addBool("bool");                   <-- here
+///         schema.addString("str");                  <-- here
+///     }
+/// } // namespace simdb
+///
 template <typename StructT> inline void defineStructSchema(StructSchema<StructT>& schema)
 {
     (void)schema;
 }
 
+/// This class is used to read a struct's fields and write them into a CollectionBuffer
+/// or directly into a std::vector<char>. It is also responsible for serializing the
+/// struct's fields into the database so they can be deserialized in Python (e.g. Argos).
 template <typename StructT> class StructSerializer
 {
 public:

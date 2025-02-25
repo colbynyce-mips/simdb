@@ -1,4 +1,4 @@
-// <Exceptions> -*- C++ -*-
+// <Exceptions.hpp> -*- C++ -*-
 
 #pragma once
 

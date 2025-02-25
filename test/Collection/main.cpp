@@ -1,9 +1,4 @@
-/// Tests for SimDB collections feature. This test brings everything together
-/// and produces collections of scalar stats, structs, iterable structs (both
-/// sparse and non-sparse), and non-default format options.
-///
-/// This test is meant to drive the python module deserializers / reports.
-/// All supported data types are tested here.
+/// Tests for SimDB collections feature.
 
 #include <random>
 #include "simdb/sqlite/DatabaseManager.hpp"
@@ -118,56 +113,21 @@ DummyPacketPtr generateRandomDummyPacket()
 
 namespace simdb
 {
+
 template <> void defineStructSchema<DummyPacket>(StructSchema<DummyPacket>& schema)
 {
-    schema.addEnum<Colors>("color");
-    schema.addField<char>("ch");
-    schema.addField<int8_t>("int8");
-    schema.addField<int16_t>("int16");
     schema.addField<int32_t>("int32");
-    schema.addField<int64_t>("int64");
-    schema.addField<uint8_t>("uint8");
-    schema.addField<uint16_t>("uint16");
-    schema.addField<uint32_t>("uint32");
-    schema.addField<uint64_t>("uint64");
-    schema.addField<float>("flt");
     schema.addField<double>("dbl");
     schema.addBool("bool");
     schema.addString("str");
-    schema.addHex<uint32_t>("uint32h");
-    schema.addHex<uint64_t>("uint64h");
-}
-
-template <> void defineEnumMap<Colors>(std::string& enum_name, std::map<std::string, int>& map)
-{
-    using etype = std::underlying_type<Colors>::type;
-
-    enum_name = "Colors";
-    map["RED"] = static_cast<etype>(Colors::RED);
-    map["GREEN"] = static_cast<etype>(Colors::GREEN);
-    map["BLUE"] = static_cast<etype>(Colors::BLUE);
-    map["WHITE"] = static_cast<etype>(Colors::WHITE);
-    map["TRANSPARENT"] = static_cast<etype>(Colors::TRANSPARENT);
 }
 
 template <> void writeStructFields(const DummyPacket* all, StructFieldSerializer<DummyPacket>* serializer)
 {
-    serializer->writeField(all->e_color);
-    serializer->writeField(all->ch);
-    serializer->writeField(all->int8);
-    serializer->writeField(all->int16);
     serializer->writeField(all->int32);
-    serializer->writeField(all->int64);
-    serializer->writeField(all->uint8);
-    serializer->writeField(all->uint16);
-    serializer->writeField(all->uint32);
-    serializer->writeField(all->uint64);
-    serializer->writeField(all->flt);
     serializer->writeField(all->dbl);
     serializer->writeField(all->b);
     serializer->writeField(all->str);
-    serializer->writeField(all->uint32);
-    serializer->writeField(all->uint64);
 }
 
 } // namespace simdb

@@ -1,4 +1,4 @@
-// <TreeBuilder> -*- C++ -*-
+// <TreeBuilder.hpp> -*- C++ -*-
 
 #pragma once
 
@@ -11,6 +11,26 @@
 namespace simdb
 {
 
+/// This class is used to build a tree structure from a list of string locations.
+/// For example, given the three locations:
+///
+///     "top.mid1.bottom1"
+///     "top.mid1.bottom2"
+///     "top.bottom3"
+///
+/// The buildTree() method will create a TreeNode structure that looks like:
+///
+///     root
+///     |
+///     +-- top
+///         |
+///         +-- mid1
+///         |   |
+///         |   +-- bottom1
+///         |   |
+///         |   +-- bottom2
+///         |
+///         +-- bottom3
 struct TreeNode
 {
     std::string name;

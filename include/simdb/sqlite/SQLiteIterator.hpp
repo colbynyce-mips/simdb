@@ -1,4 +1,4 @@
-// <SQLiteIterator> -*- C++ -*-
+// <SQLiteIterator.hpp> -*- C++ -*-
 
 #pragma once
 

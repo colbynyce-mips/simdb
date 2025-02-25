@@ -1,3 +1,5 @@
+// <RunningMean.hpp> -*- C++ -*-
+
 #pragma once
 
 #include <stdint.h>
@@ -5,17 +7,13 @@
 namespace simdb
 {
 
-class RunningAverage
+/// This classes uses Welford's method to compute a running
+/// mean of a series of values given one at a time (without
+/// requiring all values to be stored in memory).
+class RunningMean
 {
 public:
-    // Constructor
-    RunningAverage()
-        : mean_(0.0)
-        , count_(0)
-    {
-    }
-
-    // Update the running average with a new value
+    /// Update the running average with a new value
     void add(double value)
     {
         // Welford's method to update the mean
@@ -23,13 +21,13 @@ public:
         mean_ += (value - mean_) / count_;
     }
 
-    // Get the current running average
+    /// Get the current running average
     double mean() const
     {
         return mean_;
     }
 
-    // Get the number of values added
+    /// Get the number of values added
     uint64_t count() const
     {
         return count_;

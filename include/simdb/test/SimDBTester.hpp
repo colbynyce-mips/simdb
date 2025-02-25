@@ -1,4 +1,4 @@
-// <SimDBTester> -*- C++ -*-
+// <SimDBTester.hpp> -*- C++ -*-
 
 #pragma once
 

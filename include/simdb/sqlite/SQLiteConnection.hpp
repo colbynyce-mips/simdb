@@ -1,4 +1,4 @@
-// <SQLiteConnection> -*- C++ -*-
+// <SQLiteConnection.hpp> -*- C++ -*-
 
 #pragma once
 

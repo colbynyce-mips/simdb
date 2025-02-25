@@ -1,4 +1,4 @@
-// <Compress> -*- C++ -*-
+// <Compress.hpp> -*- C++ -*-
 
 #pragma once
 

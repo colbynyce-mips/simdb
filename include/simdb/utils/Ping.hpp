@@ -1,3 +1,5 @@
+// <Ping.hpp> -*- C++ -*-
+
 #pragma once
 
 #include <chrono>
@@ -7,6 +9,7 @@
 namespace simdb
 {
 
+/// This utility class is used to "wake up" a boolean flag every N seconds.
 class Ping
 {
 public:
@@ -17,7 +20,7 @@ public:
 
     ~Ping()
     {
-        postSim();
+        teardown();
     }
 
     operator bool()
@@ -29,7 +32,7 @@ public:
         return ready;
     }
 
-    void postSim()
+    void teardown() noexcept
     {
         continue_ = false;
         if (ping_thread_.joinable())

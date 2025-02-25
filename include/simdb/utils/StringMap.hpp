@@ -1,4 +1,4 @@
-// <StringMap> -*- C++ -*-
+// <StringMap.hpp> -*- C++ -*-
 
 #pragma once
 
@@ -9,6 +9,10 @@
 namespace simdb
 {
 
+/// To keep SimDB collection as fast and small as possible, we serialize strings
+/// not as actual strings, but as ints. This class is used to map strings to ints,
+/// while the SimDB compression/sqlite pipeline will serialize the map to the database
+/// throughout simulation.
 class StringMap
 {
 public:
@@ -19,11 +23,6 @@ public:
     {
         static StringMap map;
         return &map;
-    }
-
-    const string_map_t getMap() const
-    {
-        return map_;
     }
 
     uint32_t getStringId(const std::string& s)

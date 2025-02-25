@@ -1,4 +1,4 @@
-// <SQLiteTable> -*- C++ -*-
+// <SQLiteTable.hpp> -*- C++ -*-
 
 #pragma once
 
@@ -85,7 +85,8 @@ private:
 /*!
  * \class SqlTable
  *
- * \brief Helper class that is used under the hood for db_mgr.INSERT(..., ..., SQL_VALUES(3.14, "foo"));
+ * \brief Helper class that is used together with SQL_VALUES() in order to bind
+ * data values to a prepared statement for INSERT's.
  */
 class SqlValues
 {

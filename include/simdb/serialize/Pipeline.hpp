@@ -1,5 +1,32 @@
 // <Pipeline.hpp> -*- C++ -*-
 
+/**
+ * The SimDB pipeline is responsible for handling compression as well as SQLite
+ * database writes for all collected data. It is used by the CollectionMgr
+ * in every call to sweep().
+ *
+ * The Pipeline class manages a series of stages, each with its own thread and
+ * processing queue. The pipeline attempts to balance the workload across these
+ * stages dynamically.
+ *
+ * The pipeline consists of two main stages:
+ * - CompressionStage: Handles data compression.
+ * - CompressionWithDatabaseWriteStage: Handles data compression and writes the
+ *   compressed data to the database.
+ *
+ * As packets come in for processing, the pipeline dynamically chooses which
+ * thread to add the packet to:
+ * - Thread A: Heavier compression only (higher compression level, slower algorithm).
+ * - Thread B: Faster/no compression, plus a database write.
+ *
+ * The pipeline will try to keep these two threads balanced in terms of workload.
+ * If one thread is getting too far ahead of the other, the compression levels
+ * for the two threads will be adjusted to even them out.
+ *
+ * @note The pipeline stages communicate via a push mechanism, where each stage
+ *       pushes its processed payload to the next stage.
+ */
+
 #pragma once
 
 #include "simdb/serialize/Serialize.hpp"
@@ -18,6 +45,8 @@
 namespace simdb
 {
 
+/// Packet sent through each pipeline stage for incremental processing
+/// on a background thread.
 struct PipelineStagePayload
 {
     std::vector<char> data;
@@ -53,18 +82,45 @@ public:
     virtual void postSim()
     {
         is_running_ = false;
+        if (next_stage_)
+        {
+            next_stage_->postSim();
+        }
     }
 
     void teardown()
     {
+        PipelineStage* stage = this;
+        while (stage)
+        {
+            stage->is_running_ = false;
+            stage = stage->next_stage_;
+        }
+
         stop_();
+        if (next_stage_)
+        {
+            next_stage_->teardown();
+        }
     }
 
     /// This method is used by the Pipeline to determine the relative
     /// amount of work/compression each stage is performing.
     virtual double getEstimatedRemainingProcTime() const = 0;
 
+protected:
+    /// Stop the infinite consume_() loop.
+    virtual void stop_()
+    {
+        is_running_ = false;
+        if (thread_)
+        {
+            thread_->join();
+        }
+    }
+
 private:
+    /// Start the infinite consume_() loop.
     void start_()
     {
         if (!is_running_ && !thread_)
@@ -74,15 +130,8 @@ private:
         }
     }
 
-    void stop_()
-    {
-        is_running_ = false;
-        if (thread_)
-        {
-            thread_->join();
-        }
-    }
-
+    /// Run infinite loop to consume data from the queue. All of this occurs
+    /// on this pipeline stage's own background thread.
     void consume_()
     {
         while (is_running_)
@@ -106,8 +155,13 @@ private:
         }
     }
 
+    /// Run this stage's processing. This method is called when there is
+    /// one or more downstream stages (only work on <data> but cannot take
+    /// ownership).
     virtual void processPipelineStage_(PipelineStagePayload& data) = 0;
 
+    /// Run this stages's processing. This method is called when there are
+    /// no downstream stages (work on <data> and take ownership).
     virtual void processPipelineStage_(PipelineStagePayload&& data) = 0;
 
     bool is_running_ = false;
@@ -140,15 +194,18 @@ public:
 
     void push(std::vector<char>&& bytes, uint64_t tick);
 
-    void postSim()
+    void teardown()
     {
+        // Note that we only have to call these methods on stage1 since
+        // it forwards these calls to the next stage.
         stage1_.postSim();
-        stage2_.postSim();
         stage1_.teardown();
-        stage2_.teardown();
     }
 
 private:
+    /// This is the first of the two pipeline stages. This stage is responsible
+    /// for compressing data only. Typically we will use a higher level of
+    /// compression in this stage than in the second stage.
     class CompressionStage : public PipelineStage
     {
     public:
@@ -169,6 +226,7 @@ private:
         }
 
     private:
+        /// Compress the data without taking ownership (the second stage will take ownership).
         void processPipelineStage_(PipelineStagePayload& payload) override
         {
             if (default_compression_level_)
@@ -193,9 +251,13 @@ private:
 
         std::vector<char> compressed_bytes_;
         int default_compression_level_ = 6;
-        RunningAverage compression_time_;
+        RunningMean compression_time_;
     };
 
+    /// This is the second of the two pipeline stages. This stage is responsible for
+    /// compressing data and writing it to the database. Typically we will use a
+    /// lower level of compression in this stage than in the first stage since we
+    /// also have to perform the database write.
     class CompressionWithDatabaseWriteStage : public PipelineStage
     {
     public:
@@ -216,18 +278,19 @@ private:
             return est_time;
         }
 
-        void postSim() override
+    private:
+        void stop_() override
         {
-            ping_.postSim();
-            PipelineStage::postSim();
+            ping_.teardown();
+            PipelineStage::stop_();
         }
 
-    private:
         void processPipelineStage_(PipelineStagePayload& payload) override
         {
             throw std::runtime_error("Should not be called - I have to take ownership!");
         }
 
+        /// Compress the data and write it to the database.
         void processPipelineStage_(PipelineStagePayload&& payload) override
         {
             if (!payload.compressed && default_compression_level_)
@@ -247,12 +310,15 @@ private:
             sendToDatabase_(std::move(payload));
         }
 
+        /// Append the data to the internal ConcurrentQueue and process this
+        /// queue asynchronously (every 1 second). We use the Ping helper class
+        /// to drive the once-a-second processing.
         void sendToDatabase_(PipelineStagePayload&& payload);
 
         std::vector<char> compressed_bytes_;
         int default_compression_level_ = 1;
-        RunningAverage compression_time_;
-        RunningAverage write_time_;
+        RunningMean compression_time_;
+        RunningMean write_time_;
         ConcurrentQueue<PipelineStagePayload> ready_queue_;
         Ping ping_;
     };

@@ -1,4 +1,4 @@
-// <CollectionPoints> -*- C++ -*-
+// <CollectionPoints.hpp> -*- C++ -*-
 
 #pragma once
 
@@ -13,6 +13,8 @@
 namespace simdb
 {
 
+/// Raw data held in the SimDB collection "black box". Sent to the database
+/// for as long as the Status isn't set to DONT_READ.
 struct ArgosRecord
 {
     enum class Status
@@ -38,6 +40,7 @@ struct ArgosRecord
     }
 };
 
+/// Base class for all collectables.
 class CollectionPointBase
 {
 public:
@@ -50,26 +53,36 @@ public:
     {
     }
 
+    /// Get the unique ID for this collection point.
     uint16_t getElemId() const
     {
         return elem_id_;
     }
 
+    /// Get the clock database ID for this collection point.
     uint16_t getClockId() const
     {
         return clk_id_;
     }
 
+    /// Get the heartbeat for this collection point. This is the
+    /// maximum number of cycles SimDB will attempt to perform
+    /// "minification" on the data before it is forced to write
+    /// the whole un-minified value to the database again. Note
+    /// that minification is simply an implementation detail
+    /// for performance.
     size_t getHeartbeat() const
     {
         return heartbeat_;
     }
 
+    /// Data type of this collectable, e.g. "uint64_t" or "MemPacket_contig_capacity32"
     const std::string& getDataTypeStr() const
     {
         return dtype_;
     }
 
+    /// Append the collected data from the black box unless the status is DONT_READ.
     void sweep(std::vector<char>& swept_data)
     {
         if (argos_record_.status != ArgosRecord::Status::DONT_READ)
@@ -83,6 +96,11 @@ public:
         }
     }
 
+    /// Called at the end of simulation / when the pipeline collector is destroyed.
+    /// Given the DatabaseManager in case the collectable needs to write any final
+    /// metadata etc.
+    ///
+    /// Note that postSim() is called inside a BEGIN/COMMIT TRANSACTION block.
     virtual void postSim(DatabaseManager*)
     {
     }
@@ -107,9 +125,14 @@ template <typename T> struct is_std_vector<std::vector<T>> : std::true_type
 
 template <typename T> static constexpr bool is_std_vector_v = is_std_vector<T>::value;
 
+/// Collectable for non-iterable data (not a queue/vector/deque/etc.)
+///   - POD
+///   - struct
 class CollectionPoint : public CollectionPointBase
 {
 public:
+    /// Minification for these collectables can only write the whole value (WRITE)
+    /// or say that the value hasn't changed (CARRY).
     enum class Action : uint8_t
     {
         WRITE,
@@ -122,6 +145,8 @@ public:
     {
     }
 
+    /// Put this collectable in the black box for consumption until deactivate() is called.
+    /// NOTE: There is no reason to call deactivate() on your own if "bool once = true".
     template <typename T>
     typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type activate(const T& val, bool once = false)
     {
@@ -136,21 +161,25 @@ public:
         }
     }
 
+    /// Put this collectable in the black box for consumption until deactivate() is called.
+    /// NOTE: There is no reason to call deactivate() on your own if "bool once = true".
     template <typename T>
     typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type activate(const T& val, bool once = false)
     {
         ensureNumBytes_(val);
-        activateImpl_(val);
+        minify_(val);
         argos_record_.status = once ? ArgosRecord::Status::READ_ONCE : ArgosRecord::Status::READ;
     }
 
+    /// Remove this collectable from the black box (do not collect anymore until activate() is called again).
     void deactivate()
     {
         argos_record_.status = ArgosRecord::Status::DONT_READ;
     }
 
 private:
-    template <typename T> void activateImpl_(const T& val)
+    /// Write the collectable bytes in the smallest form possible.
+    template <typename T> void minify_(const T& val)
     {
         CollectionBuffer buffer(argos_record_.data);
         buffer << getElemId();
@@ -277,17 +306,26 @@ private:
     size_t num_bytes_ = 0;
 };
 
+/// Collectable for contiguous (non-sparse) iterable data e.g. queue/vector/deque/etc.
 class ContigIterableCollectionPoint : public CollectionPointBase
 {
 public:
+    /// Minification for these collectables can do the following:
+    ///    - ARRIVE:   A new element has been added to the end of the container
+    ///    - DEPART:   An element has been removed from the front of the container
+    ///    - BOOKENDS: An element was popped off the front and another pushed to the back of the container
+    ///    - CHANGE:   Exactly one element in the container has changed
+    ///    - CARRY:    Nothing has changed
+    ///    - FULL:     Capture the entire container (during heartbeats or when the number
+    ///                of changes do not fall neatly into one of the other categories)
     enum class Action : uint8_t
     {
         ARRIVE,
         DEPART,
         BOOKENDS,
         CHANGE,
-        FULL,
-        CARRY
+        CARRY,
+        FULL
     };
 
     ContigIterableCollectionPoint(uint16_t elem_id, uint16_t clk_id, size_t heartbeat, const std::string& dtype, size_t capacity)
@@ -297,25 +335,32 @@ public:
     {
     }
 
+    /// Put this collectable in the black box for consumption until deactivate() is called.
+    /// NOTE: There is no reason to call deactivate() on your own if "bool once = true".
     template <typename T>
     typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type activate(const T container, bool once = false)
     {
         activate(*container, once);
     }
 
+    /// Put this collectable in the black box for consumption until deactivate() is called.
+    /// NOTE: There is no reason to call deactivate() on your own if "bool once = true".
     template <typename T>
     typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type activate(const T& container, bool once = false)
     {
-        readContainer_(container);
+        minify_(container);
         argos_record_.status = once ? ArgosRecord::Status::READ_ONCE : ArgosRecord::Status::READ;
     }
 
+    /// Remove this collectable from the black box (do not collect anymore until activate() is called again).
     void deactivate()
     {
         argos_record_.status = ArgosRecord::Status::DONT_READ;
     }
 
 private:
+    /// This class is used to compare the current container elements to the previous (last collected cycle).
+    /// We do this to determine the most efficient way to write the container to the database (minification).
     class IterableSnapshot
     {
     public:
@@ -360,10 +405,10 @@ private:
             }
         }
 
-        void compareAndSerialize(IterableSnapshot& prev, CollectionBuffer& buffer)
+        void compareAndMinify(IterableSnapshot& prev, CollectionBuffer& buffer)
         {
             uint16_t changed_idx = 0;
-            switch (getAction_(prev, changed_idx))
+            switch (getMinificationAction_(prev, changed_idx))
             {
                 case Action::CARRY: buffer << ContigIterableCollectionPoint::Action::CARRY; break;
                 case Action::ARRIVE:
@@ -392,7 +437,7 @@ private:
         }
 
     private:
-        Action getAction_(IterableSnapshot& prev, uint16_t& changed_idx)
+        Action getMinificationAction_(IterableSnapshot& prev, uint16_t& changed_idx)
         {
             if (++action_count_ == capacity())
             {
@@ -487,7 +532,8 @@ private:
         size_t action_count_ = 0;
     };
 
-    template <typename T> void readContainer_(const T& container)
+    /// Write the collectable bytes in the smallest form possible.
+    template <typename T> void minify_(const T& container)
     {
         auto size = container.size();
         if (size > prev_snapshot_.capacity())
@@ -520,7 +566,7 @@ private:
         // write the element ID.
         CollectionBuffer buffer(argos_record_.data);
         buffer << getElemId();
-        curr_snapshot_.compareAndSerialize(prev_snapshot_, buffer);
+        curr_snapshot_.compareAndMinify(prev_snapshot_, buffer);
         prev_snapshot_ = curr_snapshot_;
     }
 
@@ -543,6 +589,10 @@ private:
         return true;
     }
 
+    /// Write the maximum size of this queue during simulation. This is used
+    /// for Argos' SchedulingLines feature.
+    ///
+    /// Note that postSim() is called inside a BEGIN/COMMIT TRANSACTION block.
     void postSim(DatabaseManager* db_mgr) override;
 
     IterableSnapshot curr_snapshot_;
@@ -550,6 +600,7 @@ private:
     uint16_t queue_max_size_ = 0;
 };
 
+/// Collectable for sparse iterable data e.g. queue/vector/deque/etc.
 class SparseIterableCollectionPoint : public CollectionPointBase
 {
 public:
@@ -561,26 +612,35 @@ public:
         num_carry_overs_by_bin_.resize(capacity, 0);
     }
 
+    /// Put this collectable in the black box for consumption until deactivate() is called.
+    /// NOTE: There is no reason to call deactivate() on your own if "bool once = true".
     template <typename T>
     typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type activate(const T container, bool once = false)
     {
         activate(*container, once);
     }
 
+    /// Put this collectable in the black box for consumption until deactivate() is called.
+    /// NOTE: There is no reason to call deactivate() on your own if "bool once = true".
     template <typename T>
     typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type activate(const T& container, bool once = false)
     {
-        readContainer_(container);
+        minify_(container);
         argos_record_.status = once ? ArgosRecord::Status::READ_ONCE : ArgosRecord::Status::READ;
     }
 
+    /// Remove this collectable from the black box (do not collect anymore until activate() is called again).
     void deactivate()
     {
         argos_record_.status = ArgosRecord::Status::DONT_READ;
     }
 
 private:
-    template <typename T> void readContainer_(const T& container)
+    /// Write the collectable bytes in the smallest form possible.
+    ///
+    /// TODO cnyce - We are not currently performing any minification
+    /// for sparse iterables types.
+    template <typename T> void minify_(const T& container)
     {
         uint16_t num_valid = 0;
 
@@ -654,6 +714,10 @@ private:
         return true;
     }
 
+    /// Write the maximum size of this queue during simulation. This is used
+    /// for Argos' SchedulingLines feature.
+    ///
+    /// Note that postSim() is called inside a BEGIN/COMMIT TRANSACTION block.
     void postSim(DatabaseManager* db_mgr) override;
 
     const size_t expected_capacity_;

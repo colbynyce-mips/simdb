@@ -1,4 +1,4 @@
-// <SchemaDef> -*- C++ -*-
+// <SchemaDef.hpp> -*- C++ -*-
 
 #pragma once
 
