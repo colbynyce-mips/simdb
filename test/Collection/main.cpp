@@ -268,14 +268,7 @@ int main()
 {
     DB_INIT;
 
-    // Note that we only care about the collection data and have
-    // no need for any other tables, aside from the tables that the
-    // DatabaseManager adds automatically to support this feature.
-    simdb::Schema schema;
-
     simdb::DatabaseManager db_mgr("test.db");
-    EXPECT_TRUE(db_mgr.createDatabaseFromSchema(schema));
-
     Sim sim(&db_mgr);
     sim.runSimulation();
     db_mgr.closeDatabase();

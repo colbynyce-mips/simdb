@@ -210,10 +210,26 @@ public:
     }
 
     /// Initialize the collection manager prior to calling getCollectionMgr().
-    void enableCollection(size_t heartbeat)
+    ///
+    /// \param heartbeat The maximum number of cycles' worth of repeating (unchanging)
+    /// data before we are forced to write the data to the database again. This is used
+    /// as a time/space tradeoff, where larger heartbeats yield smaller databases but
+    /// a slower Argos UI. The default is 10 cycles, with a valid range of 0 to 25.
+    void enableCollection(size_t heartbeat = 10)
     {
+        if (heartbeat > 25 || heartbeat == 0)
+        {
+            throw DBException("Invalid heartbeat value. Must be in the range [1, 25]");
+        }
+
         if (!collection_mgr_)
         {
+            if (!db_conn_)
+            {
+                Schema schema;
+                createDatabaseFromSchema(schema);
+            }
+
             collection_mgr_ = std::make_unique<CollectionMgr>(this, heartbeat);
 
             Schema schema;
