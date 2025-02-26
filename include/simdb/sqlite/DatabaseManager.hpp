@@ -925,8 +925,6 @@ inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(Pipelin
                     write_time_.add(seconds);
                 }
 
-                StringMap::instance()->clearUnserializedMap();
-
                 // Note that we don't add this to the write_time_ running mean calculation
                 // since this map is going to shrink to nothing over time (basically it is
                 // amortized for real use cases).
@@ -935,6 +933,7 @@ inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(Pipelin
                     db_mgr->INSERT(SQL_TABLE("StringMap"), SQL_COLUMNS("IntVal", "String"), SQL_VALUES(kvp.first, kvp.second));
                 }
 
+                StringMap::instance()->clearUnserializedMap();
                 return true;
             });
     }
