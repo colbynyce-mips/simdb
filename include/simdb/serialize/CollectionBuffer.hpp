@@ -31,6 +31,12 @@ public:
         buffer_.reserve(buffer_.capacity());
     }
 
+    CollectionBuffer(std::vector<char>& buffer, uint16_t elem_id)
+        : CollectionBuffer(buffer)
+    {
+        append(&elem_id, sizeof(elem_id));
+    }
+
     void append(const void* data, size_t num_bytes)
     {
         const char* bytes = static_cast<const char*>(data);

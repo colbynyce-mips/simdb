@@ -181,8 +181,7 @@ private:
     /// Write the collectable bytes in the smallest form possible.
     template <typename T> void minify_(const T& val)
     {
-        CollectionBuffer buffer(argos_record_.data);
-        buffer << getElemId();
+        CollectionBuffer buffer(argos_record_.data, getElemId());
 
         assert(num_bytes_ > 0);
         if constexpr (std::is_trivial<T>::value && std::is_standard_layout<T>::value)
@@ -193,8 +192,8 @@ private:
                 // as any attempts at a DB size optimization would actually
                 // make the database larger.
                 buffer << val;
+                return;
             }
-            return;
         }
 
         StructSerializer<T>::getInstance()->extract(&val, curr_data_);
@@ -410,12 +409,16 @@ private:
             uint16_t changed_idx = 0;
             switch (getMinificationAction_(prev, changed_idx))
             {
-                case Action::CARRY: buffer << ContigIterableCollectionPoint::Action::CARRY; break;
+                case Action::CARRY:
+                    buffer << ContigIterableCollectionPoint::Action::CARRY;
+                    break;
                 case Action::ARRIVE:
                     buffer << ContigIterableCollectionPoint::Action::ARRIVE;
                     buffer << bytes_by_bin_.back();
                     break;
-                case Action::DEPART: buffer << ContigIterableCollectionPoint::Action::DEPART; break;
+                case Action::DEPART:
+                    buffer << ContigIterableCollectionPoint::Action::DEPART;
+                    break;
                 case Action::CHANGE:
                     buffer << ContigIterableCollectionPoint::Action::CHANGE;
                     buffer << changed_idx;
@@ -426,10 +429,21 @@ private:
                     buffer << bytes_by_bin_.back();
                     break;
                 case Action::FULL:
+                    auto num_elems = size();
                     buffer << ContigIterableCollectionPoint::Action::FULL;
-                    buffer << size();
-                    for (uint16_t idx = 0; idx < size(); ++idx)
+                    buffer << num_elems;
+
+                    uint64_t num_bytes_per_bin = 0;
+                    for (uint16_t idx = 0; idx < num_elems; ++idx)
                     {
+                        if (idx == 0)
+                        {
+                            num_bytes_per_bin = bytes_by_bin_[idx].size();
+                        }
+                        else if (bytes_by_bin_[idx].size() != num_bytes_per_bin)
+                        {
+                            throw DBException("All elements in the container must have the same number of bytes");
+                        }
                         buffer << bytes_by_bin_[idx];
                     }
                     break;
@@ -564,8 +578,7 @@ private:
         //
         // The only thing we must do for all collection points is to
         // write the element ID.
-        CollectionBuffer buffer(argos_record_.data);
-        buffer << getElemId();
+        CollectionBuffer buffer(argos_record_.data, getElemId());
         curr_snapshot_.compareAndMinify(prev_snapshot_, buffer);
         prev_snapshot_ = curr_snapshot_;
     }
@@ -667,8 +680,8 @@ private:
 
         queue_max_size_ = std::max(queue_max_size_, num_valid);
 
-        CollectionBuffer buffer(argos_record_.data);
-        buffer << getElemId() << num_valid;
+        CollectionBuffer buffer(argos_record_.data, getElemId());
+        buffer << num_valid;
 
         uint16_t bin_idx = 0;
         auto itr = container.begin();

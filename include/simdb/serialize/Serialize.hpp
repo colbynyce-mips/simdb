@@ -457,6 +457,7 @@ public:
 
         buffer_ << val;
         ++current_field_idx_;
+        num_bytes_written_ += num_bytes;
     }
 
     /// Write an enum field.
@@ -486,6 +487,11 @@ public:
         writeField(std::string(val));
     }
 
+    size_t numBytesWritten() const
+    {
+        return num_bytes_written_;
+    }
+
     /// Get the buffer that the serializer is writing to.
     CollectionBuffer& getBuffer()
     {
@@ -496,6 +502,7 @@ private:
     const std::vector<std::unique_ptr<FieldBase>>& fields_;
     size_t current_field_idx_ = 0;
     CollectionBuffer& buffer_;
+    size_t num_bytes_written_ = 0;
 };
 
 template <typename StructT> class StructSerializer;
@@ -686,10 +693,11 @@ public:
         schema_.serializeDefn(db_mgr);
     }
 
-    void writeStruct(const StructT* s, CollectionBuffer& buffer) const
+    size_t writeStruct(const StructT* s, CollectionBuffer& buffer) const
     {
         StructFieldSerializer<StructT> field_serializer(schema_.fields_, buffer);
         field_serializer.writeFields(s);
+        return field_serializer.numBytesWritten();
     }
 
     void extract(const StructT* s, std::vector<char>& bytes) const
