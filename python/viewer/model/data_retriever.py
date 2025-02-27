@@ -272,6 +272,7 @@ class DataRetriever:
 
             cmd += ' AND '.join(where_clauses)
 
+        cmd += ' ORDER BY Tick ASC'
         self.cursor.execute(cmd)
 
         # We have to reset all the replayers even though all but one
@@ -281,6 +282,7 @@ class DataRetriever:
         for replayer in self._replayers_by_elem_path.values():
             replayer.Reset()
 
+        import pdb; pdb.set_trace()
         requested_elem_path = elem_path
         for tick, data_blob, is_compressed in self.cursor.fetchall():
             if is_compressed:

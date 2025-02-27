@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#define LOG_MINIFICATION false
+
 namespace simdb
 {
 
@@ -410,21 +412,26 @@ private:
             switch (getMinificationAction_(prev, changed_idx))
             {
                 case Action::CARRY:
+                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] CARRY\n";
                     buffer << ContigIterableCollectionPoint::Action::CARRY;
                     break;
                 case Action::ARRIVE:
+                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] ARRIVE " << bytes_by_bin_.back().size() << " bytes\n";
                     buffer << ContigIterableCollectionPoint::Action::ARRIVE;
                     buffer << bytes_by_bin_.back();
                     break;
                 case Action::DEPART:
+                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] DEPART\n";
                     buffer << ContigIterableCollectionPoint::Action::DEPART;
                     break;
                 case Action::CHANGE:
+                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] CHANGE index " << changed_idx << ", " << bytes_by_bin_[changed_idx].size() << " bytes\n";
                     buffer << ContigIterableCollectionPoint::Action::CHANGE;
                     buffer << changed_idx;
                     buffer << bytes_by_bin_[changed_idx];
                     break;
                 case Action::BOOKENDS:
+                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] BOOKENDS, appended " << bytes_by_bin_.back().size() << " bytes\n";
                     buffer << ContigIterableCollectionPoint::Action::BOOKENDS;
                     buffer << bytes_by_bin_.back();
                     break;
@@ -446,6 +453,8 @@ private:
                         }
                         buffer << bytes_by_bin_[idx];
                     }
+
+                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] FULL with " << num_elems << " elements (" << num_bytes_per_bin << " bytes each)\n";
                     break;
             }
         }
@@ -579,6 +588,7 @@ private:
         // The only thing we must do for all collection points is to
         // write the element ID.
         CollectionBuffer buffer(argos_record_.data, getElemId());
+        if (LOG_MINIFICATION) std::cout << "\n\n[simdb verbose] Minifying cid " << getElemId() << "\n";
         curr_snapshot_.compareAndMinify(prev_snapshot_, buffer);
         prev_snapshot_ = curr_snapshot_;
     }

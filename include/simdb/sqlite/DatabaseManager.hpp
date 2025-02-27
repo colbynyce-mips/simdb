@@ -897,17 +897,19 @@ inline void CollectionMgr::finalizeCollections_()
 inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(PipelineStagePayload&& payload)
 {
     flush_queue_.emplace(std::move(payload));
+    flushQueue_(payload.db_mgr, true);
+}
 
-    if (ping_)
+inline void Pipeline::CompressionWithDatabaseWriteStage::flushQueue_(DatabaseManager* db_mgr, bool ping)
+{
+    if (!ping || ping_)
     {
-        auto db_mgr = payload.db_mgr;
         db_mgr->safeTransaction(
             [&]()
             {
                 PipelineStagePayload payload;
                 while (flush_queue_.try_pop(payload))
                 {
-                    assert(payload.payload_id);
                     const auto& data = payload.data;
                     const auto tick = payload.tick;
                     const auto compressed = payload.compressed;
@@ -936,6 +938,40 @@ inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(Pipelin
                 return true;
             });
     }
+}
+
+inline void Pipeline::teardown()
+{
+    // Flush stage1 to stage2
+    while (stage1_.anythingInFlight(db_mgr_))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    // Flush stage2 to SimDB
+    while (stage2_.anythingInFlight(db_mgr_))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    while (true)
+    {
+        uint64_t num_records = db_mgr_->createQuery("CollectionRecords")->count();
+        if (num_records == total_payloads_sent_)
+        {
+            break;
+        }
+        else
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+    }
+
+    // Note that we only have to call these methods on stage1 since
+    // it forwards these calls to the next stage.
+    stage1_.postSim();
+    stage1_.teardown();
+
 }
 
 } // namespace simdb

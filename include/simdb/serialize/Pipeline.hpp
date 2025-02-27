@@ -158,20 +158,6 @@ private:
                 processPipelineStage_(std::move(payload));
             }
         }
-
-        PipelineStagePayload payload;
-        while (queue_.try_pop(payload))
-        {
-            if (next_stage_)
-            {
-                processPipelineStage_(payload);
-                next_stage_->push(std::move(payload));
-            }
-            else
-            {
-                processPipelineStage_(std::move(payload));
-            }
-        }
     }
 
     /// Run this stage's processing. This method is called when there is
@@ -213,13 +199,7 @@ public:
 
     void push(std::vector<char>&& bytes, uint64_t tick);
 
-    void teardown()
-    {
-        // Note that we only have to call these methods on stage1 since
-        // it forwards these calls to the next stage.
-        stage1_.postSim();
-        stage1_.teardown();
-    }
+    void teardown();
 
 private:
     /// This is the first of the two pipeline stages. This stage is responsible
@@ -242,6 +222,11 @@ private:
             }
 
             return count() * compression_time_.mean();
+        }
+
+        bool anythingInFlight(DatabaseManager*)
+        {
+            return count() > 0;
         }
 
     private:
@@ -297,6 +282,12 @@ private:
             return est_time;
         }
 
+        bool anythingInFlight(DatabaseManager* db_mgr)
+        {
+            flushQueue_(db_mgr, false);
+            return count() > 0 && !flush_queue_.empty();
+        }
+
     private:
         void stop_() override
         {
@@ -334,6 +325,8 @@ private:
         /// to drive the once-a-second processing.
         void sendToDatabase_(PipelineStagePayload&& payload);
 
+        void flushQueue_(DatabaseManager* db_mgr, bool ping = true);
+
         std::vector<char> compressed_bytes_;
         int default_compression_level_ = 1;
         RunningMean compression_time_;
@@ -345,7 +338,7 @@ private:
     DatabaseManager* db_mgr_;
     CompressionStage stage1_;
     CompressionWithDatabaseWriteStage stage2_;
-    uint64_t num_sent_ = 0;
+    uint64_t total_payloads_sent_ = 0;
 };
 
 inline void Pipeline::push(std::vector<char>&& bytes, uint64_t tick)
@@ -354,8 +347,6 @@ inline void Pipeline::push(std::vector<char>&& bytes, uint64_t tick)
     payload.tick = tick;
     payload.data = std::move(bytes);
     payload.db_mgr = db_mgr_;
-
-    ++num_sent_;
 
     // Perform load balancing between the two stages. Both stages
     // can be configured to compress data or not, and only the
@@ -397,6 +388,8 @@ inline void Pipeline::push(std::vector<char>&& bytes, uint64_t tick)
     {
         stage2_.push(std::move(payload));
     }
+
+    ++total_payloads_sent_;
 }
 
 } // namespace simdb
