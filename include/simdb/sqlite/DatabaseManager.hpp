@@ -899,6 +899,11 @@ inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(Pipelin
     staging_queue_.emplace(std::move(payload));
     flushStagingQueue_();
 
+    if (flush_queue_.empty())
+    {
+        return;
+    }
+
     if (ping_)
     {
         auto db_mgr = payload.db_mgr;
