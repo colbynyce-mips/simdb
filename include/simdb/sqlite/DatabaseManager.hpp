@@ -896,13 +896,7 @@ inline void CollectionMgr::finalizeCollections_()
 /// Note that this method is defined here since we need the INSERT() method.
 inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(PipelineStagePayload&& payload)
 {
-    staging_queue_.emplace(std::move(payload));
-    flushStagingQueue_();
-
-    if (flush_queue_.empty())
-    {
-        return;
-    }
+    flush_queue_.emplace(std::move(payload));
 
     if (ping_)
     {

@@ -31,13 +31,11 @@
 
 #include "simdb/serialize/Serialize.hpp"
 #include "simdb/utils/Compress.hpp"
-#include "simdb/utils/ConcurrentPriorityQueue.hpp"
 #include "simdb/utils/ConcurrentQueue.hpp"
 #include "simdb/utils/Ping.hpp"
 #include "simdb/utils/RunningMean.hpp"
 #include "simdb/utils/StringMap.hpp"
 
-#include <atomic>
 #include <chrono>
 #include <memory>
 #include <mutex>
@@ -54,31 +52,10 @@ struct PipelineStagePayload
     std::vector<char> data;
     bool compressed = false;
     uint64_t tick = 0;
-    uint64_t payload_id;
     DatabaseManager* db_mgr = nullptr;
-
-    PipelineStagePayload(uint64_t tick, uint64_t payload_id)
-        : tick(tick)
-        , payload_id(payload_id)
-    {
-    }
-
-    PipelineStagePayload() : payload_id(0) {}
-
-    PipelineStagePayload& operator=(const PipelineStagePayload& rhs) = default;
 };
 
 } // namespace simdb
-
-namespace std
-{
-template <>
-inline bool greater<simdb::PipelineStagePayload>::operator()(const simdb::PipelineStagePayload& lhs,
-                                                             const simdb::PipelineStagePayload& rhs) const
-{
-    return lhs.payload_id > rhs.payload_id;
-}
-} // namespace std
 
 namespace simdb
 {
@@ -171,6 +148,20 @@ private:
                 continue;
             }
 
+            if (next_stage_)
+            {
+                processPipelineStage_(payload);
+                next_stage_->push(std::move(payload));
+            }
+            else
+            {
+                processPipelineStage_(std::move(payload));
+            }
+        }
+
+        PipelineStagePayload payload;
+        while (queue_.try_pop(payload))
+        {
             if (next_stage_)
             {
                 processPipelineStage_(payload);
@@ -343,56 +334,28 @@ private:
         /// to drive the once-a-second processing.
         void sendToDatabase_(PipelineStagePayload&& payload);
 
-        /// Each call to sendToDatabase_() puts the payload into our priority queue.
-        /// We then move items out of the staging queue into the flush queue when
-        /// the payloads are ready. "Ready" means that the payloads are naturally
-        /// in the same order as when they first entered the Pipeline, even though
-        /// they may arrive at this stage out of order.
-        void flushStagingQueue_()
-        {
-            PipelineStagePayload payload;
-            while (staging_queue_.try_pop(payload))
-            {
-                if (payload.payload_id == next_payload_id_)
-                {
-                    flush_queue_.push(std::move(payload));
-                    ++next_payload_id_;
-                }
-                else
-                {
-                    staging_queue_.emplace(std::move(payload));
-                    break;
-                }
-            }
-        }
-
         std::vector<char> compressed_bytes_;
         int default_compression_level_ = 1;
         RunningMean compression_time_;
         RunningMean write_time_;
-        ConcurrentPriorityQueue<PipelineStagePayload, std::greater<PipelineStagePayload>> staging_queue_;
         ConcurrentQueue<PipelineStagePayload> flush_queue_;
-        std::atomic<uint64_t> next_payload_id_{1};
         Ping ping_;
     };
-
-    static uint64_t getPayloadID_()
-    {
-        // Note that a payload ID of 0 is invalid
-        static std::atomic<uint64_t> payload_id(1);
-        return payload_id++;
-    }
 
     DatabaseManager* db_mgr_;
     CompressionStage stage1_;
     CompressionWithDatabaseWriteStage stage2_;
+    uint64_t num_sent_ = 0;
 };
 
 inline void Pipeline::push(std::vector<char>&& bytes, uint64_t tick)
 {
-    PipelineStagePayload payload(tick, getPayloadID_());
+    PipelineStagePayload payload;
+    payload.tick = tick;
     payload.data = std::move(bytes);
     payload.db_mgr = db_mgr_;
+
+    ++num_sent_;
 
     // Perform load balancing between the two stages. Both stages
     // can be configured to compress data or not, and only the
