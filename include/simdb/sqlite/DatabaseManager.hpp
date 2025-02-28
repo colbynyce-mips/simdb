@@ -4,8 +4,8 @@
 
 #include "simdb/schema/SchemaDef.hpp"
 #include "simdb/serialize/CollectionPoints.hpp"
-#include "simdb/serialize/Pipeline.hpp"
 #include "simdb/serialize/Serialize.hpp"
+#include "simdb/serialize/ThreadedSink.hpp"
 #include "simdb/sqlite/SQLiteConnection.hpp"
 #include "simdb/sqlite/SQLiteQuery.hpp"
 #include "simdb/sqlite/SQLiteTable.hpp"
@@ -24,7 +24,15 @@ class CollectionMgr
 {
 public:
     /// Construct with the DatabaseManager and SQLiteTransaction.
-    CollectionMgr(DatabaseManager* db_mgr, size_t heartbeat);
+    ///
+    /// By default, we use 1 compression thread and 1 database thread. SimDB does not
+    /// allow the database thread to be disabled, but you can control the max number
+    /// of compression threads (including zero).
+    ///
+    /// Compression levels will be dialed up/down automatically across the threads
+    /// in response to fast/slow simulation data rates until it balances out at
+    /// optimal performance.
+    CollectionMgr(DatabaseManager* db_mgr, size_t heartbeat, size_t num_compression_threads = 1);
 
     /// Add a new clock domain for collection.
     void addClock(const std::string& name, const uint32_t period);
@@ -81,8 +89,8 @@ private:
     /// All compressed data in the call to sweep().
     std::vector<char> compressed_swept_data_;
 
-    /// Pipeline for high-performance processing (compression + SimDB writes)
-    Pipeline pipeline_;
+    /// Data sink for high-performance processing (compression + SimDB writes)
+    ThreadedSink sink_;
 
     /// The root of the serialized element tree.
     std::unique_ptr<TreeNode> root_;
@@ -215,7 +223,7 @@ public:
     /// data before we are forced to write the data to the database again. This is used
     /// as a time/space tradeoff, where larger heartbeats yield smaller databases but
     /// a slower Argos UI. The default is 10 cycles, with a valid range of 0 to 25.
-    void enableCollection(size_t heartbeat = 10)
+    void enableCollection(size_t heartbeat = 10, size_t num_compression_threads = 1)
     {
         if (heartbeat > 25 || heartbeat == 0)
         {
@@ -230,7 +238,7 @@ public:
                 createDatabaseFromSchema(schema);
             }
 
-            collection_mgr_ = std::make_unique<CollectionMgr>(this, heartbeat);
+            collection_mgr_ = std::make_unique<CollectionMgr>(this, heartbeat, num_compression_threads);
 
             Schema schema;
             collection_mgr_->defineSchema(schema);
@@ -615,10 +623,10 @@ template <typename EnumT> inline void EnumField<EnumT>::serializeDefn(DatabaseMa
     EnumMap<EnumT>::instance()->serializeDefn(db_mgr);
 }
 
-inline CollectionMgr::CollectionMgr(DatabaseManager* db_mgr, size_t heartbeat)
+inline CollectionMgr::CollectionMgr(DatabaseManager* db_mgr, size_t heartbeat, size_t num_compression_threads)
     : db_mgr_(db_mgr)
     , heartbeat_(heartbeat)
-    , pipeline_(db_mgr)
+    , sink_(db_mgr, num_compression_threads)
 {
 }
 
@@ -772,7 +780,12 @@ inline void CollectionMgr::sweep(const std::string& clk, uint64_t tick)
         return;
     }
 
-    pipeline_.push(std::move(swept_data_), tick);
+    DatabaseEntry entry;
+    entry.bytes = std::move(swept_data_);
+    entry.compressed = false;
+    entry.tick = tick;
+
+    sink_.push(std::move(entry));
 }
 
 /// One-time call to write post-simulation metadata to SimDB.
@@ -788,7 +801,7 @@ inline void CollectionMgr::postSim()
             return true;
         });
 
-    pipeline_.teardown();
+    sink_.teardown();
 }
 
 /// Note that this method is defined here since we need the INSERT() method.
@@ -894,84 +907,33 @@ inline void CollectionMgr::finalizeCollections_()
 }
 
 /// Note that this method is defined here since we need the INSERT() method.
-inline void Pipeline::CompressionWithDatabaseWriteStage::sendToDatabase_(PipelineStagePayload&& payload)
+inline void DatabaseThread::flush()
 {
-    flush_queue_.emplace(std::move(payload));
-    flushQueue_(payload.db_mgr, true);
-}
-
-inline void Pipeline::CompressionWithDatabaseWriteStage::flushQueue_(DatabaseManager* db_mgr, bool ping)
-{
-    if (!ping || ping_)
-    {
-        db_mgr->safeTransaction(
-            [&]()
+    db_mgr_->safeTransaction(
+        [&]()
+        {
+            DatabaseEntry entry;
+            while (queue_.try_pop(entry))
             {
-                PipelineStagePayload payload;
-                while (flush_queue_.try_pop(payload))
-                {
-                    const auto& data = payload.data;
-                    const auto tick = payload.tick;
-                    const auto compressed = payload.compressed;
+                const auto& data = entry.bytes;
+                const auto tick = entry.tick;
+                const auto compressed = entry.compressed;
 
-                    auto begin = std::chrono::high_resolution_clock::now();
+                db_mgr_->INSERT(SQL_TABLE("CollectionRecords"),
+                                SQL_COLUMNS("Tick", "Data", "IsCompressed"),
+                                SQL_VALUES(tick, data, (int)compressed));
 
-                    db_mgr->INSERT(SQL_TABLE("CollectionRecords"),
-                                   SQL_COLUMNS("Tick", "Data", "IsCompressed"),
-                                   SQL_VALUES(tick, data, (int)compressed));
+                ++num_processed_;
+            }
 
-                    auto end = std::chrono::high_resolution_clock::now();
-                    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
-                    auto seconds = static_cast<double>(duration.count()) / 1e6;
-                    write_time_.add(seconds);
-                }
+            for (const auto& kvp : StringMap::instance()->getUnserializedMap())
+            {
+                db_mgr_->INSERT(SQL_TABLE("StringMap"), SQL_COLUMNS("IntVal", "String"), SQL_VALUES(kvp.first, kvp.second));
+            }
 
-                // Note that we don't add this to the write_time_ running mean calculation
-                // since this map is going to shrink to nothing over time (basically it is
-                // amortized for real use cases).
-                for (const auto& kvp : StringMap::instance()->getUnserializedMap())
-                {
-                    db_mgr->INSERT(SQL_TABLE("StringMap"), SQL_COLUMNS("IntVal", "String"), SQL_VALUES(kvp.first, kvp.second));
-                }
-
-                StringMap::instance()->clearUnserializedMap();
-                return true;
-            });
-    }
-}
-
-inline void Pipeline::teardown()
-{
-    // Flush stage1 to stage2
-    while (stage1_.anythingInFlight(db_mgr_))
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
-
-    // Flush stage2 to SimDB
-    while (stage2_.anythingInFlight(db_mgr_))
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
-
-    while (true)
-    {
-        uint64_t num_records = db_mgr_->createQuery("CollectionRecords")->count();
-        if (num_records == total_payloads_sent_)
-        {
-            break;
-        }
-        else
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-    }
-
-    // Note that we only have to call these methods on stage1 since
-    // it forwards these calls to the next stage.
-    stage1_.postSim();
-    stage1_.teardown();
-
+            StringMap::instance()->clearUnserializedMap();
+            return true;
+        });
 }
 
 } // namespace simdb
