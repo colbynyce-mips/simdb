@@ -10,8 +10,6 @@
 #include <string>
 #include <vector>
 
-#define LOG_MINIFICATION false
-
 namespace simdb
 {
 
@@ -53,6 +51,17 @@ public:
         , heartbeat_(heartbeat)
         , dtype_(dtype)
     {
+    }
+
+    static void enableMinificationLogging()
+    {
+        const bool log = true;
+        logMinification_(&log);
+    }
+
+    static bool minificationLoggingEnabled()
+    {
+        return logMinification_();
     }
 
     /// Get the unique ID for this collection point.
@@ -110,12 +119,21 @@ public:
 protected:
     ArgosRecord argos_record_;
 
+    static bool logMinification_(const bool* log = nullptr)
+    {
+        static bool log_minification = false;
+        if (log) log_minification = *log;
+        return log_minification;
+    }
+
 private:
     const uint16_t elem_id_;
     const uint16_t clk_id_;
     const size_t heartbeat_;
     const std::string dtype_;
 };
+
+#define LOG_MINIFICATION simdb::CollectionPointBase::minificationLoggingEnabled()
 
 template <typename T> struct is_std_vector : std::false_type
 {
@@ -152,7 +170,6 @@ public:
     template <typename T>
     typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type activate(const T& val, bool once = false)
     {
-        ensureNumBytes_(val);
         if (val)
         {
             activate(*val, once);
@@ -168,7 +185,6 @@ public:
     template <typename T>
     typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type activate(const T& val, bool once = false)
     {
-        ensureNumBytes_(val);
         minify_(val);
         argos_record_.status = once ? ArgosRecord::Status::READ_ONCE : ArgosRecord::Status::READ;
     }
@@ -184,15 +200,18 @@ private:
     template <typename T> void minify_(const T& val)
     {
         CollectionBuffer buffer(argos_record_.data, getElemId());
+        if (LOG_MINIFICATION) std::cout << "\n\n[simdb verbose] cid " << getElemId() << "\n";
 
-        assert(num_bytes_ > 0);
+        const auto num_bytes = getNumBytes_(val);
         if constexpr (std::is_trivial<T>::value && std::is_standard_layout<T>::value)
         {
-            if (num_bytes_ < 16)
+            if (num_bytes < 16)
             {
                 // Collectables that are this small are written directly,
                 // as any attempts at a DB size optimization would actually
                 // make the database larger.
+                if (LOG_MINIFICATION) std::cout << "[simdb verbose] " << num_bytes << "<16, "
+                                                  << demangle(typeid(T).name()) << ": " << val << "\n";
                 buffer << val;
                 return;
             }
@@ -201,11 +220,13 @@ private:
         StructSerializer<T>::getInstance()->extract(&val, curr_data_);
         if (num_carry_overs_ < getHeartbeat() && curr_data_ == prev_data_)
         {
+            if (LOG_MINIFICATION) std::cout << "[simdb verbose] CARRY\n";
             buffer << CollectionPoint::Action::CARRY;
             ++num_carry_overs_;
         }
         else
         {
+            if (LOG_MINIFICATION) std::cout << "[simdb verbose] WRITE " << curr_data_.size() << " bytes\n";
             buffer << CollectionPoint::Action::WRITE;
             buffer << curr_data_;
             prev_data_ = curr_data_;
@@ -213,98 +234,69 @@ private:
         }
     }
 
-    template <typename T> typename std::enable_if<meta_utils::is_any_pointer<T>::value, void>::type ensureNumBytes_(const T& val)
+    template <typename T> size_t getNumBytes_(const T& val)
     {
-        if (num_bytes_)
-        {
-            return;
-        }
-
-        if (val)
-        {
-            ensureNumBytes_(*val);
-        }
-
-        if (num_bytes_ == 0)
-        {
-            throw DBException("Could not determine number of bytes for data type");
-        }
-    }
-
-    template <typename T> typename std::enable_if<!meta_utils::is_any_pointer<T>::value, void>::type ensureNumBytes_(const T& val)
-    {
-        if (num_bytes_)
-        {
-            return;
-        }
-
         if constexpr (std::is_same_v<T, bool>)
         {
-            num_bytes_ = sizeof(int);
+            return sizeof(int);
         }
         else if constexpr (std::is_same_v<T, uint8_t>)
         {
-            num_bytes_ = sizeof(uint8_t);
+            return sizeof(uint8_t);
         }
         else if constexpr (std::is_same_v<T, int8_t>)
         {
-            num_bytes_ = sizeof(int8_t);
+            return sizeof(int8_t);
         }
         else if constexpr (std::is_same_v<T, uint16_t>)
         {
-            num_bytes_ = sizeof(uint16_t);
+            return sizeof(uint16_t);
         }
         else if constexpr (std::is_same_v<T, int16_t>)
         {
-            num_bytes_ = sizeof(int16_t);
+            return sizeof(int16_t);
         }
         else if constexpr (std::is_same_v<T, uint32_t>)
         {
-            num_bytes_ = sizeof(uint32_t);
+            return sizeof(uint32_t);
         }
         else if constexpr (std::is_same_v<T, int32_t>)
         {
-            num_bytes_ = sizeof(int32_t);
+            return sizeof(int32_t);
         }
         else if constexpr (std::is_same_v<T, uint64_t>)
         {
-            num_bytes_ = sizeof(uint64_t);
+            return sizeof(uint64_t);
         }
         else if constexpr (std::is_same_v<T, int64_t>)
         {
-            num_bytes_ = sizeof(int64_t);
+            return sizeof(int64_t);
         }
         else if constexpr (std::is_same_v<T, float>)
         {
-            num_bytes_ = sizeof(float);
+            return sizeof(float);
         }
         else if constexpr (std::is_same_v<T, double>)
         {
-            num_bytes_ = sizeof(double);
+            return sizeof(double);
         }
         else if constexpr (std::is_same_v<T, std::string>)
         {
-            num_bytes_ = sizeof(uint32_t);
+            return sizeof(uint32_t);
         }
         else if constexpr (std::is_enum<T>::value)
         {
-            num_bytes_ = sizeof(typename std::underlying_type<T>::type);
+            return sizeof(typename std::underlying_type<T>::type);
         }
         else
         {
-            num_bytes_ = StructSerializer<T>::getInstance()->getStructNumBytes();
-        }
-
-        if (num_bytes_ == 0)
-        {
-            throw DBException("Could not determine number of bytes for data type");
+            return StructSerializer<T>::getInstance()->getStructNumBytes();
         }
     }
 
     std::vector<char> curr_data_;
     std::vector<char> prev_data_;
     size_t num_carry_overs_ = 0;
-    size_t num_bytes_ = 0;
 };
 
 /// Collectable for contiguous (non-sparse) iterable data e.g. queue/vector/deque/etc.
@@ -425,7 +417,7 @@ private:
                     buffer << ContigIterableCollectionPoint::Action::DEPART;
                     break;
                 case Action::CHANGE:
-                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] CHANGE index " << changed_idx << ", " << bytes_by_bin_[changed_idx].size() << " bytes\n";
+                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] CHANGE index " << changed_idx << "," << bytes_by_bin_[changed_idx].size() << " bytes\n";
                     buffer << ContigIterableCollectionPoint::Action::CHANGE;
                     buffer << changed_idx;
                     buffer << bytes_by_bin_[changed_idx];
@@ -588,7 +580,7 @@ private:
         // The only thing we must do for all collection points is to
         // write the element ID.
         CollectionBuffer buffer(argos_record_.data, getElemId());
-        if (LOG_MINIFICATION) std::cout << "\n\n[simdb verbose] Minifying cid " << getElemId() << "\n";
+        if (LOG_MINIFICATION) std::cout << "\n\n[simdb verbose] cid " << getElemId() << "\n";
         curr_snapshot_.compareAndMinify(prev_snapshot_, buffer);
         prev_snapshot_ = curr_snapshot_;
     }
@@ -693,6 +685,8 @@ private:
         CollectionBuffer buffer(argos_record_.data, getElemId());
         buffer << num_valid;
 
+        if (LOG_MINIFICATION) std::cout << "\n\n[simdb verbose] cid " << getElemId() << "\n[simdb verbose] num valid: " << num_valid << "\n";
+
         uint16_t bin_idx = 0;
         auto itr = container.begin();
         auto eitr = container.end();
@@ -734,6 +728,10 @@ private:
     {
         buffer << bin_idx;
         StructSerializer<T>::getInstance()->writeStruct(&el, buffer);
+
+        if (LOG_MINIFICATION) std::cout << "[simdb verbose] bin " << bin_idx << ", "
+                                          << StructSerializer<T>::getInstance()->getStructNumBytes()
+                                          << " bytes\n";
         return true;
     }
 
@@ -744,7 +742,6 @@ private:
     void postSim(DatabaseManager* db_mgr) override;
 
     const size_t expected_capacity_;
-    std::vector<char> struct_bytes_;
     std::vector<std::vector<char>> prev_data_by_bin_;
     std::vector<size_t> num_carry_overs_by_bin_;
     uint16_t queue_max_size_ = 0;
