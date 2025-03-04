@@ -1,7 +1,7 @@
 #pragma once
 
-#include "simdb/utils/Thread.hpp"
 #include "simdb/utils/ConcurrentQueue.hpp"
+#include "simdb/utils/Thread.hpp"
 
 namespace simdb
 {

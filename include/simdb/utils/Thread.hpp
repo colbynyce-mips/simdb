@@ -27,14 +27,15 @@ public:
         if (!is_running_)
         {
             is_running_ = true;
-            thread_ = std::make_unique<std::thread>([this]()
-            {
-                while (is_running_)
+            thread_ = std::make_unique<std::thread>(
+                [this]()
                 {
-                    onInterval_();
-                    std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms_));
-                }
-            });
+                    while (is_running_)
+                    {
+                        onInterval_();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms_));
+                    }
+                });
         }
     }
 

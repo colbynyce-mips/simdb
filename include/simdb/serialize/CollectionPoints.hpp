@@ -144,7 +144,8 @@ protected:
     static bool logMinification_(const bool* log = nullptr)
     {
         static bool log_minification = false;
-        if (log) log_minification = *log;
+        if (log)
+            log_minification = *log;
         return log_minification;
     }
 
@@ -229,12 +230,14 @@ private:
     template <typename T> void minify_(const T& val)
     {
         CollectionBuffer buffer(argos_record_.data, getElemId());
-        if (LOG_MINIFICATION) std::cout << "\n\n[simdb verbose] tick " << getTick_() << ", cid " << getElemId() << "\n";
+        if (LOG_MINIFICATION)
+            std::cout << "\n\n[simdb verbose] tick " << getTick_() << ", cid " << getElemId() << "\n";
 
         const auto num_bytes = getNumBytes_(val);
         if (!isAutoCollected())
         {
-            if (LOG_MINIFICATION) std::cout << "[simdb verbose] Manually collected, " << num_bytes << " bytes\n";
+            if (LOG_MINIFICATION)
+                std::cout << "[simdb verbose] Manually collected, " << num_bytes << " bytes\n";
             if constexpr (std::is_trivial<T>::value && std::is_standard_layout<T>::value)
             {
                 buffer << val;
@@ -254,8 +257,8 @@ private:
                 // Collectables that are this small are written directly,
                 // as any attempts at a DB size optimization would actually
                 // make the database larger.
-                if (LOG_MINIFICATION) std::cout << "[simdb verbose] " << num_bytes << "<16, "
-                                                << demangle(typeid(T).name()) << ": " << val << "\n";
+                if (LOG_MINIFICATION)
+                    std::cout << "[simdb verbose] " << num_bytes << "<16, " << demangle(typeid(T).name()) << ": " << val << "\n";
                 buffer << val;
                 return;
             }
@@ -264,13 +267,15 @@ private:
         StructSerializer<T>::getInstance()->extract(&val, curr_data_);
         if (num_carry_overs_ < getHeartbeat() && curr_data_ == prev_data_)
         {
-            if (LOG_MINIFICATION) std::cout << "[simdb verbose] CARRY\n";
+            if (LOG_MINIFICATION)
+                std::cout << "[simdb verbose] CARRY\n";
             buffer << CollectionPoint::Action::CARRY;
             ++num_carry_overs_;
         }
         else
         {
-            if (LOG_MINIFICATION) std::cout << "[simdb verbose] WRITE " << curr_data_.size() << " bytes\n";
+            if (LOG_MINIFICATION)
+                std::cout << "[simdb verbose] WRITE " << curr_data_.size() << " bytes\n";
             buffer << CollectionPoint::Action::WRITE;
             buffer << curr_data_;
             prev_data_ = curr_data_;
@@ -448,26 +453,34 @@ private:
             switch (getMinificationAction_(prev, changed_idx, is_auto_collected))
             {
                 case Action::CARRY:
-                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", CARRY\n";
+                    if (LOG_MINIFICATION)
+                        std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", CARRY\n";
                     buffer << ContigIterableCollectionPoint::Action::CARRY;
                     break;
                 case Action::ARRIVE:
-                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", ARRIVE " << bytes_by_bin_[changed_idx].size() << " bytes\n";
+                    if (LOG_MINIFICATION)
+                        std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", ARRIVE "
+                                  << bytes_by_bin_[changed_idx].size() << " bytes\n";
                     buffer << ContigIterableCollectionPoint::Action::ARRIVE;
                     buffer << bytes_by_bin_[changed_idx];
                     break;
                 case Action::DEPART:
-                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", DEPART\n";
+                    if (LOG_MINIFICATION)
+                        std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", DEPART\n";
                     buffer << ContigIterableCollectionPoint::Action::DEPART;
                     break;
                 case Action::CHANGE:
-                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", CHANGE index " << changed_idx << "," << bytes_by_bin_[changed_idx].size() << " bytes\n";
+                    if (LOG_MINIFICATION)
+                        std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", CHANGE index " << changed_idx << ","
+                                  << bytes_by_bin_[changed_idx].size() << " bytes\n";
                     buffer << ContigIterableCollectionPoint::Action::CHANGE;
                     buffer << changed_idx;
                     buffer << bytes_by_bin_[changed_idx];
                     break;
                 case Action::BOOKENDS:
-                    if (LOG_MINIFICATION) std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", BOOKENDS, appended " << bytes_by_bin_[changed_idx].size() << " bytes\n";
+                    if (LOG_MINIFICATION)
+                        std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", BOOKENDS, appended "
+                                  << bytes_by_bin_[changed_idx].size() << " bytes\n";
                     buffer << ContigIterableCollectionPoint::Action::BOOKENDS;
                     buffer << bytes_by_bin_[changed_idx];
                     break;
@@ -494,11 +507,13 @@ private:
                     {
                         if (is_auto_collected)
                         {
-                            std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", FULL with " << num_elems << " elements\n";
+                            std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", FULL with " << num_elems
+                                      << " elements\n";
                         }
                         else
                         {
-                            std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", FULL with " << num_elems << " elements, manually collected\n";
+                            std::cout << "[simdb verbose] cid " << elem_id << ", tick " << tick << ", FULL with " << num_elems
+                                      << " elements, manually collected\n";
                         }
                     }
                     break;
@@ -759,10 +774,12 @@ private:
         queue_max_size_ = std::max(queue_max_size_, num_valid);
 
         CollectionBuffer buffer(argos_record_.data, getElemId());
-        if (LOG_MINIFICATION) std::cout << "\n\n[simdb verbose] tick " << getTick_() << ", cid " << getElemId() << "\n";
+        if (LOG_MINIFICATION)
+            std::cout << "\n\n[simdb verbose] tick " << getTick_() << ", cid " << getElemId() << "\n";
 
         buffer << num_valid;
-        if (LOG_MINIFICATION) std::cout << "[simdb verbose] num valid: " << num_valid << "\n";
+        if (LOG_MINIFICATION)
+            std::cout << "[simdb verbose] num valid: " << num_valid << "\n";
 
         uint16_t bin_idx = 0;
         auto itr = container.begin();
@@ -806,9 +823,8 @@ private:
         buffer << bin_idx;
         StructSerializer<T>::getInstance()->writeStruct(&el, buffer);
 
-        if (LOG_MINIFICATION) std::cout << "[simdb verbose] bin " << bin_idx << ", "
-                                        << StructSerializer<T>::getInstance()->getStructNumBytes()
-                                        << " bytes\n";
+        if (LOG_MINIFICATION)
+            std::cout << "[simdb verbose] bin " << bin_idx << ", " << StructSerializer<T>::getInstance()->getStructNumBytes() << " bytes\n";
         return true;
     }
 

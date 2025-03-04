@@ -1,9 +1,9 @@
 #pragma once
 
-#include "simdb/utils/Thread.hpp"
-#include "simdb/utils/ConcurrentQueue.hpp"
-#include "simdb/utils/Compress.hpp"
 #include "simdb/serialize/DatabaseThread.hpp"
+#include "simdb/utils/Compress.hpp"
+#include "simdb/utils/ConcurrentQueue.hpp"
+#include "simdb/utils/Thread.hpp"
 
 namespace simdb
 {

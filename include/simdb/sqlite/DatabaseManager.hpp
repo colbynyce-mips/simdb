@@ -939,9 +939,8 @@ inline void DatabaseThread::flush()
                 const auto tick = entry.tick;
                 const auto compressed = entry.compressed;
 
-                db_mgr_->INSERT(SQL_TABLE("CollectionRecords"),
-                                SQL_COLUMNS("Tick", "Data", "IsCompressed"),
-                                SQL_VALUES(tick, data, (int)compressed));
+                db_mgr_->INSERT(
+                    SQL_TABLE("CollectionRecords"), SQL_COLUMNS("Tick", "Data", "IsCompressed"), SQL_VALUES(tick, data, (int)compressed));
 
                 ++num_processed_;
             }
