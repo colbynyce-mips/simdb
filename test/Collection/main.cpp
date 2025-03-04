@@ -18,6 +18,32 @@ enum class Colors
     TRANSPARENT = -1
 };
 
+inline std::ostream& operator<<(std::ostream& os, const Colors& c)
+{
+    switch (c)
+    {
+        case Colors::RED:
+            os << "RED";
+            break;
+        case Colors::GREEN:
+            os << "GREEN";
+            break;
+        case Colors::BLUE:
+            os << "BLUE";
+            break;
+        case Colors::WHITE:
+            os << "WHITE";
+            break;
+        case Colors::TRANSPARENT:
+            os << "TRANSPARENT";
+            break;
+        default:
+            os << "UNKNOWN";
+            break;
+    }
+    return os;
+}
+
 struct DummyPacket
 {
     Colors e_color;
