@@ -426,6 +426,22 @@ public:
         return count;
     }
 
+    /// Execute any SQL command.
+    void executeSQL(const std::string& sql_cmd)
+    {
+        db_conn_->safeTransaction(
+            [&]()
+            {
+                auto rc = SQLiteReturnCode(sqlite3_exec(db_conn_->getDatabase(), sql_cmd.c_str(), nullptr, nullptr, nullptr));
+                if (rc)
+                {
+                    throw DBException(sqlite3_errmsg(db_conn_->getDatabase()));
+                }
+
+                return true;
+            });
+    }
+
     /// Get a query object to issue SELECT statements with constraints.
     std::unique_ptr<SqlQuery> createQuery(const char* table_name)
     {
@@ -648,7 +664,10 @@ inline void CollectionMgr::defineSchema(Schema& schema) const
     schema.addTable("CollectableTreeNodes")
         .addColumn("ElementTreeNodeID", dt::int32_t)
         .addColumn("ClockID", dt::int32_t)
-        .addColumn("DataType", dt::string_t);
+        .addColumn("DataType", dt::string_t)
+        .addColumn("Location", dt::string_t)
+        .addColumn("AutoCollected", dt::int32_t)
+        .setColumnDefaultValue("AutoCollected", 0);
 
     schema.addTable("StructFields")
         .addColumn("StructName", dt::string_t)
@@ -901,8 +920,9 @@ inline void CollectionMgr::finalizeCollections_()
         auto collectable = collectables_by_path_.at(loc);
         auto dtype = collectable->getDataTypeStr();
 
-        db_mgr_->INSERT(
-            SQL_TABLE("CollectableTreeNodes"), SQL_COLUMNS("ElementTreeNodeID", "ClockID", "DataType"), SQL_VALUES(elem_id, clk_id, dtype));
+        db_mgr_->INSERT(SQL_TABLE("CollectableTreeNodes"),
+                        SQL_COLUMNS("ElementTreeNodeID", "ClockID", "DataType", "Location"),
+                        SQL_VALUES(elem_id, clk_id, dtype, loc));
     }
 }
 

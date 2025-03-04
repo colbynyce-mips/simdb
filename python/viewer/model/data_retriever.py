@@ -84,12 +84,16 @@ class DataRetriever:
 
             self._deserializers_by_dtype[struct_name] = deserializer
 
-        cursor.execute('SELECT ElementTreeNodeID,DataType FROM CollectableTreeNodes')
+        cursor.execute('SELECT ElementTreeNodeID,DataType,AutoCollected FROM CollectableTreeNodes')
         self._replayers_by_elem_path = {}
         self._dtypes_by_elem_path = {}
-        for id, dtype in cursor.fetchall():
+        self._auto_collected_cids = set()
+        for id, dtype, auto_collected in cursor.fetchall():
             elem_path = simhier.GetElemPath(id)
             self._dtypes_by_elem_path[elem_path] = dtype
+
+            if auto_collected:
+                self._auto_collected_cids.add(id)
 
             if dtype in ('char', 'int8_t', 'int16_t', 'int32_t', 'int64_t', 'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'float_t', 'double_t', 'bool'):
                 self._replayers_by_elem_path[elem_path] = PODReplayer(dtype)
@@ -120,7 +124,10 @@ class DataRetriever:
             else:
                 struct_name = dtype
                 struct_num_bytes = struct_num_bytes_by_struct_name[struct_name]
-                self._replayers_by_elem_path[elem_path] = ScalarStructReplayer(struct_num_bytes)
+                self._replayers_by_elem_path[elem_path] = ScalarStructReplayer(struct_name, struct_num_bytes)
+
+    def IsDevDebug(self):
+        return self.frame.dev_debug
 
     def GetCurrentViewSettings(self):
         settings = {}
@@ -282,7 +289,6 @@ class DataRetriever:
         for replayer in self._replayers_by_elem_path.values():
             replayer.Reset()
 
-        import pdb; pdb.set_trace()
         requested_elem_path = elem_path
         for tick, data_blob, is_compressed in self.cursor.fetchall():
             if is_compressed:
@@ -293,10 +299,15 @@ class DataRetriever:
                 # followed by the raw bytes of that collectable, then
                 # another collectable ID, and so on.
                 cid = struct.unpack('H', data_blob[:2])[0]
+                if self.IsDevDebug():
+                    print ('[simdb verbose] tick {}, cid {}'.format(tick, cid))
+
                 data_blob = data_blob[2:]
 
                 replayer = self._replayers_by_elem_path[self.simhier.GetElemPath(cid)]
-                num_bytes_read = replayer.Replay(tick, data_blob)
+                is_auto_collected = cid in self._auto_collected_cids
+                is_dev_debug = self.IsDevDebug()
+                num_bytes_read = replayer.Replay(tick, data_blob, is_auto_collected, is_dev_debug)
                 if num_bytes_read == 0:
                     break
 
@@ -368,20 +379,27 @@ class PODReplayer:
     def Reset(self):
         self.values_by_tick = {}
 
-    def Replay(self, tick, data_blob):
+    def Replay(self, tick, data_blob, is_auto_collected, is_dev_debug):
         # For collectables that are <16 bytes, we always write them directly
         # without the Action enum.
-        if self.num_bytes < 16:
-            self.values_by_tick[tick] = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
+        if self.num_bytes < 16 or not is_auto_collected:
+            val = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
+            self.values_by_tick[tick] = val
+            if is_dev_debug:
+                print ('[simdb verbose] {}<16, {}: {}'.format(self.num_bytes, GetDataTypeStr(self.format_code), val))
             return self.num_bytes
 
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
 
         if action == self.Actions.WRITE:
+            if is_dev_debug:
+                print ('[simdb verbose] WRITE {} bytes'.format(self.num_bytes))
             self.values_by_tick[tick] = struct.unpack(self.format_code, data_blob[1:1+self.num_bytes])[0]
             return 1 + self.num_bytes
         else:
+            if is_dev_debug:
+                print ('[simdb verbose] CARRY')
             self.values_by_tick[tick] = self.values_by_tick[self.__GetLastTick(tick)]
             return 1
 
@@ -438,39 +456,17 @@ class StringReplayer:
 
     def __init__(self, strings_by_int):
         self.strings_by_int = strings_by_int
-        self.num_bytes = 4
-        self.format_code = 'I'
         self.Reset()
 
     def Reset(self):
         self.values_by_tick = {}
 
-    def Replay(self, tick, data_blob):
-        # For collectables that are <16 bytes, we always write them directly
-        # without the Action enum.
-        if self.num_bytes < 16:
-            string_id = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
-            self.values_by_tick[tick] = self.strings_by_int[string_id]
-            return self.num_bytes
-
-        # Actions are at the top of the blob as a uint8_t.
-        action = self.Actions(struct.unpack('B', data_blob[:1])[0])
-
-        if action == self.Actions.WRITE:
-            string_id = struct.unpack(self.format_code, data_blob[1:1+self.num_bytes])[0]
-            self.values_by_tick[tick] = self.strings_by_int[string_id]
-            return 1 + self.num_bytes
-        else:
-            self.values_by_tick[tick] = self.values_by_tick[self.__GetLastTick(tick)]
-            return 1
-
-    def __GetLastTick(self, tick):
-        prev_ticks = set(self.values_by_tick.keys())
-        for prev_tick in range(tick-1, -1, -1):
-            if prev_tick in prev_ticks:
-                return prev_tick
-
-        return None
+    def Replay(self, tick, data_blob, is_auto_collected, is_dev_debug):
+        # TODO cnyce - fill this class out e.g. manually collected Collectable<std::string>,
+        # CARRY, etc.
+        string_id = struct.unpack('I', data_blob[:4])[0]
+        self.values_by_tick[tick] = self.strings_by_int[string_id]
+        return 4
 
 class StringDeserializer:
     def __init__(self, strings_by_int):
@@ -495,12 +491,14 @@ class EnumReplayer:
     def Reset(self):
         self.values_by_tick = {}
 
-    def Replay(self, tick, data_blob):
+    def Replay(self, tick, data_blob, is_auto_collected, is_dev_debug):
         # For collectables that are <16 bytes, we always write them directly
         # without the Action enum.
-        if self.num_bytes < 16:
+        if self.num_bytes < 16 or not is_auto_collected:
             enum_int = struct.unpack(self.format_code, data_blob[:self.num_bytes])[0]
             self.values_by_tick[tick] = self.enum_handler.Convert(enum_int)
+            if is_dev_debug:
+                print ('[simdb verbose] {}<16, {}: {}'.format(self.num_bytes, GetDataTypeStr(self.format_code), enum_int))
             return self.num_bytes
 
         # Actions are at the top of the blob as a uint8_t.
@@ -509,9 +507,13 @@ class EnumReplayer:
         if action == self.Actions.WRITE:
             enum_int = struct.unpack(self.format_code, data_blob[1:1+self.num_bytes])[0]
             self.values_by_tick[tick] = self.enum_handler.Convert(enum_int)
+            if is_dev_debug:
+                print ('[simdb verbose] WRITE {} bytes'.format(self.num_bytes))
             return 1 + self.num_bytes
         else:
             self.values_by_tick[tick] = self.values_by_tick[self.__GetLastTick(tick)]
+            if is_dev_debug:
+                print ('[simdb verbose] CARRY')
             return 1
 
     def __GetLastTick(self, tick):
@@ -608,27 +610,34 @@ class ScalarStructReplayer:
         WRITE = 0
         CARRY = 1
 
-    def __init__(self, struct_num_bytes):
+    def __init__(self, struct_name, struct_num_bytes):
+        self.struct_name = struct_name
         self.struct_num_bytes = struct_num_bytes
         self.Reset()
 
     def Reset(self):
         self.values_by_tick = {}
 
-    def Replay(self, tick, data_blob):
+    def Replay(self, tick, data_blob, is_auto_collected, is_dev_debug):
         # For collectables that are <16 bytes, we always write them directly
         # without the Action enum.
-        if self.struct_num_bytes < 16:
+        if self.struct_num_bytes < 16 or not is_auto_collected:
             self.values_by_tick[tick] = data_blob[:self.struct_num_bytes]
+            if is_dev_debug:
+                print ('[simdb verbose] {}<16, {}: {}'.format(self.struct_num_bytes, self.struct_name, self.values_by_tick[tick]))
             return self.struct_num_bytes
 
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
 
         if action == self.Actions.WRITE:
+            if is_dev_debug:
+                print ('[simdb verbose] WRITE {} bytes'.format(self.struct_num_bytes))
             self.values_by_tick[tick] = data_blob[1:1+self.struct_num_bytes]
             return 1 + self.struct_num_bytes
         else:
+            if is_dev_debug:
+                print ('[simdb verbose] CARRY')
             self.values_by_tick[tick] = self.values_by_tick[self.__GetLastTick(tick)]
             return 1
 
@@ -666,13 +675,18 @@ class ContigIterableReplayer:
         self.values = None
         self.values_by_tick = {}
 
-    def Replay(self, tick, data_blob):
+    def Replay(self, tick, data_blob, is_auto_collected, is_dev_debug):
+        # TODO cnyce - manually collected containers
+        assert is_auto_collected
+
         # Actions are at the top of the blob as a uint8_t.
         action = self.Actions(struct.unpack('B', data_blob[:1])[0])
 
         if action == self.Actions.FULL:
             # The number of structs is given here as a uint16_t
             size = struct.unpack('H', data_blob[1:3])[0]
+            if is_dev_debug:
+                print ('[simdb verbose] FULL with {} elements'.format(size))
             self.values = []
             for i in range(size):
                 struct_blob = data_blob[3+i*self.struct_num_bytes:3+(i+1)*self.struct_num_bytes]
@@ -681,43 +695,55 @@ class ContigIterableReplayer:
             self.values_by_tick[tick] = copy.deepcopy(self.values)
             return 3 + size*self.struct_num_bytes
 
-        if self.values is None:
-            return self.num_bytes_to_advance[action]
-
         if action == self.Actions.ARRIVE:
-            # Exactly one struct arrived and gets appended to the list (back).
-            struct_blob = data_blob[1:1+self.struct_num_bytes]
-            self.values.append(struct_blob)
-            self.values_by_tick[tick] = copy.deepcopy(self.values)
+            if is_dev_debug:
+                print ('[simdb verbose] ARRIVE {} bytes'.format(self.struct_num_bytes))
+            if self.values is not None:
+                # Exactly one struct arrived and gets appended to the list (back).
+                struct_blob = data_blob[1:1+self.struct_num_bytes]
+                self.values.append(struct_blob)
+                self.values_by_tick[tick] = copy.deepcopy(self.values)
             return self.num_bytes_to_advance[action]
 
         elif action == self.Actions.DEPART:
-            # Exactly one struct left and gets removed from the list (front).
-            self.values.pop(0)
-            self.values_by_tick[tick] = copy.deepcopy(self.values)
+            if is_dev_debug:
+                print ('[simdb verbose] DEPART')
+            if self.values is not None:
+                # Exactly one struct left and gets removed from the list (front).
+                self.values.pop(0)
+                self.values_by_tick[tick] = copy.deepcopy(self.values)
             return self.num_bytes_to_advance[action]
 
         elif action == self.Actions.CHANGE:
             # The changed bin index is written to the blob as a uint16_t, followed
             # by the changed struct's bytes.
             bin_idx = struct.unpack('H', data_blob[1:3])[0]
-            struct_blob = data_blob[3:3+self.struct_num_bytes]
-            self.values[bin_idx] = struct_blob
-            self.values_by_tick[tick] = copy.deepcopy(self.values)
+            if is_dev_debug:
+                print ('[simdb verbose] CHANGE index {}, {} bytes'.format(bin_idx, self.struct_num_bytes))
+            if self.values is not None:
+                struct_blob = data_blob[3:3+self.struct_num_bytes]
+                self.values[bin_idx] = struct_blob
+                self.values_by_tick[tick] = copy.deepcopy(self.values)
             return self.num_bytes_to_advance[action]
 
         elif action == self.Actions.BOOKENDS:
-            # This means that exactly one struct came arrived (append) and one struct
-            # departed (pop front).
-            struct_blob = data_blob[1:1+self.struct_num_bytes]
-            self.values.append(struct_blob)
-            self.values.pop(0)
-            self.values_by_tick[tick] = copy.deepcopy(self.values)
+            if is_dev_debug:
+                print ('[simdb verbose] BOOKENDS, appended {} bytes'.format(self.struct_num_bytes))
+            if self.values is not None:
+                # This means that exactly one struct came arrived (append) and one struct
+                # departed (pop front).
+                struct_blob = data_blob[1:1+self.struct_num_bytes]
+                self.values.append(struct_blob)
+                self.values.pop(0)
+                self.values_by_tick[tick] = copy.deepcopy(self.values)
             return self.num_bytes_to_advance[action]
 
         elif action == self.Actions.CARRY:
-            last_tick = self.__GetLastTick(tick)
-            self.values_by_tick[tick] = copy.deepcopy(self.values_by_tick[last_tick])
+            if is_dev_debug:
+                print ('[simdb verbose] CARRY')
+            if self.values is not None:
+                last_tick = self.__GetLastTick(tick)
+                self.values_by_tick[tick] = copy.deepcopy(self.values_by_tick[last_tick])
             return self.num_bytes_to_advance[action]
 
         assert False, 'Unreachable'
@@ -740,9 +766,14 @@ class SparseIterableReplayer:
         self.values = [None]*self.capacity
         self.values_by_tick = {}
 
-    def Replay(self, tick, data_blob):
+    def Replay(self, tick, data_blob, is_auto_collected, is_dev_debug):
+        # TODO cnyce - manually collected containers
+        assert is_auto_collected
+
         # The top of the blob always has the number of structs as a uint16_t.
         size = struct.unpack('H', data_blob[:2])[0]
+        if is_dev_debug:
+            print ('[simdb verbose] num valid: {}'.format(size))
 
         for i in range(size):
             # Each entry is preceeded by a uint16_t bin index.
@@ -750,7 +781,10 @@ class SparseIterableReplayer:
             struct_blob = data_blob[2+size*2+i*self.struct_num_bytes:2+size*2+(i+1)*self.struct_num_bytes]
 
             assert bin_idx >= 0 and bin_idx < self.capacity and bin_idx < len(self.values)
-            self.values[bin_idx] = struct_blob if len(struct_blob) else None
+            self.values[bin_idx] = struct_blob
+
+            if is_dev_debug:
+                print ('[simdb verbose] bin {}, {} bytes'.format(bin_idx, self.struct_num_bytes))
 
         self.values_by_tick[tick] = copy.deepcopy(self.values)
         return 2 + size*2 + size*self.struct_num_bytes
@@ -791,3 +825,29 @@ class EnumDef:
 
     def Convert(self, val):
         return self.strings_by_int[val]
+
+def GetDataTypeStr(format_code):
+    if format_code == 'c':
+        return 'char'
+    elif format_code == 'b':
+        return 'int8_t'
+    elif format_code == 'h':
+        return 'int16_t'
+    elif format_code == 'i':
+        return 'int32_t'
+    elif format_code == 'q':
+        return 'int64_t'
+    elif format_code == 'B':
+        return 'uint8_t'
+    elif format_code == 'H':
+        return 'uint16_t'
+    elif format_code == 'I':
+        return 'uint32_t'
+    elif format_code == 'Q':
+        return 'uint64_t'
+    elif format_code == 'f':
+        return 'float_t'
+    elif format_code == 'd':
+        return 'double_t'
+    else:
+        raise ValueError('Invalid format code: ' + format_code)
